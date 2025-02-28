@@ -1,11 +1,11 @@
 ---
 description: ENFORCE conventional commits format WHEN committing changes TO maintain consistent git history
 globs: *
-alwaysApply: true
+alwaysApply: false
 ---
 # Git Conventional Commits
 
-Rule for automatically committing changes made by CursorAI using conventional commits format.
+Rule for committing changes made by CursorAI using conventional commits format.
 
 ## Context
 - Applied when making git commits through Cursor
@@ -13,21 +13,17 @@ Rule for automatically committing changes made by CursorAI using conventional co
 - Helps with automated changelog generation
 
 ## Requirements
-- Commit messages must follow format: type(scope): description
+- Commit messages must follow conventional commits format: 
+
+    <type>(<scope>): <description>
+
 - Type must be one of: feat, fix, docs, style, refactor, perf, test, chore
 - Scope should be derived from file path or component name
 - Description must be clear, concise, written in imperative mood
-- Always follow [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/#specification)
+- Always follow @Conventional Commits specification
 
-## Execute after succesful build and test cycle
-Automatically commit changes made by CursorAI using conventional commits format
-
-filters:
-  - type: event
-    pattern: "build_success"
-  - type: file_change
-    pattern: "*"
-
+## Mapping description to type
+This is how to select the correct CHANGE_TYPE based on the content of CHANGE_DESCRIPTION.
 ```shell
 # Extract the change type and scope from the changes
 CHANGE_TYPE=""
@@ -41,13 +37,6 @@ case "$CHANGE_DESCRIPTION" in
   *"perf"*|*"optimize"*) CHANGE_TYPE="perf";;
   *) CHANGE_TYPE="chore";;
 esac
-
-# Extract scope from file path
-SCOPE=$(dirname "$FILE" | tr '/' '-')
-
-# Commit the changes
-git add "$FILE"
-git commit -m "$CHANGE_TYPE($SCOPE): $CHANGE_DESCRIPTION"
 ```
 
 ## Examples
@@ -83,10 +72,3 @@ feat: implemented user auth
 - perf: Performance improvements
 - test: Adding/updating tests
 - chore: Maintenance tasks, dependencies
-
-## Scope Guidelines
-- Use lowercase, hyphen-separated names
-- Derive from file path: src/auth/login.ts → auth
-- For multiple files: shared component name
-- For root level changes: omit scope
-- Breaking changes: Add ! after scope 

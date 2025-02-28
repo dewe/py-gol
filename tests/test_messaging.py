@@ -5,6 +5,8 @@ from queue import Empty, Queue
 from threading import Event
 from typing import Any
 
+from gol.messaging import Actor
+
 
 @dataclass
 class MockActor:
@@ -12,7 +14,7 @@ class MockActor:
 
     id: str
     queue: Queue[Any]
-    subscribers: list["MockActor"]
+    subscribers: list[Actor]
     state: bool = False
 
 

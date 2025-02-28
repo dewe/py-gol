@@ -1,0 +1,92 @@
+---
+description: ENFORCE conventional commits format WHEN committing changes TO maintain consistent git history
+globs: *
+alwaysApply: true
+---
+# Git Conventional Commits
+
+Rule for automatically committing changes made by CursorAI using conventional commits format.
+
+## Context
+- Applied when making git commits through Cursor
+- Ensures consistent commit message formatting
+- Helps with automated changelog generation
+
+## Requirements
+- Commit messages must follow format: type(scope): description
+- Type must be one of: feat, fix, docs, style, refactor, perf, test, chore
+- Scope should be derived from file path or component name
+- Description must be clear, concise, written in imperative mood
+- Always follow [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/#specification)
+
+## Execute after succesful build and test cycle
+Automatically commit changes made by CursorAI using conventional commits format
+
+filters:
+  - type: event
+    pattern: "build_success"
+  - type: file_change
+    pattern: "*"
+
+```shell
+# Extract the change type and scope from the changes
+CHANGE_TYPE=""
+case "$CHANGE_DESCRIPTION" in
+  *"add"*|*"create"*|*"implement"*) CHANGE_TYPE="feat";;
+  *"fix"*|*"correct"*|*"resolve"*) CHANGE_TYPE="fix";;
+  *"refactor"*|*"restructure"*) CHANGE_TYPE="refactor";;
+  *"test"*) CHANGE_TYPE="test";;
+  *"doc"*|*"comment"*) CHANGE_TYPE="docs";;
+  *"style"*|*"format"*) CHANGE_TYPE="style";;
+  *"perf"*|*"optimize"*) CHANGE_TYPE="perf";;
+  *) CHANGE_TYPE="chore";;
+esac
+
+# Extract scope from file path
+SCOPE=$(dirname "$FILE" | tr '/' '-')
+
+# Commit the changes
+git add "$FILE"
+git commit -m "$CHANGE_TYPE($SCOPE): $CHANGE_DESCRIPTION"
+```
+
+## Examples
+
+<example>
+feat(auth): add user authentication endpoint
+
+Implements JWT-based authentication with password hashing.
+</example>
+
+<example>
+fix(db): resolve connection timeout issue
+
+Increases retry attempts and adds exponential backoff.
+</example>
+
+<example type="invalid">
+added new login page
+# Invalid: Missing type and scope, not imperative mood
+</example>
+
+<example type="invalid">
+feat: implemented user auth
+# Invalid: Missing scope
+</example>
+
+## Type Definitions
+- feat: New features or significant changes
+- fix: Bug fixes
+- docs: Documentation changes only
+- style: Code style/formatting changes
+- refactor: Code changes with no functional change
+- perf: Performance improvements
+- test: Adding/updating tests
+- chore: Maintenance tasks, dependencies
+
+## Scope Guidelines
+- Use lowercase, hyphen-separated names
+- Derive from file path: src/auth/login.ts → auth
+- For multiple files: shared component name
+- For root level changes: omit scope
+- Breaking changes: Add ! after scope 

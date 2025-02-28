@@ -20,6 +20,7 @@ Rule for committing changes made by CursorAI using conventional commits format.
 - Type must be one of: feat, fix, docs, style, refactor, perf, test, chore
 - Scope should be derived from file path or component name
 - Description must be clear, concise, written in imperative mood
+- If creating a body, add a blank line between the header and body
 - Always follow @Conventional Commits specification
 
 ## Mapping description to type

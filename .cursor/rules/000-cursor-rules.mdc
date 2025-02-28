@@ -10,6 +10,7 @@ alwaysApply: false
 ---
 description: ACTION when TRIGGER to OUTCOME
 globs: *.mdc
+alwaysApply: false
 ---
 
 # Rule Title
@@ -112,4 +113,3 @@ Common glob patterns for different rule types:
   - Keep file as short and to the point as possible BUT NEVER at the expense of sacrificing rule impact and usefulness for the AI Agent.
   - the front matter can ONLY have the fields description and globs.
 </critical>
-

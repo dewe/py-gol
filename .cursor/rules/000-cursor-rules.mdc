@@ -67,6 +67,7 @@ Common glob patterns for different rule types:
 ### Frontmatter
 - description: ACTION TRIGGER OUTCOME format
 - globs: `glob pattern for files and folders`
+- alwaysApply: set to false if globs is in use
 
 ### Body
 - <version>X.Y.Z</version>
@@ -111,5 +112,5 @@ Common glob patterns for different rule types:
 <critical>
   - NEVER include verbose explanations or redundant context that increases AI token overhead
   - Keep file as short and to the point as possible BUT NEVER at the expense of sacrificing rule impact and usefulness for the AI Agent.
-  - the front matter can ONLY have the fields description and globs.
+  - The frontmatter can ONLY have the fields: description, globs, and alwaysApply
 </critical>

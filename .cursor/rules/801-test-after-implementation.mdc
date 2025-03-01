@@ -1,0 +1,74 @@
+---
+description: ENFORCE test verification WHEN implementing features TO maintain code reliability
+globs: 
+alwaysApply: true
+---
+
+<!-- markdownlint-disable MD033 -->
+
+# Test-After-Implementation Workflow
+
+## Context
+
+- When implementing new features
+- When modifying existing code
+- When fixing bugs
+- When refactoring
+
+## Requirements
+
+- Run tests immediately after each implementation step
+- Verify all tests pass before proceeding
+- If tests fail:
+  1. Review error messages
+  2. Fix failing tests
+  3. Run tests again
+- Document any test failures in commit messages
+- Add new tests for new functionality
+- Update existing tests for modified functionality
+
+## Examples
+
+<example>
+# Good: Run tests after implementation
+1. Implement feature
+2. Run tests: `make test`
+3. Fix any failures
+4. Commit only when tests pass
+
+```shell
+❯ make test
+Running tests...
+26 passed in 0.05s
+```
+
+</example>
+
+<example type="invalid">
+# Bad: Multiple changes without testing
+1. Implement feature A
+2. Implement feature B
+3. Run tests at the end
+4. Many failures, hard to identify source
+
+```shell
+❯ make test
+Running tests...
+15 failed, 11 passed in 0.05s
+```
+
+</example>
+
+## Critical Patterns
+
+1. 🧪 Test after each logical change
+2. 🔍 Review all test output
+3. ✅ Ensure all tests pass before commit
+4. 📝 Document test-driven changes
+5. 🔄 Repeat until all tests pass
+
+<critical>
+- NEVER skip running tests after implementation
+- NEVER commit code with failing tests
+- ALWAYS add tests for new functionality
+</critical>

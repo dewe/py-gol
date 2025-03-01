@@ -99,6 +99,12 @@ Common glob patterns for different rule types:
   - <version>
 
 - Always indent content within XML or nested XML tags by 2 spaces
+- When using XML in the document, add the following linter hint:
+
+  ```markdown
+  <!-- markdownlint-disable MD033 -->
+  ```
+  
 - Keep rules as short as possbile
 - Use Mermaid syntax if it will be shorter or clearer than describing a complex rule
 - Use Emojis where appropriate to convey meaning that will improve rule understanding by the AI Agent

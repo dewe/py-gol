@@ -1,14 +1,29 @@
 """Tests for the terminal renderer component."""
 
+from dataclasses import dataclass
+from typing import Optional
+
 from blessed import Terminal
 
 from gol.grid import GridConfig, create_grid
 from gol.renderer import (
     RendererConfig,
     cleanup_terminal,
+    handle_resize_event,
+    handle_user_input,
     initialize_terminal,
     render_grid,
+    safe_render_grid,
 )
+
+
+@dataclass
+class MockKeystroke:
+    """Mock keystroke for testing."""
+
+    name: str
+    code: Optional[int] = None
+    is_sequence: bool = False
 
 
 def test_renderer_config_defaults() -> None:
@@ -117,5 +132,108 @@ def test_grid_rendering_empty() -> None:
 
     try:
         render_grid(term, grid, renderer_config)
+    finally:
+        cleanup_terminal(term)
+
+
+def test_input_handling_quit() -> None:
+    """
+    Given: A terminal instance
+    When: User presses 'q'
+    Then: Should return QUIT command
+    """
+    config = RendererConfig()
+    term = initialize_terminal(config)
+
+    try:
+        # Simulate 'q' keypress
+        key = MockKeystroke(name="q")
+        result = handle_user_input(term, key)
+        assert result == "quit"
+    finally:
+        cleanup_terminal(term)
+
+
+def test_input_handling_continue() -> None:
+    """
+    Given: A terminal instance
+    When: User presses any other key
+    Then: Should return CONTINUE command
+    """
+    config = RendererConfig()
+    term = initialize_terminal(config)
+
+    try:
+        # Simulate 'x' keypress
+        key = MockKeystroke(name="x")
+        result = handle_user_input(term, key)
+        assert result == "continue"
+    finally:
+        cleanup_terminal(term)
+
+
+def test_input_handling_ctrl_c() -> None:
+    """
+    Given: A terminal instance
+    When: User presses Ctrl-C
+    Then: Should return QUIT command
+    """
+    config = RendererConfig()
+    term = initialize_terminal(config)
+
+    try:
+        # Simulate Ctrl-C
+        key = MockKeystroke(name="^C", is_sequence=True)
+        result = handle_user_input(term, key)
+        assert result == "quit"
+    finally:
+        cleanup_terminal(term)
+
+
+def test_handle_resize_event() -> None:
+    """
+    Given: A terminal instance
+    When: Terminal is resized
+    Then: Should clear screen and rehide cursor
+    """
+    config = RendererConfig()
+    term = initialize_terminal(config)
+
+    try:
+        # Test resize handling
+        handle_resize_event(term)
+        # We can't test actual resize, but we can verify it runs without errors
+    finally:
+        cleanup_terminal(term)
+
+
+def test_safe_render_grid_handles_errors() -> None:
+    """
+    Given: A terminal instance and grid
+    When: Rendering encounters an error
+    Then: Should cleanup terminal and raise appropriate error
+    """
+    config = RendererConfig()
+    term = initialize_terminal(config)
+    grid = create_grid(GridConfig(size=3, density=0.0))
+
+    try:
+        # Test normal rendering
+        safe_render_grid(term, grid, config)
+
+        # Test error handling by forcing an error
+        # We'll do this by temporarily breaking the terminal's move_xy
+        original_move_xy = term.move_xy
+        term.move_xy = lambda x, y: (_ for _ in ()).throw(IOError("Mock error"))
+
+        try:
+            safe_render_grid(term, grid, config)
+            assert False, "Expected RuntimeError"
+        except RuntimeError as e:
+            assert "Failed to render grid" in str(e)
+        finally:
+            # Restore original move_xy
+            term.move_xy = original_move_xy
+
     finally:
         cleanup_terminal(term)

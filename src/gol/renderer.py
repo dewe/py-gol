@@ -133,3 +133,43 @@ def handle_user_input(terminal: Terminal, key: Keystroke) -> CommandType:
 
     # All other keys (including 'x') continue the game
     return "continue"
+
+
+def handle_resize_event(terminal: Terminal) -> None:
+    """Handles terminal resize events.
+
+    Args:
+        terminal: Terminal instance to handle resize for
+    """
+    # Clear screen to prevent artifacts
+    clear_screen(terminal)
+
+    # Re-hide cursor as resize can reset terminal state
+    print(terminal.hide_cursor())
+
+
+def safe_render_grid(terminal: Terminal, grid: Grid, config: RendererConfig) -> None:
+    """Safely renders grid with error handling.
+
+    Args:
+        terminal: Terminal instance
+        grid: Current game grid
+        config: Renderer configuration
+
+    This function wraps render_grid with error handling to ensure
+    the terminal is always left in a valid state, even if rendering fails.
+    """
+    try:
+        render_grid(terminal, grid, config)
+    except (IOError, ValueError) as e:
+        # Handle I/O errors (like broken pipe) and value errors
+        cleanup_terminal(terminal)
+        raise RuntimeError(f"Failed to render grid: {e}") from e
+    except KeyboardInterrupt:
+        # Handle Ctrl-C gracefully
+        cleanup_terminal(terminal)
+        raise
+    except Exception as e:
+        # Handle any other unexpected errors
+        cleanup_terminal(terminal)
+        raise RuntimeError(f"Unexpected error during rendering: {e}") from e

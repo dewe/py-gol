@@ -3,17 +3,20 @@
 from queue import Queue
 from typing import Protocol
 
+# Type alias for state change messages
+StateMessage = tuple[str, bool]
+
 
 class Actor(Protocol):
     """Protocol defining the required attributes for an actor."""
 
     id: str
-    queue: Queue[tuple[str, bool]]
+    queue: Queue[StateMessage]
     subscribers: list["Actor"]
     state: bool
 
 
-def create_message_queue() -> Queue[tuple[str, bool]]:
+def create_message_queue() -> Queue[StateMessage]:
     """Creates a thread-safe message queue.
 
     Returns:
@@ -40,10 +43,6 @@ def broadcast_state(actor: Actor, state: bool) -> None:
         actor: The actor broadcasting its state
         state: The new state to broadcast
     """
-    message = (actor.id, state)
+    message: StateMessage = (actor.id, state)
     for subscriber in actor.subscribers:
         subscriber.queue.put_nowait(message)
-
-
-# Add a type alias for clarity
-StateMessage = tuple[str, bool]

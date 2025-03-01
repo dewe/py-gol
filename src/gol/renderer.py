@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from blessed import Terminal
+from blessed.keyboard import Keystroke
 
 from .grid import Grid
 
@@ -112,3 +113,23 @@ def render_grid(terminal: Terminal, grid: Grid, config: RendererConfig) -> None:
 
         # Position cursor and print line
         print(terminal.move_xy(start_x, start_y + y) + line)
+
+
+def handle_user_input(terminal: Terminal, key: Keystroke) -> CommandType:
+    """Handles keyboard input from user.
+
+    Args:
+        terminal: Terminal instance
+        key: Keystroke from user containing input details
+
+    Returns:
+        CommandType: Either "quit" or "continue" based on input:
+            - Returns "quit" for 'q', 'Q' or Ctrl-C (^C)
+            - Returns "continue" for 'x' or any other key
+    """
+    # Check for quit commands (q, Q, or Ctrl-C)
+    if key.name in ("q", "Q", "^C"):
+        return "quit"
+
+    # All other keys (including 'x') continue the game
+    return "continue"

@@ -1,0 +1,114 @@
+"""Terminal renderer for Game of Life."""
+
+from dataclasses import dataclass
+from typing import Literal
+
+from blessed import Terminal
+
+from .grid import Grid
+
+
+@dataclass(frozen=True)
+class RendererConfig:
+    """Configuration for renderer."""
+
+    cell_alive: str = "■"
+    cell_dead: str = "□"
+    update_interval: int = 100  # milliseconds
+
+
+CommandType = Literal["continue", "quit"]
+
+
+def initialize_terminal(config: RendererConfig) -> Terminal:
+    """Sets up blessed terminal interface.
+
+    Args:
+        config: Renderer configuration parameters
+
+    Returns:
+        Configured blessed Terminal instance
+    """
+    term = Terminal()
+
+    # Enter fullscreen mode
+    print(term.enter_fullscreen())
+
+    # Hide cursor
+    print(term.hide_cursor())
+
+    return term
+
+
+def cleanup_terminal(terminal: Terminal) -> None:
+    """Restores terminal to original state.
+
+    Args:
+        terminal: Terminal instance to cleanup
+    """
+    print(terminal.exit_fullscreen())
+    print(terminal.normal_cursor())
+
+
+def calculate_grid_position(terminal: Terminal, grid_size: int) -> tuple[int, int]:
+    """Calculates centered position for grid.
+
+    Args:
+        terminal: Terminal instance
+        grid_size: Size of the grid
+
+    Returns:
+        Tuple of (start_x, start_y) coordinates for centered grid
+    """
+    # Calculate center position
+    center_y = terminal.height // 2
+    center_x = terminal.width // 2
+
+    # Calculate top-left corner of grid
+    start_y = center_y - (grid_size // 2)
+    start_x = center_x - grid_size  # Each cell is 2 chars wide
+
+    # Ensure we don't start outside the terminal
+    start_y = max(0, start_y)
+    start_x = max(0, start_x)
+
+    return start_x, start_y
+
+
+def clear_screen(terminal: Terminal) -> None:
+    """Clears the terminal screen.
+
+    Args:
+        terminal: Terminal instance
+    """
+    print(terminal.clear())
+
+
+def render_grid(terminal: Terminal, grid: Grid, config: RendererConfig) -> None:
+    """Renders current grid state.
+
+    Args:
+        terminal: Terminal instance
+        grid: Current game grid
+        config: Renderer configuration
+    """
+    # Clear the screen before rendering
+    clear_screen(terminal)
+
+    # Calculate grid position
+    grid_size = len(grid)
+    start_x, start_y = calculate_grid_position(terminal, grid_size)
+
+    # Build and render each line
+    for y, row in enumerate(grid):
+        # Skip if we're outside the terminal
+        if start_y + y >= terminal.height:
+            break
+
+        line = ""
+        for x, cell in enumerate(row):
+            char = config.cell_alive if cell else config.cell_dead
+            line += char
+
+        # Position cursor and print line
+        print(terminal.move_xy(start_x, start_y + y) + line)

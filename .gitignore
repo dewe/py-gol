@@ -2,12 +2,31 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
-env/
-venv/
-.env
-.venv
+*.so
+
+# Distribution / packaging
 dist/
 build/
 *.egg-info/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Project specific
+*.log

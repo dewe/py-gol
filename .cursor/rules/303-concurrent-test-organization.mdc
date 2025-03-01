@@ -1,0 +1,54 @@
+---
+description: ENFORCE test organization patterns WHEN testing concurrent systems TO ensure reliable and maintainable tests
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Concurrent System Test Organization
+
+## Context
+- When writing tests for concurrent systems
+- When testing actor-based components
+- When verifying thread-safe behavior
+
+## Requirements
+- Use BDD-style test descriptions
+- Include setup, action, and verification phases
+- Use thread synchronization primitives in tests
+- Test both success and failure paths
+- Isolate concurrent components in tests
+- Clean up resources after each test
+
+## Examples
+<example>
+```python
+def test_process_messages_handles_underpopulation() -> None:
+    """
+    Given a live cell actor with 1 live neighbor message
+    When processing messages
+    Then should die from underpopulation
+    """
+    # Arrange
+    actor = create_cell_actor(Position((0, 0)), True)
+    completion_event = Event()
+
+    # Act
+    neighbor = create_cell_actor(Position((1, 0)), True)
+    actor.queue.put((neighbor.id, True))
+    process_messages(actor, completion_event)
+    completion_event.set()
+
+    # Assert
+    assert actor.state is False
+```
+</example>
+
+<example type="invalid">
+```python
+def test_actor_messages():  # Unclear test description
+    actor = Actor()
+    actor.queue.put(("id", True))
+    process_messages(actor)  # Missing synchronization
+    assert not actor.state  # No clear phases
+```
+</example> 

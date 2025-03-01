@@ -1,19 +1,19 @@
 """Message queue system for inter-actor communication."""
 
 from queue import Queue
-from typing import Any, Protocol
+from typing import Protocol
 
 
 class Actor(Protocol):
     """Protocol defining the required attributes for an actor."""
 
     id: str
-    queue: Queue[Any]
+    queue: Queue[tuple[str, bool]]
     subscribers: list["Actor"]
     state: bool
 
 
-def create_message_queue() -> Queue[Any]:
+def create_message_queue() -> Queue[tuple[str, bool]]:
     """Creates a thread-safe message queue.
 
     Returns:
@@ -43,3 +43,7 @@ def broadcast_state(actor: Actor, state: bool) -> None:
     message = (actor.id, state)
     for subscriber in actor.subscribers:
         subscriber.queue.put_nowait(message)
+
+
+# Add a type alias for clarity
+StateMessage = tuple[str, bool]

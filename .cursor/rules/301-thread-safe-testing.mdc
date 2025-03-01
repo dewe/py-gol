@@ -3,15 +3,18 @@ description: ENFORCE thread-safe testing patterns WHEN testing concurrent code T
 globs: tests/**/*_test.py, tests/**/test_*.py
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
 
 # Thread-Safe Testing Patterns
 
 ## Context
+
 - Applied when writing tests for concurrent code
 - Used when testing thread-safe data structures
 - Essential for message queues and actor systems
 
 ## Requirements
+
 - Use thread synchronization primitives (Event, Barrier) for coordination
 - Add timeouts to all thread joins to prevent deadlocks
 - Handle queue exceptions explicitly (Empty, Full)
@@ -22,6 +25,9 @@ alwaysApply: false
 ## Examples
 
 <example>
+
+Good: Uses Event for coordination, handles Empty exception, has timeout
+
 ```python
 def test_concurrent_queue():
     completion_event = Event()
@@ -43,10 +49,13 @@ def test_concurrent_queue():
     thread.join(timeout=1)
     completion_event.set()
 ```
-# Good: Uses Event for coordination, handles Empty exception, has timeout
+
 </example>
 
 <example type="invalid">
+
+Bad: No thread safety, unreliable qsize(), no exception handling
+
 ```python
 def test_concurrent_queue():
     for _ in range(100):
@@ -55,10 +64,11 @@ def test_concurrent_queue():
     # Check messages received
     assert queue.qsize() == 100
 ```
-# Bad: No thread safety, unreliable qsize(), no exception handling
+
 </example>
 
 ## Critical Patterns
+
 1. 🔒 Always use thread synchronization primitives
 2. ⏱️ Add timeouts to prevent deadlocks
 3. 🎯 Test with multiple concurrent operations

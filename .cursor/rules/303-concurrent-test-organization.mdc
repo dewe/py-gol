@@ -3,15 +3,18 @@ description: ENFORCE test organization patterns WHEN testing concurrent systems 
 globs: tests/**/*.py
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
 
 # Concurrent System Test Organization
 
 ## Context
+
 - When writing tests for concurrent systems
 - When testing actor-based components
 - When verifying thread-safe behavior
 
 ## Requirements
+
 - Use BDD-style test descriptions
 - Include setup, action, and verification phases
 - Use thread synchronization primitives in tests
@@ -20,7 +23,9 @@ alwaysApply: false
 - Clean up resources after each test
 
 ## Examples
+
 <example>
+
 ```python
 def test_process_messages_handles_underpopulation() -> None:
     """
@@ -41,9 +46,11 @@ def test_process_messages_handles_underpopulation() -> None:
     # Assert
     assert actor.state is False
 ```
+
 </example>
 
 <example type="invalid">
+
 ```python
 def test_actor_messages():  # Unclear test description
     actor = Actor()
@@ -51,4 +58,5 @@ def test_actor_messages():  # Unclear test description
     process_messages(actor)  # Missing synchronization
     assert not actor.state  # No clear phases
 ```
+
 </example> 

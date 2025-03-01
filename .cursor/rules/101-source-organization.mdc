@@ -1,6 +1,50 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+description: ENFORCE source file organization WHEN creating or moving Python files TO maintain consistent project structure
+globs: **/*.py
+alwaysApply: true
 ---
- 
+<!-- markdownlint-disable MD033 -->
+
+# Source Directory Organization
+
+## Context
+
+- When creating new source files
+- When moving existing source files
+- When organizing project structure
+
+## Requirements
+
+- Place all source code under /src directory
+- Use domain-based subdirectories under /src
+- Keep tests outside src in /tests directory
+- Never place source files in project root
+
+## Examples
+
+<example>
+```
+project/
+├── src/
+│   └── gol/
+│       ├── __init__.py
+│       ├── actor.py
+│       ├── grid.py
+│       └── messaging.py
+└── tests/
+    ├── __init__.py
+    └── test_actor.py
+```
+</example>
+
+<example type="invalid">
+```
+project/
+├── actor.py  # Wrong: source in root
+├── src/
+│   └── gol/
+│       └── grid.py
+└── tests/
+    └── test_actor.py
+```
+</example>

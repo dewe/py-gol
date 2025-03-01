@@ -3,6 +3,8 @@ description: ALWAYS use when writing or updating Markdown files to ensure consis
 globs: **/*.{md,mdx}
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
+
 # Markdown Documentation Standards
 
 ## Requirements
@@ -16,6 +18,7 @@ alwaysApply: false
 ## Markdown Reference
 
 For all basic and extended Markdown syntax, refer to:
+
 - [Basic Syntax Guide](https://www.markdownguide.org/basic-syntax)
 - [Extended Syntax Guide](https://www.markdownguide.org/extended-syntax)
 
@@ -30,11 +33,15 @@ For all basic and extended Markdown syntax, refer to:
 - Use blockquotes with emoji for different types of callouts:
 
 <example>
+
+```markdown
   > 🚨 **Warning:** Critical information here.
 
   > 💡 **Tip:** Helpful suggestion.
 
   > ℹ️ **Note:** Additional context.
+```
+
 </example>
 
 ## Code Blocks
@@ -45,13 +52,16 @@ For all basic and extended Markdown syntax, refer to:
 - Use inline code for short references
 
 <example>
+
 ```typescript
 function example(): void {
   console.log('Hello, Universe!');
 }
+
 ```
 
 Reference the `example()` function inline.
+
 </example>
 
 ## Tables
@@ -62,10 +72,12 @@ Reference the `example()` function inline.
 - Add blank lines before and after
 
 <example>
+
 | Name    | Type    | Description     |
 |:--------|:-------:|---------------:|
 | id      | number  | Primary key    |
 | name    | string  | User's name    |
+
 </example>
 
 ## Special Elements
@@ -75,16 +87,21 @@ Reference the `example()` function inline.
 Use blockquotes with emoji for different types of callouts:
 
 <example>
+
+```markdown
 > 🚨 **Warning:** Critical information here.
 
 > 💡 **Tip:** Helpful suggestion.
 
 > ℹ️ **Note:** Additional context.
+```
+
 </example>
 
 ### Mermaid Diagrams
 
 Use Mermaid diagrams to visualize:
+
 - Architecture flows
 - Process sequences
 - Decision trees
@@ -110,6 +127,7 @@ Use Mermaid diagrams to visualize:
 6. Keep diagrams focused and specific
 
 <example>
+
 ```mermaid
 ---
 title: Example Workflow
@@ -121,9 +139,11 @@ graph TD
     C --> E[End]
     D --> E
 ```
+
 </example>
 
 <example type="invalid">
+
 ```mermaid
 graph TD
 A-->B
@@ -132,4 +152,3 @@ B-->C
 
 No title, unclear labels, no context
 </example>
-

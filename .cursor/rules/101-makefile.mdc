@@ -3,10 +3,12 @@ description: ENFORCE CREATE a Makefile TO maintain consistent build automation
 globs: Makefile
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 MD010 -->
 
 # Makefile Standards
 
 ## Context
+
 - Applied when creating or modifying Makefiles
 - Used for project automation and build tasks
 - Focuses on Python project requirements
@@ -14,6 +16,7 @@ alwaysApply: false
 ## Requirements
 
 ### Structure
+
 - Declare PHONY targets at the top
 - Group related targets with comments
 - Use tabs for indentation (required by Make)
@@ -21,7 +24,9 @@ alwaysApply: false
 - Default target: help
 
 ### Core Targets
+
 Must include these standard targets:
+
 - `init`: Install dependencies
 - `test`: Run test suite
 - `clean`: Remove build artifacts
@@ -30,12 +35,14 @@ Must include these standard targets:
 - `help`: Show available targets
 
 ### Variables
+
 - Use `:=` for immediate assignment
 - Use `?=` for default values
 - Define common variables at top
 - Use `$$` for shell variables
 
 ### Dependencies
+
 - List all target dependencies
 - Use order-only prerequisites when needed
 - Chain related targets with dependencies
@@ -43,6 +50,7 @@ Must include these standard targets:
 ## Examples
 
 <example>
+
 ```makefile
 .PHONY: init test clean format lint
 
@@ -58,33 +66,39 @@ help:
 	@echo "make init      - Install dependencies"
 	@echo "make test      - Run tests"
 ```
+
 Clear target groups, documented help, proper indentation
 </example>
 
 <example type="invalid">
+
 ```makefile
 test:
 pip test  # Wrong indentation
 format: 
 black .    # Missing target documentation
 ```
+
 Missing PHONY, wrong indentation, undocumented targets
 </example>
 
 ## Command Patterns
 
 ### Shell Commands
+
 - Use `@` to suppress command echo
 - Use `$(shell ...)` for shell operations
 - Chain commands with `&&`
 - Use `-` prefix to ignore errors
 
 ### Path Handling
+
 - Use `$(CURDIR)` for current directory
 - Use relative paths when possible
 - Handle spaces in paths properly
 
 ### Error Handling
+
 - Set `-e` for error propagation
 - Use conditional execution
 - Provide clean error messages 

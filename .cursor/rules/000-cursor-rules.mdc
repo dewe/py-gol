@@ -3,7 +3,10 @@ description: Use ALWAYS when asked to CREATE A RULE or UPDATE A RULE or taught a
 globs: .cursor/rules/*.mdc
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
+
 # Cursor Rules Format
+
 ## Core Structure
 
 ```mdc
@@ -36,11 +39,14 @@ Invalid concise example with explanation
 ## File Organization
 
 ### Location
+
 - Path: `.cursor/rules/`
 - Extension: `.mdc`
 
 ### Naming Convention
+
 PREFIX-name.mdc where PREFIX is:
+
 - 0XX: Core standards
 - 1XX: Tool configs
 - 3XX: Testing standards
@@ -51,7 +57,9 @@ PREFIX-name.mdc where PREFIX is:
 - _name.mdc: Private rules
 
 ### Glob Pattern Examples
+
 Common glob patterns for different rule types:
+
 - Core standards: .cursor/rules/*.mdc
 - Language rules: src/**/*.{js,ts}
 - Testing standards: **/*.test.{js,ts}
@@ -65,11 +73,13 @@ Common glob patterns for different rule types:
 ## Required Fields
 
 ### Frontmatter
+
 - description: ACTION TRIGGER OUTCOME format
 - globs: `glob pattern for files and folders`
 - alwaysApply: set to false if globs is in use
 
 ### Body
+
 - <version>X.Y.Z</version>
 - context: Usage conditions
 - requirements: Actionable items
@@ -79,6 +89,7 @@ Common glob patterns for different rule types:
 
 - Use Concise Markdown primarily
 - XML tags limited to:
+
   - <example>
   - <danger>
   - <required>
@@ -86,6 +97,7 @@ Common glob patterns for different rule types:
   - <rule>
   - <critical>
   - <version>
+
 - Always indent content within XML or nested XML tags by 2 spaces
 - Keep rules as short as possbile
 - Use Mermaid syntax if it will be shorter or clearer than describing a complex rule

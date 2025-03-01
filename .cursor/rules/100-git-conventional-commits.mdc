@@ -3,16 +3,20 @@ description: ENFORCE conventional commits format WHEN committing changes TO main
 globs: *
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
+
 # Git Conventional Commits
 
 Rule for committing changes made by CursorAI using conventional commits format.
 
 ## Context
+
 - Applied when making git commits through Cursor
 - Ensures consistent commit message formatting
 - Helps with automated changelog generation
 
 ## Requirements
+
 - Commit messages must follow conventional commits format: 
 
     <type>(<scope>): <description>
@@ -24,7 +28,9 @@ Rule for committing changes made by CursorAI using conventional commits format.
 - Always follow @Conventional Commits specification
 
 ## Mapping description to type
+
 This is how to select the correct CHANGE_TYPE based on the content of CHANGE_DESCRIPTION.
+
 ```shell
 # Extract the change type and scope from the changes
 CHANGE_TYPE=""
@@ -65,6 +71,7 @@ feat: implemented user auth
 </example>
 
 ## Type Definitions
+
 - feat: New features or significant changes
 - fix: Bug fixes
 - docs: Documentation changes only

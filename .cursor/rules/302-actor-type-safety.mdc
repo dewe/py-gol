@@ -3,15 +3,18 @@ description: ENFORCE type safety patterns WHEN implementing actor-based systems 
 globs: src/**/*.py
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
 
 # Actor Type Safety
 
 ## Context
+
 - When implementing actor-based concurrent systems
 - When using Protocol classes for actor interfaces
 - When handling message passing between actors
 
 ## Requirements
+
 - Use Protocol classes to define actor interfaces
 - Specify concrete types for message queues
 - Use type hints for all actor attributes
@@ -19,7 +22,9 @@ alwaysApply: false
 - Use type-safe message tuples
 
 ## Examples
+
 <example>
+
 ```python
 class Actor(Protocol):
     id: str
@@ -33,9 +38,11 @@ def broadcast_state(actor: Actor, state: bool) -> None:
     for subscriber in actor.subscribers:
         subscriber.queue.put_nowait(message)
 ```
+
 </example>
 
 <example type="invalid">
+
 ```python
 class Actor:  # Missing Protocol
     id: str
@@ -47,4 +54,5 @@ def broadcast_state(actor, state):  # Missing type hints
     for sub in actor.subscribers:
         sub.queue.put(message)
 ```
+
 </example> 

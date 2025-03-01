@@ -3,15 +3,18 @@ description: ENFORCE pure function patterns WHEN implementing concurrent systems
 globs: src/**/*.py
 alwaysApply: false
 ---
+<!-- markdownlint-disable MD033 -->
 
 # Pure Function Implementation Patterns
 
 ## Context
+
 - When implementing state transitions
 - When handling concurrent operations
 - When processing messages between actors
 
 ## Requirements
+
 - Functions should have no side effects
 - Return new state instead of modifying existing
 - Use immutable data structures when possible
@@ -20,7 +23,9 @@ alwaysApply: false
 - Keep pure functions small and focused
 
 ## Examples
+
 <example>
+
 ```python
 def calculate_next_state(current: bool, live_neighbors: int) -> bool:
     """Pure function implementing Game of Life rules."""
@@ -38,9 +43,11 @@ def get_neighbors(grid: Grid, pos: Position) -> list[Position]:
         if (dx, dy) != (0, 0) and 0 <= x + dx < size and 0 <= y + dy < size
     ]
 ```
+
 </example>
 
 <example type="invalid">
+
 ```python
 def update_cell_state(cell):  # Impure function
     cell.state = not cell.state  # Modifies input
@@ -53,4 +60,5 @@ def process_queue(queue):  # Mixed concerns
         print(msg)  # Side effect
         update_state(msg)  # Side effect
 ```
+
 </example> 

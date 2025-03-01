@@ -1,9 +1,10 @@
 """Tests for the terminal renderer component."""
 
-from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Callable, Optional
+from unittest.mock import MagicMock
 
 from blessed import Terminal
+from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
 from gol.renderer import (
@@ -17,13 +18,23 @@ from gol.renderer import (
 )
 
 
-@dataclass
-class MockKeystroke:
-    """Mock keystroke for testing."""
+def create_mock_keystroke(
+    name: str, code: Optional[int] = None, is_sequence: bool = False
+) -> Keystroke:
+    """Create a mock keystroke for testing.
 
-    name: str
-    code: Optional[int] = None
-    is_sequence: bool = False
+    Args:
+        name: Name of the key
+        code: Optional key code
+        is_sequence: Whether this is a sequence
+
+    Returns:
+        Mock keystroke instance
+    """
+    mock = MagicMock(spec=Keystroke)
+    mock.name = name
+    mock.code = code
+    return mock
 
 
 def test_renderer_config_defaults() -> None:
@@ -147,7 +158,7 @@ def test_input_handling_quit() -> None:
 
     try:
         # Simulate 'q' keypress
-        key = MockKeystroke(name="q")
+        key = create_mock_keystroke(name="q")
         result = handle_user_input(term, key)
         assert result == "quit"
     finally:
@@ -165,7 +176,7 @@ def test_input_handling_continue() -> None:
 
     try:
         # Simulate 'x' keypress
-        key = MockKeystroke(name="x")
+        key = create_mock_keystroke(name="x")
         result = handle_user_input(term, key)
         assert result == "continue"
     finally:
@@ -183,7 +194,7 @@ def test_input_handling_ctrl_c() -> None:
 
     try:
         # Simulate Ctrl-C
-        key = MockKeystroke(name="^C", is_sequence=True)
+        key = create_mock_keystroke(name="^C")
         result = handle_user_input(term, key)
         assert result == "quit"
     finally:
@@ -223,8 +234,14 @@ def test_safe_render_grid_handles_errors() -> None:
 
         # Test error handling by forcing an error
         # We'll do this by temporarily breaking the terminal's move_xy
-        original_move_xy = term.move_xy
-        term.move_xy = lambda x, y: (_ for _ in ()).throw(IOError("Mock error"))
+        original_move_xy: Callable[[int, int], str] = term.move_xy
+
+        def mock_error(*args: Any) -> None:
+            raise IOError("Mock error")
+
+        # Store reference to mock function to avoid assignment to method
+        mock_move_xy = mock_error
+        term.move_xy = mock_move_xy  # type: ignore
 
         try:
             safe_render_grid(term, grid, config)
@@ -233,7 +250,7 @@ def test_safe_render_grid_handles_errors() -> None:
             assert "Failed to render grid" in str(e)
         finally:
             # Restore original move_xy
-            term.move_xy = original_move_xy
+            term.move_xy = original_move_xy  # type: ignore
 
     finally:
         cleanup_terminal(term)

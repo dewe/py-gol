@@ -27,6 +27,18 @@ class TerminalProtocol(Protocol):
     def normal(self) -> str: ...
     @property
     def reverse(self) -> str: ...
+    @property
+    def black(self) -> str: ...
+    @property
+    def blue(self) -> str: ...
+    @property
+    def green(self) -> str: ...
+    @property
+    def yellow(self) -> str: ...
+    @property
+    def magenta(self) -> str: ...
+    @property
+    def on_blue(self) -> str: ...
     def move_xy(self, x: int, y: int) -> ParameterizingString: ...
     def exit_fullscreen(self) -> str: ...
     def enter_fullscreen(self) -> str: ...
@@ -277,29 +289,39 @@ def render_status_line(
         state.changes_this_second = 0
         state.last_fps_update = current_time
 
-    # Format status line with all metrics
-    status = (
-        f"Cells: {state.total_cells} (Active: {state.active_cells}) | "
-        f"Changes/s: {state.changes_per_second:.0f} | "
-        f"Msgs/s: {state.messages_per_second/1000:.1f}k | "
-        f"FPS: {state.actual_fps:.1f}"
+    # Format each metric with colors
+    cells = f"{terminal.blue}Cells: {terminal.normal}{state.total_cells}"
+    active = f"({terminal.green}Active: {state.active_cells}{terminal.normal})"
+    msg_count = state.messages_per_second / 1000
+    changes = (
+        f"{terminal.magenta}Changes/s: {terminal.normal}{state.changes_per_second:.0f}"
     )
+    msgs = f"{terminal.yellow}Msgs/s: {terminal.normal}{msg_count:.1f}k"
+    fps = f"{terminal.blue}FPS: {terminal.normal}{state.actual_fps:.1f}"
+
+    # Combine metrics with separators
+    status = f"{cells} {active} | {changes} | {msgs} | {fps}"
 
     # Position at bottom of screen
     y = terminal.height - 1
     x = 0
 
-    # Center the status line and pad with spaces to fill width
-    padding = (terminal.width - len(status)) // 2
+    # Calculate padding considering color escape sequences
+    color_padding = (
+        len(terminal.blue) * 4
+        + len(terminal.green)
+        + len(terminal.magenta)
+        + len(terminal.yellow)
+        + len(terminal.normal) * 7
+    )
+    padding = (terminal.width - len(status) + color_padding) // 2
     if padding > 0:
         x = padding
 
-    # Fill entire bottom line with reverse video
-    full_line = " " * terminal.width
-    base = terminal.move_xy(0, y) + terminal.reverse + full_line + terminal.normal
-
-    # Overlay the status text
-    return base + terminal.move_xy(x, y) + status
+    # Clear the line and render the status
+    return (
+        terminal.move_xy(0, y) + " " * terminal.width + terminal.move_xy(x, y) + status
+    )
 
 
 def render_grid(

@@ -70,6 +70,11 @@ class RendererState:
     last_fps_update: float = 0.0
     total_cells: int = 0
     active_cells: int = 0
+    messages_this_second: int = 0
+    messages_per_second: float = 0.0
+    last_message_update: float = 0.0
+    changes_this_second: int = 0
+    changes_per_second: float = 0.0
 
 
 CommandType = Literal["continue", "quit", "restart"]
@@ -260,16 +265,23 @@ def render_status_line(
     # Update FPS calculation
     current_time = time()
     state.frames_this_second += 1
+    state.messages_this_second += state.active_cells  # Each active cell sends a message
 
+    # Update metrics every second
     if current_time - state.last_fps_update >= 1.0:
         state.actual_fps = state.frames_this_second
+        state.messages_per_second = state.messages_this_second
+        state.changes_per_second = state.changes_this_second
         state.frames_this_second = 0
+        state.messages_this_second = 0
+        state.changes_this_second = 0
         state.last_fps_update = current_time
 
-    # Format status line
+    # Format status line with all metrics
     status = (
         f"Cells: {state.total_cells} (Active: {state.active_cells}) | "
-        f"Interval: {config.update_interval}ms | "
+        f"Changes/s: {state.changes_per_second:.0f} | "
+        f"Msgs/s: {state.messages_per_second/1000:.1f}k | "
         f"FPS: {state.actual_fps:.1f}"
     )
 
@@ -322,6 +334,14 @@ def render_grid(
     # Update statistics
     state.total_cells = grid_width * grid_height
     state.active_cells = sum(1 for cell in current_grid.values() if cell)
+
+    # Count state changes if we have a previous grid
+    if state.previous_grid is not None:
+        state.changes_this_second += sum(
+            1
+            for pos, current_state in current_grid.items()
+            if state.previous_grid.get(pos) != current_state
+        )
 
     # If no previous state or position changed, do full redraw
     if state.previous_grid is None:

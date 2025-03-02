@@ -42,27 +42,80 @@ def test_neighbor_positions() -> None:
     grid = Grid([[False] * 3 for _ in range(3)])
     center = Position((1, 1))
 
-    neighbors = get_neighbors(grid, center)
+    neighbors = get_neighbors(grid, center)  # Non-toroidal by default
 
     assert len(neighbors) == 8
     expected = {(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2)}
     assert {(x, y) for x, y in neighbors} == expected
 
 
-def test_edge_neighbor_positions() -> None:
+def test_edge_neighbor_positions_non_toroidal() -> None:
     """
-    Given a 3x3 grid
-    When getting neighbors for corner position
-    Then should return only valid positions
+    Given a 3x3 grid in non-toroidal mode
+    When getting neighbors for corner position (0,0)
+    Then should return only 3 valid neighbors
     """
     grid = Grid([[False] * 3 for _ in range(3)])
     corner = Position((0, 0))
 
-    neighbors = get_neighbors(grid, corner)
+    neighbors = get_neighbors(grid, corner, toroidal=False)
 
     assert len(neighbors) == 3
-    expected = {(0, 1), (1, 0), (1, 1)}
+    expected = {
+        (0, 1),  # Right
+        (1, 0),  # Bottom
+        (1, 1),  # Bottom-right
+    }
     assert {(x, y) for x, y in neighbors} == expected
+
+
+def test_edge_neighbor_positions_toroidal() -> None:
+    """
+    Given a 3x3 grid in toroidal mode
+    When getting neighbors for corner position (0,0)
+    Then should return 8 neighbors with wrapping
+    """
+    grid = Grid([[False] * 3 for _ in range(3)])
+    corner = Position((0, 0))
+
+    neighbors = get_neighbors(grid, corner, toroidal=True)
+
+    assert len(neighbors) == 8
+    expected = {
+        (0, 1),  # Right
+        (0, 2),  # Wrapped top
+        (1, 0),  # Bottom
+        (1, 1),  # Bottom-right
+        (1, 2),  # Wrapped bottom-top
+        (2, 0),  # Wrapped left
+        (2, 1),  # Wrapped left-right
+        (2, 2),  # Wrapped left-top
+    }
+    assert {(x, y) for x, y in neighbors} == expected
+
+
+def test_toroidal_wrapping() -> None:
+    """
+    Given a 3x3 grid in toroidal mode
+    When getting neighbors for all edge positions
+    Then should correctly wrap around to opposite edges
+    """
+    grid = Grid([[False] * 3 for _ in range(3)])
+
+    # Test right edge wrapping to left
+    right_edge = Position((2, 1))
+    right_neighbors = get_neighbors(grid, right_edge, toroidal=True)
+    assert Position((0, 1)) in right_neighbors  # Wraps to left edge
+
+    # Test bottom edge wrapping to top
+    bottom_edge = Position((1, 2))
+    bottom_neighbors = get_neighbors(grid, bottom_edge, toroidal=True)
+    assert Position((1, 0)) in bottom_neighbors  # Wraps to top edge
+
+    # Test diagonal wrapping
+    corner = Position((2, 2))
+    corner_neighbors = get_neighbors(grid, corner, toroidal=True)
+    assert Position((0, 0)) in corner_neighbors  # Wraps diagonally
 
 
 def test_count_live_neighbors() -> None:

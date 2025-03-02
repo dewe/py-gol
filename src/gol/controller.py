@@ -47,16 +47,17 @@ def initialize_game(
     grid = create_grid(config.grid)
 
     # Create and connect cell actors
-    actors = setup_cell_actors(grid)
+    actors = setup_cell_actors(grid, config.grid)
 
     return terminal, actors
 
 
-def setup_cell_actors(grid: Grid) -> List[CellActor]:
+def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     """Create and connect cell actors.
 
     Args:
         grid: Initial game grid
+        config: Grid configuration parameters
 
     Returns:
         List of initialized and connected cell actors
@@ -74,7 +75,9 @@ def setup_cell_actors(grid: Grid) -> List[CellActor]:
     # Set up neighbor relationships
     for actor in actors:
         x, y = actor.position
-        neighbor_positions = get_neighbors(grid, actor.position)
+        neighbor_positions = get_neighbors(
+            grid, actor.position, toroidal=config.toroidal
+        )
 
         # Find neighbor actors
         neighbors: List[Actor] = [n for n in actors if n.position in neighbor_positions]

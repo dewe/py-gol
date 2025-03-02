@@ -53,6 +53,12 @@ def parse_arguments() -> ControllerConfig:
         help="Initial density of live cells (0.0-1.0, default: 0.3)",
     )
 
+    parser.add_argument(
+        "--toroidal",
+        action="store_true",
+        help="Enable toroidal grid (edges wrap around)",
+    )
+
     args = parser.parse_args()
 
     # Validate arguments
@@ -67,7 +73,11 @@ def parse_arguments() -> ControllerConfig:
 
     # Create configuration
     return ControllerConfig(
-        grid=GridConfig(size=args.grid_size, density=args.density),
+        grid=GridConfig(
+            size=args.grid_size,
+            density=args.density,
+            toroidal=args.toroidal,
+        ),
         renderer=RendererConfig(
             update_interval=args.interval,
         ),

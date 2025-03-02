@@ -15,6 +15,7 @@ class GridConfig:
 
     size: int
     density: float = 0.3
+    toroidal: bool = False  # Whether grid wraps around edges
 
 
 def create_grid(config: GridConfig) -> Grid:
@@ -34,12 +35,13 @@ def create_grid(config: GridConfig) -> Grid:
     )
 
 
-def get_neighbors(grid: Grid, pos: Position) -> list[Position]:
+def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Position]:
     """Get valid neighbor positions for a cell.
 
     Args:
         grid: Current grid state
         pos: Position to get neighbors for
+        toroidal: Whether to wrap around edges (toroidal grid)
 
     Returns:
         List of valid neighbor positions
@@ -52,9 +54,18 @@ def get_neighbors(grid: Grid, pos: Position) -> list[Position]:
         for dy in (-1, 0, 1):
             if dx == 0 and dy == 0:
                 continue
-            new_x, new_y = x + dx, y + dy
-            if 0 <= new_x < size and 0 <= new_y < size:
+            new_x = x + dx
+            new_y = y + dy
+
+            if toroidal:
+                # Wrap around edges
+                new_x = new_x % size
+                new_y = new_y % size
                 neighbors.append(Position((new_x, new_y)))
+            else:
+                # Only include positions within grid bounds
+                if 0 <= new_x < size and 0 <= new_y < size:
+                    neighbors.append(Position((new_x, new_y)))
 
     return neighbors
 

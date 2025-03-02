@@ -10,6 +10,7 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
 - **Configurable**: Adjustable grid size, update interval, and initial cell density
 - **Adaptive Refresh Rate**: Screen refresh rate automatically optimized based on update interval
+- **Toroidal Grid**: Optional wrapping of edges to create a continuous surface
 
 ## Installation
 
@@ -26,7 +27,7 @@ pip install -e .
 Run the game using the provided entry point script:
 
 ```bash
-./game.py <grid_size> [--interval <ms>] [--density <float>]
+./game.py <grid_size> [--interval <ms>] [--density <float>] [--toroidal]
 ```
 
 ### Command-Line Arguments
@@ -34,6 +35,7 @@ Run the game using the provided entry point script:
 - `grid_size`: Size of the grid (N for N×N) - **required**
 - `--interval`: Update interval in milliseconds (default: 100). The screen refresh rate is automatically set to 1000/interval updates per second.
 - `--density`: Initial density of live cells between 0.0 and 1.0 (default: 0.3)
+- `--toroidal`: Enable toroidal grid where edges wrap around to the opposite side
 
 ### Examples
 
@@ -47,9 +49,9 @@ Run with a 30×30 grid, slower updates (200ms interval = 5 fps), and higher init
 ./game.py 30 --interval 200 --density 0.5
 ```
 
-Run with a small 10×10 grid and fast updates (50ms interval = 20 fps):
+Run with a small 10×10 grid, fast updates (50ms interval = 20 fps), and toroidal wrapping:
 ```bash
-./game.py 10 --interval 50
+./game.py 10 --interval 50 --toroidal
 ```
 
 ## Game Controls

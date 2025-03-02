@@ -70,6 +70,8 @@ Run with terminal-sized grid, fast updates, and toroidal wrapping:
 - Press `Ctrl-C` to exit gracefully
 - Press `Escape` to exit
 - Press `r` to restart the game with a new grid
+- Press `↑` to slow down the simulation (increase interval)
+- Press `↓` to speed up the simulation (decrease interval)
 
 ## Game Rules
 

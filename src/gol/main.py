@@ -38,7 +38,9 @@ def parse_arguments() -> ControllerConfig:
         "Controls:\n"
         "  - Press 'q' or Ctrl-C to quit the game\n"
         "  - Press 'r' to restart with a new grid\n"
-        "  - Press Escape to exit"
+        "  - Press Escape to exit\n"
+        "  - Press ↑ to slow down the simulation\n"
+        "  - Press ↓ to speed up the simulation"
     )
 
     # Use more efficient default values

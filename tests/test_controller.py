@@ -1,5 +1,6 @@
 """BDD tests for Game of Life controller."""
 
+import time
 from threading import Event
 from typing import Generator
 from unittest.mock import MagicMock
@@ -107,6 +108,32 @@ def test_process_generation(config: ControllerConfig, mock_terminal: Terminal) -
     assert all(
         actor.queue.empty() for actor in actors
     ), "All message queues should be empty after processing"
+
+
+def test_process_generation_timing(
+    config: ControllerConfig, mock_terminal: Terminal
+) -> None:
+    """
+    Given: Set of cell actors
+    When: Processing multiple generations
+    Then: Should complete within expected time
+    And: Should properly synchronize actors
+    """
+    # Given
+    terminal, actors = initialize_game(config)
+    completion_event = Event()
+    start_time = time.time()
+
+    # When
+    for _ in range(3):  # Test multiple generations
+        process_generation(actors, completion_event)
+        completion_event.clear()
+
+    duration = time.time() - start_time
+
+    # Then
+    assert duration < 1.0, "Generation processing took too long"
+    assert all(actor.queue.empty() for actor in actors)
 
 
 def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None:

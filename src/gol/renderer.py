@@ -51,7 +51,7 @@ class TerminalProtocol(Protocol):
     def cbreak(self) -> Any: ...
 
 
-@dataclass(frozen=True)
+@dataclass
 class RendererConfig:
     """Configuration for renderer."""
 
@@ -60,13 +60,31 @@ class RendererConfig:
     cell_spacing: str = " "  # Space between cells
     update_interval: int = 100  # milliseconds
     refresh_per_second: int = None  # type: ignore # Calculated from interval
+    min_interval: int = 10  # Minimum interval in milliseconds
+    max_interval: int = 1000  # Maximum interval in milliseconds
+    interval_step: int = 10  # Step size for interval adjustments
 
     def __post_init__(self) -> None:
         """Calculate refresh rate based on update interval."""
-        # Calculate refresh rate as 1000/interval rounded to nearest integer
-        object.__setattr__(
-            self, "refresh_per_second", round(1000 / self.update_interval)
+        self._update_refresh_rate()
+
+    def _update_refresh_rate(self) -> None:
+        """Update refresh rate based on current interval."""
+        self.refresh_per_second = round(1000 / self.update_interval)
+
+    def increase_interval(self) -> None:
+        """Increase update interval by interval_step up to max_interval."""
+        self.update_interval = min(
+            self.update_interval + self.interval_step, self.max_interval
         )
+        self._update_refresh_rate()
+
+    def decrease_interval(self) -> None:
+        """Decrease update interval by interval_step down to min_interval."""
+        self.update_interval = max(
+            self.update_interval - self.interval_step, self.min_interval
+        )
+        self._update_refresh_rate()
 
 
 @dataclass
@@ -114,18 +132,24 @@ def initialize_terminal(
     return term, RendererState()
 
 
-def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType:
+def handle_user_input(
+    terminal: TerminalProtocol, key: Keystroke, config: RendererConfig
+) -> CommandType:
     """Handles keyboard input from user.
 
     Args:
         terminal: Terminal instance
         key: Keystroke from user containing input details
+        config: Renderer configuration for adjusting settings
 
     Returns:
         CommandType: Command based on input:
             - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
             - Returns "restart" for 'r' or 'R'
             - Returns "continue" for any other key
+
+    Side effects:
+        - Adjusts update_interval when up/down arrow keys are pressed
     """
     # Check for quit commands
     if (
@@ -139,6 +163,12 @@ def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType
     # Check for restart command
     if key.name in ("r", "R") or key in ("r", "R"):
         return "restart"
+
+    # Handle interval adjustment
+    if key.name == "KEY_UP":
+        config.increase_interval()
+    elif key.name == "KEY_DOWN":
+        config.decrease_interval()
 
     # All other keys continue the game
     return "continue"
@@ -296,6 +326,7 @@ def render_status_line(
     msg_count = state.messages_per_second / 1000
     plain_msgs = f"Msgs/s: {msg_count:.1f}k"
     plain_fps = f"FPS: {state.actual_fps:.1f}"
+    plain_interval = f"Interval: {config.update_interval}ms"
 
     # Calculate true length without escape sequences
     true_length = (
@@ -304,7 +335,8 @@ def render_status_line(
         + len(plain_changes)
         + len(plain_msgs)
         + len(plain_fps)
-        + len(" | ") * 3
+        + len(plain_interval)
+        + len(" | ") * 4
         + len(" ")
     )
 
@@ -316,9 +348,12 @@ def render_status_line(
     )
     msgs = f"{terminal.yellow}Msgs/s: {terminal.normal}{msg_count:.1f}k"
     fps = f"{terminal.blue}FPS: {terminal.normal}{state.actual_fps:.1f}"
+    interval = (
+        f"{terminal.magenta}Interval: {terminal.normal}{config.update_interval}ms"
+    )
 
     # Combine metrics with separators
-    status = f"{cells} {active} | {changes} | {msgs} | {fps}"
+    status = f"{cells} {active} | {changes} | {msgs} | {fps} | {interval}"
 
     # Position at bottom of screen
     y = terminal.height - 1

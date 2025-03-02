@@ -11,6 +11,7 @@ from gol.grid import GridConfig, create_grid
 from gol.renderer import (
     RendererConfig,
     RendererState,
+    TerminalProtocol,
     cleanup_terminal,
     handle_resize_event,
     handle_user_input,
@@ -142,96 +143,84 @@ def test_grid_rendering_empty() -> None:
         cleanup_terminal(term)
 
 
-def test_input_handling_quit() -> None:
-    """
-    Given: A terminal instance
-    When: User presses 'q'
-    Then: Should return QUIT command
-    """
-    config = RendererConfig()
-    term, state = initialize_terminal(config)
+@pytest.fixture
+def term() -> TerminalProtocol:
+    """Fixture providing a mock terminal for testing."""
+    return MockTerminal()
 
-    try:
-        # Simulate 'q' keypress
-        key = create_mock_keystroke(name="q")
-        result = handle_user_input(term, key)
+
+def test_handle_user_input_quit_commands(term: TerminalProtocol) -> None:
+    """Test that quit commands are handled correctly."""
+    config = RendererConfig()
+    quit_keys = [
+        Keystroke("q"),
+        Keystroke("Q"),
+        Keystroke("\x03"),  # Ctrl-C
+        Keystroke("\x1b"),  # Escape
+    ]
+    for key in quit_keys:
+        result = handle_user_input(term, key, config)
         assert result == "quit"
-    finally:
-        cleanup_terminal(term)
 
 
-def test_input_handling_continue() -> None:
-    """
-    Given: A terminal instance
-    When: User presses any other key
-    Then: Should return CONTINUE command
-    """
+def test_handle_user_input_restart_command(term: TerminalProtocol) -> None:
+    """Test that restart command is handled correctly."""
     config = RendererConfig()
-    term, state = initialize_terminal(config)
+    restart_keys = [Keystroke("r"), Keystroke("R")]
+    for key in restart_keys:
+        result = handle_user_input(term, key, config)
+        assert result == "restart"
 
-    try:
-        # Simulate 'x' keypress
-        key = create_mock_keystroke(name="x")
-        result = handle_user_input(term, key)
+
+def test_handle_user_input_continue_command(term: TerminalProtocol) -> None:
+    """Test that other keys return continue."""
+    config = RendererConfig()
+    continue_keys = [
+        Keystroke("a"),
+        Keystroke("1"),
+        Keystroke(" "),
+        Keystroke("\t"),
+    ]
+    for key in continue_keys:
+        result = handle_user_input(term, key, config)
         assert result == "continue"
-    finally:
-        cleanup_terminal(term)
 
 
-def test_input_handling_ctrl_c() -> None:
-    """
-    Given: A terminal instance
-    When: User presses Ctrl-C
-    Then: Should return QUIT command
-    """
+def test_handle_user_input_interval_adjustment(term: TerminalProtocol) -> None:
+    """Test that arrow keys adjust the update interval."""
     config = RendererConfig()
-    term, state = initialize_terminal(config)
+    initial_interval = config.update_interval
 
-    try:
-        # Simulate Ctrl-C
-        key = create_mock_keystroke(name="^C")
-        result = handle_user_input(term, key)
-        assert result == "quit"
-    finally:
-        cleanup_terminal(term)
+    # Test increasing interval
+    key = Keystroke(name="KEY_UP")
+    result = handle_user_input(term, key, config)
+    assert result == "continue"
+    assert config.update_interval == initial_interval + config.interval_step
+
+    # Test decreasing interval
+    key = Keystroke(name="KEY_DOWN")
+    result = handle_user_input(term, key, config)
+    assert result == "continue"
+    assert config.update_interval == initial_interval
 
 
-def test_input_handling_escape() -> None:
-    """
-    Given: A terminal instance
-    When: User presses Escape key (either variant)
-    Then: Should return QUIT command
-    """
+def test_handle_user_input_interval_limits(term: TerminalProtocol) -> None:
+    """Test that interval adjustments respect min/max limits."""
     config = RendererConfig()
-    term, state = initialize_terminal(config)
 
-    try:
-        # Test both possible escape key names
-        for escape_key in ["KEY_ESCAPE", "escape"]:
-            key = create_mock_keystroke(name=escape_key)
-            result = handle_user_input(term, key)
-            assert result == "quit", f"Failed for escape key variant: {escape_key}"
-    finally:
-        cleanup_terminal(term)
+    # Test maximum limit
+    config.update_interval = config.max_interval
+    key = Keystroke(name="KEY_UP")
+    result = handle_user_input(term, key, config)
+    assert result == "continue"
+    assert config.update_interval == config.max_interval
 
-
-def test_input_handling_restart() -> None:
-    """
-    Given: A terminal instance
-    When: User presses 'r' key (either case)
-    Then: Should return RESTART command
-    """
-    config = RendererConfig()
-    term, state = initialize_terminal(config)
-
-    try:
-        # Test both lowercase and uppercase 'r'
-        for restart_key in ["r", "R"]:
-            key = create_mock_keystroke(name=restart_key)
-            result = handle_user_input(term, key)
-            assert result == "restart", f"Failed for restart key variant: {restart_key}"
-    finally:
-        cleanup_terminal(term)
+    # Test minimum limit
+    config.update_interval = config.min_interval
+    key = Keystroke(name="KEY_DOWN")
+    result = handle_user_input(term, key, config)
+    assert result == "continue"
+    assert config.update_interval == config.min_interval
 
 
 def test_handle_resize_event() -> None:
@@ -251,8 +240,8 @@ def test_handle_resize_event() -> None:
         cleanup_terminal(term)
 
 
-class TerminalProtocol(Protocol):
-    """Protocol defining the required terminal interface."""
+class MockTerminalProtocol(Protocol):
+    """Protocol defining the required terminal interface for testing."""
 
     @property
     def width(self) -> int: ...
@@ -262,15 +251,33 @@ class TerminalProtocol(Protocol):
     def dim(self) -> str: ...
     @property
     def normal(self) -> str: ...
+    @property
+    def reverse(self) -> str: ...
+    @property
+    def black(self) -> str: ...
+    @property
+    def blue(self) -> str: ...
+    @property
+    def green(self) -> str: ...
+    @property
+    def yellow(self) -> str: ...
+    @property
+    def magenta(self) -> str: ...
+    @property
+    def on_blue(self) -> str: ...
     def move_xy(self, x: int, y: int) -> ParameterizingString: ...
     def exit_fullscreen(self) -> str: ...
     def enter_fullscreen(self) -> str: ...
     def hide_cursor(self) -> str: ...
     def normal_cursor(self) -> str: ...
     def clear(self) -> str: ...
+    def enter_ca_mode(self) -> str: ...
+    def exit_ca_mode(self) -> str: ...
+    def inkey(self, timeout: float = 0) -> Keystroke: ...
+    def cbreak(self) -> Any: ...
 
 
-class MockTerminal(TerminalProtocol):
+class MockTerminal(MockTerminalProtocol):
     """Mock terminal for testing."""
 
     def __init__(self) -> None:
@@ -299,6 +306,41 @@ class MockTerminal(TerminalProtocol):
     def normal(self) -> str:
         """Get normal attribute."""
         return self._normal
+
+    @property
+    def reverse(self) -> str:
+        """Get reverse attribute."""
+        return ""
+
+    @property
+    def black(self) -> str:
+        """Get black color."""
+        return ""
+
+    @property
+    def blue(self) -> str:
+        """Get blue color."""
+        return ""
+
+    @property
+    def green(self) -> str:
+        """Get green color."""
+        return ""
+
+    @property
+    def yellow(self) -> str:
+        """Get yellow color."""
+        return ""
+
+    @property
+    def magenta(self) -> str:
+        """Get magenta color."""
+        return ""
+
+    @property
+    def on_blue(self) -> str:
+        """Get blue background color."""
+        return ""
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
         """Mock move cursor that raises error."""

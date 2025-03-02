@@ -204,24 +204,18 @@ def run_game_loop(
                     safe_render_grid(terminal, grid, config.renderer, renderer_state)
                     last_render_time = current_time
 
-                # Check for user input (non-blocking)
-                try:
-                    key = terminal.inkey(
-                        timeout=0.01
-                    )  # Short timeout for responsiveness
-                    if key:  # Only process if we got a key
-                        command = handle_user_input(terminal, key)
-                        if command == "quit":
-                            break
-                        elif command == "restart":
-                            # Create new grid and actors
-                            grid = create_grid(config.grid)
-                            actors.clear()  # Clear old actors
-                            actors.extend(setup_cell_actors(grid, config.grid))
-                            renderer_state.previous_grid = None  # Force full redraw
-                except Exception:
-                    # If there's any error reading input, ignore it and continue
-                    pass
+                # Check for user input
+                key = terminal.inkey(timeout=0)
+                if key:
+                    command = handle_user_input(terminal, key, config.renderer)
+                    if command == "quit":
+                        break
+                    elif command == "restart":
+                        # Create new grid and actors
+                        grid = create_grid(config.grid)
+                        actors.clear()  # Clear old actors
+                        actors.extend(setup_cell_actors(grid, config.grid))
+                        renderer_state.previous_grid = None  # Force full redraw
 
                 # Sleep for the update interval
                 time.sleep(config.renderer.update_interval / 1000)

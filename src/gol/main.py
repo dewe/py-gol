@@ -18,6 +18,7 @@ from gol.grid import Grid, GridConfig
 from gol.renderer import (
     RendererConfig,
     RendererState,
+    Terminal,
     TerminalProtocol,
     cleanup_terminal,
     handle_user_input,
@@ -32,6 +33,14 @@ def parse_arguments() -> ControllerConfig:
     Returns:
         ControllerConfig with parsed arguments
     """
+    # Create terminal early to get dimensions
+    term = Terminal()
+
+    # Calculate default grid size based on terminal dimensions
+    # Each cell takes 2 characters width due to spacing
+    default_width = (term.width - 4) // 2  # Leave some margin
+    default_height = term.height - 4  # Leave some margin
+
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life with actor-based concurrency\n\n"
         "Controls:\n"
@@ -39,8 +48,18 @@ def parse_arguments() -> ControllerConfig:
         "  - Press Escape to exit"
     )
 
-    parser.add_argument("width", type=int, help="Width of the grid")
-    parser.add_argument("height", type=int, help="Height of the grid")
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=default_width,
+        help="Width of the grid (auto-sized to terminal width if not specified)",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=default_height,
+        help="Height of the grid (auto-sized to terminal height if not specified)",
+    )
 
     parser.add_argument(
         "--interval",

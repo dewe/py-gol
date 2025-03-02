@@ -27,32 +27,37 @@ pip install -e .
 Run the game using the provided entry point script:
 
 ```bash
-./game.py <width> <height> [--interval <ms>] [--density <float>] [--toroidal]
+./game.py [--width <width>] [--height <height>] [--interval <ms>] [--density <float>] [--toroidal]
 ```
 
 ### Parameters
 
-- `width`: Width of the grid - **required**
-- `height`: Height of the grid - **required**
+- `--width`: Width of the grid (auto-sized to terminal width if not specified)
+- `--height`: Height of the grid (auto-sized to terminal height if not specified)
 - `--interval`: Update interval in milliseconds (default: 100)
 - `--density`: Initial density of live cells (0.0-1.0, default: 0.3)
 - `--toroidal`: Enable toroidal grid (edges wrap around)
 
 ### Examples
 
-Run with a 20×20 grid using default settings (100ms interval = 10 fps):
+Run with default settings (grid sized to terminal dimensions):
 ```bash
-./game.py 20 20
+./game.py
 ```
 
-Run with a 30×30 grid, slower updates (200ms interval = 5 fps), and higher initial density:
+Run with a custom 20×20 grid:
 ```bash
-./game.py 30 30 --interval 200 --density 0.5
+./game.py --width 20 --height 20
 ```
 
-Run with a small 10×10 grid, fast updates (50ms interval = 20 fps), and toroidal wrapping:
+Run with a 30×30 grid, slower updates, and higher initial density:
 ```bash
-./game.py 10 10 --interval 50 --toroidal
+./game.py --width 30 --height 30 --interval 200 --density 0.5
+```
+
+Run with terminal-sized grid, fast updates, and toroidal wrapping:
+```bash
+./game.py --interval 50 --toroidal
 ```
 
 ## Game Controls

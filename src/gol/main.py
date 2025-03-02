@@ -167,6 +167,7 @@ def run_game_loop(
 
 def main() -> None:
     """Main entry point for the application."""
+    terminal = None
     try:
         # Parse command line arguments
         config = parse_arguments()
@@ -180,6 +181,8 @@ def main() -> None:
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        if terminal:
+            cleanup_terminal(terminal)
         sys.exit(1)
 
 

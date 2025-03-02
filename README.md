@@ -25,7 +25,7 @@ pip install -e .
 Run the game using the provided entry point script:
 
 ```bash
-./gol.py <grid_size> [--interval <ms>] [--density <float>]
+./game.py <grid_size> [--interval <ms>] [--density <float>]
 ```
 
 ### Command-Line Arguments
@@ -38,17 +38,17 @@ Run the game using the provided entry point script:
 
 Run with a 20×20 grid using default settings:
 ```bash
-./gol.py 20
+./game.py 20
 ```
 
 Run with a 30×30 grid, slower updates, and higher initial density:
 ```bash
-./gol.py 30 --interval 200 --density 0.5
+./game.py 30 --interval 200 --density 0.5
 ```
 
 Run with a small 10×10 grid and fast updates:
 ```bash
-./gol.py 10 --interval 50
+./game.py 10 --interval 50
 ```
 
 ## Game Controls
@@ -99,7 +99,7 @@ py-gol/
 │       └── renderer.py   # Terminal renderer
 ├── tests/
 │   └── ...               # Test files
-├── gol.py                # Entry point script
+├── game.py               # Entry point script
 ├── setup.py              # Package setup
 └── README.md             # This file
 ```

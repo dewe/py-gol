@@ -180,8 +180,8 @@ This diagram shows the high-level architecture and relationships between compone
 stateDiagram-v2
     [*] --> Dead
     Dead --> Alive: 3 live neighbors
-    Alive --> Dead: <2 live neighbors
-    Alive --> Dead: >3 live neighbors
+    Alive --> Dead: less than 2 live neighbors
+    Alive --> Dead: more than 3 live neighbors
     Alive --> Alive: 2-3 live neighbors
 
     %% Styling

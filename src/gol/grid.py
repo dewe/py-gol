@@ -30,9 +30,10 @@ def create_grid(config: GridConfig) -> Grid:
     Returns:
         A new Grid with random live cells based on density
     """
-    # Use numpy for faster random generation
+    # Use numpy's optimized random generation
+    rng = np.random.default_rng()  # Use the newer Generator for better performance
     random_grid: NDArray[np.bool_] = (
-        np.random.random((config.height, config.width)) < config.density
+        rng.random((config.height, config.width)) < config.density
     )
     # Convert numpy array to list[list[bool]] with explicit casting
     grid_list = cast(list[list[bool]], random_grid.tolist())
@@ -40,7 +41,7 @@ def create_grid(config: GridConfig) -> Grid:
 
 
 def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Position]:
-    """Get valid neighbor positions for a cell.
+    """Get valid neighbor positions for a cell using vectorized operations.
 
     Args:
         grid: Current grid state
@@ -53,30 +54,30 @@ def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Pos
     x, y = pos
     width = len(grid[0])
     height = len(grid)
-    neighbors = []
 
-    for dx in (-1, 0, 1):
-        for dy in (-1, 0, 1):
-            if dx == 0 and dy == 0:
-                continue
-            new_x = x + dx
-            new_y = y + dy
+    # Generate all possible neighbor offsets using numpy
+    dx = np.array([-1, -1, -1, 0, 0, 1, 1, 1])
+    dy = np.array([-1, 0, 1, -1, 1, -1, 0, 1])
 
-            if toroidal:
-                # Wrap around edges
-                new_x = new_x % width
-                new_y = new_y % height
-                neighbors.append(Position((new_x, new_y)))
-            else:
-                # Only include positions within grid bounds
-                if 0 <= new_x < width and 0 <= new_y < height:
-                    neighbors.append(Position((new_x, new_y)))
+    # Calculate new positions
+    new_x = x + dx
+    new_y = y + dy
 
-    return neighbors
+    if toroidal:
+        # Vectorized modulo operation for wrapping
+        new_x = new_x % width
+        new_y = new_y % height
+        return [Position((int(nx), int(ny))) for nx, ny in zip(new_x, new_y)]
+    else:
+        # Vectorized bounds checking
+        valid_mask = (new_x >= 0) & (new_x < width) & (new_y >= 0) & (new_y < height)
+        valid_x = new_x[valid_mask]
+        valid_y = new_y[valid_mask]
+        return [Position((int(nx), int(ny))) for nx, ny in zip(valid_x, valid_y)]
 
 
 def count_live_neighbors(grid: Grid, positions: list[Position]) -> int:
-    """Count live neighbors from given positions.
+    """Count live neighbors using numpy for better performance.
 
     Args:
         grid: Current grid state
@@ -85,4 +86,14 @@ def count_live_neighbors(grid: Grid, positions: list[Position]) -> int:
     Returns:
         Count of live cells in given positions
     """
-    return sum(1 for pos in positions if grid[pos[0]][pos[1]])
+    if not positions:
+        return 0
+
+    # Convert positions to numpy arrays for vectorized access
+    pos_array = np.array([(pos[0], pos[1]) for pos in positions])
+    x_coords = pos_array[:, 0]
+    y_coords = pos_array[:, 1]
+
+    # Convert grid to numpy array for faster access
+    grid_array = np.array(grid)
+    return int(np.sum(grid_array[y_coords, x_coords]))

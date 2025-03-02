@@ -6,6 +6,8 @@ from queue import Empty
 from threading import Event
 from typing import List, Tuple, cast
 
+import numpy as np
+
 from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
 from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
 from gol.messaging import Actor, subscribe_to_neighbors
@@ -66,7 +68,26 @@ def create_actor_batch(
     Returns:
         List of created cell actors
     """
-    return [create_cell_actor(pos, state) for pos, state in zip(positions, states)]
+    # Calculate optimal chunk size based on input size
+    chunk_size = max(1, min(1000, len(positions) // (8 * len(positions) // 1000 + 1)))
+
+    with ThreadPoolExecutor() as executor:
+        # Process chunks in parallel
+        chunks = [
+            (positions[i : i + chunk_size], states[i : i + chunk_size])
+            for i in range(0, len(positions), chunk_size)
+        ]
+
+        def process_chunk(chunk: Tuple[List[Position], List[bool]]) -> List[CellActor]:
+            pos_list, state_list = chunk
+            return [
+                create_cell_actor(pos, state)
+                for pos, state in zip(pos_list, state_list)
+            ]
+
+        # Flatten results
+        results = executor.map(process_chunk, chunks)
+        return [actor for chunk in results for actor in chunk]
 
 
 def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
@@ -79,36 +100,27 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     Returns:
         List of initialized and connected cell actors
     """
-    # Prepare positions and states
-    positions = []
-    states = []
-    for x in range(config.width):
-        for y in range(config.height):
-            positions.append(Position((x, y)))
-            states.append(grid[y][x])
+    # Create position and state arrays using numpy for efficiency
+    y_indices, x_indices = np.mgrid[0 : config.height, 0 : config.width]
+    positions = [
+        Position((int(x), int(y))) for x, y in zip(x_indices.flat, y_indices.flat)
+    ]
+    states = [grid[y][x] for y, x in zip(y_indices.flat, x_indices.flat)]
 
     # Create actors in parallel batches
-    batch_size = 1000  # Adjust based on grid size
-    actors = []
+    actors = create_actor_batch(positions, states)
 
-    for i in range(0, len(positions), batch_size):
-        batch_positions = positions[i : i + batch_size]
-        batch_states = states[i : i + batch_size]
-        actors.extend(create_actor_batch(batch_positions, batch_states))
+    # Set up neighbor relationships efficiently
+    actor_map = {actor.position: actor for actor in actors}
 
-    # Set up neighbor relationships
     with ThreadPoolExecutor() as executor:
 
         def setup_neighbors(actor: CellActor) -> None:
-            x, y = actor.position
             neighbor_positions = get_neighbors(
                 grid, actor.position, toroidal=config.toroidal
             )
-            # Find neighbor actors and cast to Actor type
-            neighbors = [
-                cast(Actor, n) for n in actors if n.position in neighbor_positions
-            ]
-            # Subscribe to neighbors
+            # Use dictionary lookup instead of list comprehension
+            neighbors = [cast(Actor, actor_map[pos]) for pos in neighbor_positions]
             subscribe_to_neighbors(actor, neighbors)
 
         # Process neighbor setup in parallel

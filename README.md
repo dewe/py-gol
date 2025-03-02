@@ -2,6 +2,8 @@
 
 A terminal-based implementation of Conway's Game of Life using an actor-based concurrent model where each cell operates independently.
 
+![demo](./docs/demo.gif)
+
 ## Features
 
 - **Actor-Based Concurrency**: Each cell is implemented as an independent actor

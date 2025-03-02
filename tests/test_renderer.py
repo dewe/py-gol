@@ -196,6 +196,24 @@ def test_input_handling_ctrl_c() -> None:
         cleanup_terminal(term)
 
 
+def test_input_handling_escape() -> None:
+    """
+    Given: A terminal instance
+    When: User presses Escape key
+    Then: Should return QUIT command
+    """
+    config = RendererConfig()
+    term, state = initialize_terminal(config)
+
+    try:
+        # Simulate Escape key
+        key = create_mock_keystroke(name="KEY_ESCAPE")
+        result = handle_user_input(term, key)
+        assert result == "quit"
+    finally:
+        cleanup_terminal(term)
+
+
 def test_handle_resize_event() -> None:
     """
     Given: A terminal instance

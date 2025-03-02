@@ -235,14 +235,14 @@ def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType
 
     Returns:
         CommandType: Either "quit" or "continue" based on input:
-            - Returns "quit" for 'q', 'Q' or Ctrl-C (^C)
-            - Returns "continue" for 'x' or any other key
+            - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
+            - Returns "continue" for any other key
     """
-    # Check for quit commands (q, Q, or Ctrl-C)
-    if key.name in ("q", "Q", "^C"):
+    # Check for quit commands (q, Q, Ctrl-C, or Escape)
+    if key.name in ("q", "Q", "^C", "KEY_ESCAPE"):
         return "quit"
 
-    # All other keys (including 'x') continue the game
+    # All other keys continue the game
     return "continue"
 
 

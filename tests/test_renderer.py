@@ -215,6 +215,25 @@ def test_input_handling_escape() -> None:
         cleanup_terminal(term)
 
 
+def test_input_handling_restart() -> None:
+    """
+    Given: A terminal instance
+    When: User presses 'r' key (either case)
+    Then: Should return RESTART command
+    """
+    config = RendererConfig()
+    term, state = initialize_terminal(config)
+
+    try:
+        # Test both lowercase and uppercase 'r'
+        for restart_key in ["r", "R"]:
+            key = create_mock_keystroke(name=restart_key)
+            result = handle_user_input(term, key)
+            assert result == "restart", f"Failed for restart key variant: {restart_key}"
+    finally:
+        cleanup_terminal(term)
+
+
 def test_handle_resize_event() -> None:
     """
     Given: A terminal instance

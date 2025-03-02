@@ -93,24 +93,24 @@ py-gol/
 ├── src/
 │   └── gol/
 │       ├── __init__.py
-│       ├── actor.py      # Cell actor implementation
-│       ├── controller.py # Game controller
-│       ├── grid.py       # Grid management
-│       ├── main.py       # Main application
-│       ├── messaging.py  # Message queue system
-│       └── renderer.py   # Terminal renderer
+│       ├── actor.py          # Cell actor implementation
+│       ├── controller.py     # Game controller
+│       ├── grid.py           # Grid management
+│       ├── main.py           # Main application
+│       ├── messaging.py      # Message queue system
+│       └── renderer.py       # Terminal renderer
 ├── tests/
 │   ├── __init__.py
-│   ├── test_actor.py     # Actor system tests
-│   ├── test_controller.py # Game controller tests
-│   ├── test_grid.py      # Grid management tests
-│   ├── test_messaging.py # Message system tests
-│   └── test_renderer.py  # Terminal UI tests
-├── game.py               # Entry point script
-├── setup.py             # Package setup
-├── pyproject.toml       # Project configuration
-├── Makefile            # Build automation
-└── README.md           # This file
+│   ├── test_actor.py        # Actor system tests
+│   ├── test_controller.py   # Game controller tests
+│   ├── test_grid.py         # Grid management tests
+│   ├── test_messaging.py    # Message system tests
+│   └── test_renderer.py     # Terminal UI tests
+├── game.py                  # Entry point script
+├── setup.py                 # Package setup
+├── pyproject.toml           # Project configuration
+├── Makefile                 # Build automation
+└── README.md                # This file
 ```
 
 ### Running Tests

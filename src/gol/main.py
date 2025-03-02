@@ -33,7 +33,10 @@ def parse_arguments() -> ControllerConfig:
         ControllerConfig with parsed arguments
     """
     parser = argparse.ArgumentParser(
-        description="Conway's Game of Life with actor-based concurrency"
+        description="Conway's Game of Life with actor-based concurrency\n\n"
+        "Controls:\n"
+        "  - Press 'q' or Ctrl-C to quit the game\n"
+        "  - Press Escape to exit"
     )
 
     parser.add_argument("width", type=int, help="Width of the grid")

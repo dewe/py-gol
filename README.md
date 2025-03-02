@@ -57,8 +57,9 @@ Run with a small 10×10 grid, fast updates (50ms interval = 20 fps), and toroida
 
 ## Game Controls
 
-- Press `q` to quit the game
-- Press `Ctrl+C` to exit gracefully
+- Press `q` or `Q` to quit the game
+- Press `Ctrl-C` to exit gracefully
+- Press `Escape` to exit
 
 ## Game Rules
 

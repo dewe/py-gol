@@ -78,3 +78,26 @@ def test_count_live_neighbors() -> None:
     count = count_live_neighbors(grid, neighbors)
 
     assert count == 2  # Top-left and bottom-right are alive
+
+
+def test_high_density_grid_creation() -> None:
+    """
+    Given a grid size of 10 and high density of 0.9
+    When creating a new grid
+    Then grid should be 10x10
+    And approximately 90% of cells should be alive (with 10% margin)
+    """
+    config = GridConfig(size=10, density=0.9)
+    grid = create_grid(config)
+
+    # Check grid dimensions
+    assert len(grid) == 10
+    assert all(len(row) == 10 for row in grid)
+
+    # Check approximate density (with 10% margin to reduce flakiness)
+    live_cells = sum(sum(1 for cell in row if cell) for row in grid)
+    total_cells = 100
+    actual_density = live_cells / total_cells
+    assert (
+        0.8 <= actual_density <= 1.0
+    ), f"Expected density between 80% and 100%, got {actual_density * 100:.1f}%"

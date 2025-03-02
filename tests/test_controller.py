@@ -91,6 +91,7 @@ def test_process_generation(config: ControllerConfig, mock_terminal: Terminal) -
     Given: Set of cell actors
     When: Processing one generation
     Then: Should update cell states according to Game of Life rules
+    And: Should ensure all message queues are empty
     """
     # Given
     terminal, actors = initialize_game(config)
@@ -102,12 +103,10 @@ def test_process_generation(config: ControllerConfig, mock_terminal: Terminal) -
     # Then
     # Verify that completion event was set
     assert completion_event.is_set()
-    # Verify that state updates were processed
-    # Note: In the current implementation, queues may not be empty after processing
-    # as messages are broadcast but not all may be consumed
-
-    # Instead, verify that the process ran without errors
-    assert True  # If we got here, the process completed successfully
+    # Verify that all message queues are empty after processing
+    assert all(
+        actor.queue.empty() for actor in actors
+    ), "All message queues should be empty after processing"
 
 
 def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None:

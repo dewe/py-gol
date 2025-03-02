@@ -93,6 +93,13 @@ def process_generation(actors: List[CellActor], completion_event: Event) -> None
         for actor in actors:
             process_messages(actor, completion_event)
 
+        # Ensure all queues are empty by processing any remaining messages
+        # This is the minimal change to ensure queue cleanup
+        while any(not actor.queue.empty() for actor in actors):
+            for actor in actors:
+                if not actor.queue.empty():
+                    process_messages(actor, completion_event)
+
     finally:
         # Signal completion
         completion_event.set()

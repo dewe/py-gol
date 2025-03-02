@@ -36,7 +36,8 @@ def parse_arguments() -> ControllerConfig:
         description="Conway's Game of Life with actor-based concurrency"
     )
 
-    parser.add_argument("grid_size", type=int, help="Size of the grid (N for N×N)")
+    parser.add_argument("width", type=int, help="Width of the grid")
+    parser.add_argument("height", type=int, help="Height of the grid")
 
     parser.add_argument(
         "--interval",
@@ -62,8 +63,11 @@ def parse_arguments() -> ControllerConfig:
     args = parser.parse_args()
 
     # Validate arguments
-    if args.grid_size <= 0:
-        parser.error("Grid size must be positive")
+    if args.width <= 0:
+        parser.error("Grid width must be positive")
+
+    if args.height <= 0:
+        parser.error("Grid height must be positive")
 
     if args.interval <= 0:
         parser.error("Interval must be positive")
@@ -74,7 +78,8 @@ def parse_arguments() -> ControllerConfig:
     # Create configuration
     return ControllerConfig(
         grid=GridConfig(
-            size=args.grid_size,
+            width=args.width,
+            height=args.height,
             density=args.density,
             toroidal=args.toroidal,
         ),
@@ -138,9 +143,11 @@ def run_game_loop(
 
                 if time_since_last_render >= min_frame_time:
                     # Extract grid state from actors
-                    grid_size = config.grid.size
                     grid = Grid(
-                        [[False for _ in range(grid_size)] for _ in range(grid_size)]
+                        [
+                            [False for _ in range(config.grid.width)]
+                            for _ in range(config.grid.height)
+                        ]
                     )
 
                     for actor in actors:

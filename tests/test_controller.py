@@ -106,7 +106,7 @@ def config() -> ControllerConfig:
         Test configuration instance
     """
     return ControllerConfig(
-        grid=GridConfig(size=20, density=0.5),  # Even larger grid size
+        grid=GridConfig(width=20, height=15, density=0.5),
         renderer=RendererConfig(
             update_interval=100,
             refresh_per_second=5,
@@ -141,11 +141,12 @@ def test_actor_setup(config: ControllerConfig, mock_terminal: Terminal) -> None:
     And: Should set up message queues
     And: Should subscribe to neighbors
     """
+
     # When
     _, actors = initialize_game(config)
 
     # Then
-    assert len(actors) == config.grid.size * config.grid.size
+    assert len(actors) == config.grid.width * config.grid.height
     for actor in actors:
         assert isinstance(actor, CellActor)
         assert actor.queue is not None
@@ -242,16 +243,19 @@ def test_process_generation_error_handling(
 
 def test_handle_terminal_resize(mock_terminal: Terminal) -> None:
     """Test that the grid position is recalculated when terminal window is resized."""
-    grid_size = 20  # Use a larger grid to make position changes more noticeable
-    total_width = grid_size * 2  # Each cell is 2 chars wide with spacing
-    total_height = grid_size  # Each cell is 1 char high
+    grid_width = 20  # Use a larger grid to make position changes more noticeable
+    grid_height = 15
+    total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
+    total_height = grid_height  # Each cell is 1 char high
 
     # Set initial terminal dimensions - slightly smaller than grid
     mock_terminal._width = total_width - 1  # type: ignore[attr-defined]
     mock_terminal._height = total_height - 1  # type: ignore[attr-defined]
 
     # Calculate initial grid position
-    initial_x, initial_y = calculate_grid_position(mock_terminal, grid_size)
+    initial_x, initial_y = calculate_grid_position(
+        mock_terminal, grid_width, grid_height
+    )
 
     # Verify initial position is within bounds and at edges
     assert initial_x == 0, "Grid should start at left edge in small terminal"
@@ -268,7 +272,7 @@ def test_handle_terminal_resize(mock_terminal: Terminal) -> None:
     mock_terminal._height = total_height * 4  # type: ignore[attr-defined]
 
     # Calculate new grid position
-    new_x, new_y = calculate_grid_position(mock_terminal, grid_size)
+    new_x, new_y = calculate_grid_position(mock_terminal, grid_width, grid_height)
 
     # Verify new position is still within bounds
     assert new_x >= 0, "Grid should not start outside left edge"

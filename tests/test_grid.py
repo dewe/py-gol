@@ -12,21 +12,21 @@ from gol.grid import (
 
 def test_grid_creation() -> None:
     """
-    Given a grid size of 10 and density of 0.3
+    Given a grid of 10x8 and density of 0.3
     When creating a new grid
-    Then grid should be 10x10
+    Then grid should be 10x8
     And approximately 30% of cells should be alive (with 15% margin)
     """
-    config = GridConfig(size=10, density=0.3)
+    config = GridConfig(width=10, height=8, density=0.3)
     grid = create_grid(config)
 
     # Check grid dimensions
-    assert len(grid) == 10
-    assert all(len(row) == 10 for row in grid)
+    assert len(grid) == 8  # height
+    assert all(len(row) == 10 for row in grid)  # width
 
     # Check approximate density (with 15% margin to reduce flakiness)
     live_cells = sum(sum(1 for cell in row if cell) for row in grid)
-    total_cells = 100
+    total_cells = 80  # 10x8
     actual_density = live_cells / total_cells
     assert (
         0.15 <= actual_density <= 0.45
@@ -135,21 +135,21 @@ def test_count_live_neighbors() -> None:
 
 def test_high_density_grid_creation() -> None:
     """
-    Given a grid size of 10 and high density of 0.9
+    Given a grid of 10x12 and high density of 0.9
     When creating a new grid
-    Then grid should be 10x10
+    Then grid should be 10x12
     And approximately 90% of cells should be alive (with 10% margin)
     """
-    config = GridConfig(size=10, density=0.9)
+    config = GridConfig(width=10, height=12, density=0.9)
     grid = create_grid(config)
 
     # Check grid dimensions
-    assert len(grid) == 10
-    assert all(len(row) == 10 for row in grid)
+    assert len(grid) == 12  # height
+    assert all(len(row) == 10 for row in grid)  # width
 
     # Check approximate density (with 10% margin to reduce flakiness)
     live_cells = sum(sum(1 for cell in row if cell) for row in grid)
-    total_cells = 100
+    total_cells = 120  # 10x12
     actual_density = live_cells / total_cells
     assert (
         0.8 <= actual_density <= 1.0

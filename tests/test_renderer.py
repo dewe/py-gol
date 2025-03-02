@@ -1,6 +1,6 @@
 """Tests for the terminal renderer module."""
 
-from typing import Protocol
+from typing import Any, Protocol
 
 import pytest
 from blessed import Terminal
@@ -108,7 +108,7 @@ def test_grid_rendering() -> None:
     term, state = initialize_terminal(renderer_config)
 
     # Create a small test grid with known state
-    grid_config = GridConfig(size=3, density=0.0)  # Start with empty grid
+    grid_config = GridConfig(width=3, height=3, density=0.0)  # Start with empty grid
     grid = create_grid(grid_config)
     # Set specific cells to create a simple pattern
     grid[0][1] = True  # Top middle
@@ -134,7 +134,7 @@ def test_grid_rendering_empty() -> None:
     """
     renderer_config = RendererConfig()
     term, state = initialize_terminal(renderer_config)
-    grid = create_grid(GridConfig(size=3, density=0.0))
+    grid = create_grid(GridConfig(width=3, height=3, density=0.0))
 
     try:
         render_grid(term, grid, renderer_config, state)
@@ -313,11 +313,19 @@ class MockTerminal(TerminalProtocol):
         """Mock exit ca mode."""
         return ""
 
+    def inkey(self, timeout: float = 0) -> Keystroke:
+        """Mock inkey."""
+        return Keystroke(name="")
+
+    def cbreak(self) -> Any:
+        """Mock cbreak."""
+        return None
+
 
 def test_safe_render_grid_handles_errors() -> None:
     """Test that safe_render_grid properly handles rendering errors."""
     config = RendererConfig()
-    grid = create_grid(GridConfig(size=3, density=0.0))
+    grid = create_grid(GridConfig(width=3, height=3, density=0.0))
     term = MockTerminal()
     state = RendererState()
 

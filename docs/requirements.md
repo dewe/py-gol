@@ -49,15 +49,20 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 
 ### Command-Line Interface
 
-```shell
-gol.py <grid_size> [--interval <ms>] [--density <float>]
+The game should be invokable from the command line with the following format:
+
+```bash
+gol.py <width> <height> [--interval <ms>] [--density <float>]
 ```
 
-Arguments:
+#### Required Arguments
+- `width`: Integer specifying grid width
+- `height`: Integer specifying grid height
 
-- `grid_size`: Integer specifying N for N×N grid
-- `--interval`: Optional update interval in milliseconds (default: 100)
-- `--density`: Optional initial live cell density between 0.0 and 1.0 (default: 0.3)
+#### Optional Arguments
+- `--interval`: Integer specifying update interval in milliseconds (default: 100)
+- `--density`: Float between 0.0 and 1.0 specifying initial live cell density (default: 0.3)
+- `--toroidal`: Flag to enable toroidal grid (edges wrap around)
 
 ## Technical Design
 

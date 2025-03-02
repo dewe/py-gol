@@ -150,21 +150,22 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
 
 
 def calculate_grid_position(
-    terminal: TerminalProtocol, grid_size: int
+    terminal: TerminalProtocol, grid_width: int, grid_height: int
 ) -> tuple[int, int]:
     """Calculates centered position for grid.
 
     Args:
         terminal: Terminal instance
-        grid_size: Size of the grid
+        grid_width: Width of the grid
+        grid_height: Height of the grid
 
     Returns:
         Tuple of (start_x, start_y) coordinates for centered grid.
         If terminal is too small, returns (0, 0) to align grid to top-left corner.
     """
     # Calculate total grid dimensions including spacing
-    total_width = grid_size * 2  # Each cell is 2 chars wide with spacing
-    total_height = grid_size  # Each cell is 1 char high
+    total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
+    total_height = grid_height  # Each cell is 1 char high
 
     # If terminal is smaller than grid in either dimension, align to top-left
     if terminal.width <= total_width or terminal.height <= total_height:
@@ -234,8 +235,9 @@ def render_grid(
         config: Renderer configuration
         state: Current renderer state
     """
-    grid_size = len(grid)
-    start_x, start_y = calculate_grid_position(terminal, grid_size)
+    grid_width = len(grid[0])
+    grid_height = len(grid)
+    start_x, start_y = calculate_grid_position(terminal, grid_width, grid_height)
 
     # Update stored position if changed
     if start_x != state.start_x or start_y != state.start_y:

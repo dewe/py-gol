@@ -27,31 +27,32 @@ pip install -e .
 Run the game using the provided entry point script:
 
 ```bash
-./game.py <grid_size> [--interval <ms>] [--density <float>] [--toroidal]
+./game.py <width> <height> [--interval <ms>] [--density <float>] [--toroidal]
 ```
 
-### Command-Line Arguments
+### Parameters
 
-- `grid_size`: Size of the grid (N for N×N) - **required**
-- `--interval`: Update interval in milliseconds (default: 100). The screen refresh rate is automatically set to 1000/interval updates per second.
-- `--density`: Initial density of live cells between 0.0 and 1.0 (default: 0.3)
-- `--toroidal`: Enable toroidal grid where edges wrap around to the opposite side
+- `width`: Width of the grid - **required**
+- `height`: Height of the grid - **required**
+- `--interval`: Update interval in milliseconds (default: 100)
+- `--density`: Initial density of live cells (0.0-1.0, default: 0.3)
+- `--toroidal`: Enable toroidal grid (edges wrap around)
 
 ### Examples
 
 Run with a 20×20 grid using default settings (100ms interval = 10 fps):
 ```bash
-./game.py 20
+./game.py 20 20
 ```
 
 Run with a 30×30 grid, slower updates (200ms interval = 5 fps), and higher initial density:
 ```bash
-./game.py 30 --interval 200 --density 0.5
+./game.py 30 30 --interval 200 --density 0.5
 ```
 
 Run with a small 10×10 grid, fast updates (50ms interval = 20 fps), and toroidal wrapping:
 ```bash
-./game.py 10 --interval 50 --toroidal
+./game.py 10 10 --interval 50 --toroidal
 ```
 
 ## Game Controls

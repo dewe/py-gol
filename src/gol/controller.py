@@ -38,6 +38,7 @@ def initialize_game(
     Raises:
         RuntimeError: If terminal initialization fails
     """
+
     # Initialize terminal
     terminal, _ = initialize_terminal(config.renderer)
     if terminal is None:
@@ -62,14 +63,13 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     Returns:
         List of initialized and connected cell actors
     """
-    size = len(grid)
     actors: List[CellActor] = []
 
     # Create actors for each cell
-    for x in range(size):
-        for y in range(size):
+    for x in range(config.width):
+        for y in range(config.height):
             pos = Position((x, y))
-            actor = create_cell_actor(pos, grid[x][y])
+            actor = create_cell_actor(pos, grid[y][x])
             actors.append(actor)
 
     # Set up neighbor relationships

@@ -13,7 +13,8 @@ Grid = NewType("Grid", list[list[bool]])
 class GridConfig:
     """Grid configuration parameters."""
 
-    size: int
+    width: int
+    height: int
     density: float = 0.3
     toroidal: bool = False  # Whether grid wraps around edges
 
@@ -29,8 +30,8 @@ def create_grid(config: GridConfig) -> Grid:
     """
     return Grid(
         [
-            [random.random() < config.density for _ in range(config.size)]
-            for _ in range(config.size)
+            [random.random() < config.density for _ in range(config.width)]
+            for _ in range(config.height)
         ]
     )
 
@@ -47,7 +48,8 @@ def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Pos
         List of valid neighbor positions
     """
     x, y = pos
-    size = len(grid)
+    width = len(grid[0])
+    height = len(grid)
     neighbors = []
 
     for dx in (-1, 0, 1):
@@ -59,12 +61,12 @@ def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Pos
 
             if toroidal:
                 # Wrap around edges
-                new_x = new_x % size
-                new_y = new_y % size
+                new_x = new_x % width
+                new_y = new_y % height
                 neighbors.append(Position((new_x, new_y)))
             else:
                 # Only include positions within grid bounds
-                if 0 <= new_x < size and 0 <= new_y < size:
+                if 0 <= new_x < width and 0 <= new_y < height:
                     neighbors.append(Position((new_x, new_y)))
 
     return neighbors

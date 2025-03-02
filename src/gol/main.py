@@ -21,6 +21,7 @@ from gol.renderer import (
     RendererConfig,
     RendererState,
     cleanup_terminal,
+    handle_user_input,
     initialize_terminal,
     safe_render_grid,
 )
@@ -153,9 +154,8 @@ def run_game_loop(
 
                 # Check for user input (non-blocking)
                 key = terminal.inkey(timeout=0.01)  # Short timeout for responsiveness
-                if key:
-                    if key.lower() == "q" or key == "\x03":  # q or Ctrl+C
-                        break
+                if key and handle_user_input(terminal, key) == "quit":
+                    break
 
                 # Sleep for the update interval
                 time.sleep(config.renderer.update_interval / 1000)

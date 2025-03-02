@@ -199,17 +199,18 @@ def test_input_handling_ctrl_c() -> None:
 def test_input_handling_escape() -> None:
     """
     Given: A terminal instance
-    When: User presses Escape key
+    When: User presses Escape key (either variant)
     Then: Should return QUIT command
     """
     config = RendererConfig()
     term, state = initialize_terminal(config)
 
     try:
-        # Simulate Escape key
-        key = create_mock_keystroke(name="KEY_ESCAPE")
-        result = handle_user_input(term, key)
-        assert result == "quit"
+        # Test both possible escape key names
+        for escape_key in ["KEY_ESCAPE", "escape"]:
+            key = create_mock_keystroke(name=escape_key)
+            result = handle_user_input(term, key)
+            assert result == "quit", f"Failed for escape key variant: {escape_key}"
     finally:
         cleanup_terminal(term)
 

@@ -1,37 +1,15 @@
 """Terminal renderer for Game of Life."""
 
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Protocol, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 from blessed import Terminal
-from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from .grid import Grid
 
 # Type alias for cell positions
 CellPos = Tuple[int, int]
-
-
-class TerminalProtocol(Protocol):
-    """Protocol defining the required terminal interface."""
-
-    @property
-    def width(self) -> int: ...
-    @property
-    def height(self) -> int: ...
-    @property
-    def dim(self) -> str: ...
-    @property
-    def normal(self) -> str: ...
-    def move_xy(self, x: int, y: int) -> ParameterizingString: ...
-    def exit_fullscreen(self) -> str: ...
-    def enter_fullscreen(self) -> str: ...
-    def hide_cursor(self) -> str: ...
-    def normal_cursor(self) -> str: ...
-    def clear(self) -> str: ...
-    def enter_ca_mode(self) -> str: ...
-    def exit_ca_mode(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -59,7 +37,7 @@ CommandType = Literal["continue", "quit"]
 
 def initialize_terminal(
     config: RendererConfig,
-) -> Tuple[TerminalProtocol, RendererState]:
+) -> Tuple[Terminal, RendererState]:
     """Sets up blessed terminal interface.
 
     Args:
@@ -79,7 +57,57 @@ def initialize_terminal(
     return term, RendererState()
 
 
-def cleanup_terminal(terminal: TerminalProtocol) -> None:
+def handle_user_input(terminal: Terminal, key: Keystroke) -> CommandType:
+    """Handles keyboard input from user.
+
+    Args:
+        terminal: Terminal instance
+        key: Keystroke from user containing input details
+
+    Returns:
+        CommandType: Either "quit" or "continue" based on input:
+            - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
+            - Returns "continue" for any other key
+    """
+    # Check for quit commands
+    if (
+        key.name in ("q", "Q", "^C", "KEY_ESCAPE", "escape")  # Named keys
+        or key == "\x1b"  # Raw escape character
+        or key == "\x03"  # Raw Ctrl-C
+    ):
+        return "quit"
+
+    # All other keys continue the game
+    return "continue"
+
+
+def handle_resize_event(terminal: Terminal, state: RendererState) -> None:
+    """Handles terminal resize events.
+
+    Args:
+        terminal: Terminal instance to handle resize for
+        state: Current renderer state
+    """
+    # Force full redraw on next frame
+    state.previous_grid = None
+
+    # Clear screen to prevent artifacts
+    clear_screen(terminal)
+
+    # Re-hide cursor as resize can reset terminal state
+    print(terminal.hide_cursor())
+
+
+def clear_screen(terminal: Terminal) -> None:
+    """Clears the terminal screen.
+
+    Args:
+        terminal: Terminal instance
+    """
+    print(terminal.clear())
+
+
+def cleanup_terminal(terminal: Terminal) -> None:
     """Restores terminal to original state.
 
     Args:
@@ -90,9 +118,7 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
     print(terminal.exit_fullscreen() + terminal.normal_cursor())
 
 
-def calculate_grid_position(
-    terminal: TerminalProtocol, grid_size: int
-) -> tuple[int, int]:
+def calculate_grid_position(terminal: Terminal, grid_size: int) -> tuple[int, int]:
     """Calculates centered position for grid.
 
     Args:
@@ -130,15 +156,6 @@ def calculate_grid_position(
     return start_x, start_y
 
 
-def clear_screen(terminal: TerminalProtocol) -> None:
-    """Clears the terminal screen.
-
-    Args:
-        terminal: Terminal instance
-    """
-    print(terminal.clear())
-
-
 def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
     """Convert grid to dictionary for efficient comparison.
 
@@ -152,7 +169,7 @@ def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
 
 
 def render_cell(
-    terminal: TerminalProtocol, x: int, y: int, state: bool, config: RendererConfig
+    terminal: Terminal, x: int, y: int, state: bool, config: RendererConfig
 ) -> str:
     """Render a single cell.
 
@@ -174,7 +191,7 @@ def render_cell(
 
 
 def render_grid(
-    terminal: TerminalProtocol, grid: Grid, config: RendererConfig, state: RendererState
+    terminal: Terminal, grid: Grid, config: RendererConfig, state: RendererState
 ) -> None:
     """Renders current grid state.
 
@@ -226,45 +243,8 @@ def render_grid(
     state.previous_grid = current_grid
 
 
-def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType:
-    """Handles keyboard input from user.
-
-    Args:
-        terminal: Terminal instance
-        key: Keystroke from user containing input details
-
-    Returns:
-        CommandType: Either "quit" or "continue" based on input:
-            - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
-            - Returns "continue" for any other key
-    """
-    # Check for quit commands (q, Q, Ctrl-C, or Escape)
-    if key.name in ("q", "Q", "^C", "KEY_ESCAPE"):
-        return "quit"
-
-    # All other keys continue the game
-    return "continue"
-
-
-def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> None:
-    """Handles terminal resize events.
-
-    Args:
-        terminal: Terminal instance to handle resize for
-        state: Current renderer state
-    """
-    # Force full redraw on next frame
-    state.previous_grid = None
-
-    # Clear screen to prevent artifacts
-    clear_screen(terminal)
-
-    # Re-hide cursor as resize can reset terminal state
-    print(terminal.hide_cursor())
-
-
 def safe_render_grid(
-    terminal: TerminalProtocol, grid: Grid, config: RendererConfig, state: RendererState
+    terminal: Terminal, grid: Grid, config: RendererConfig, state: RendererState
 ) -> None:
     """Safely renders grid with error handling.
 

@@ -9,6 +9,7 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 - **Functional Approach**: Pure functional approach for state transitions
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
 - **Configurable**: Adjustable grid size, update interval, and initial cell density
+- **Adaptive Refresh Rate**: Screen refresh rate automatically optimized based on update interval
 
 ## Installation
 
@@ -31,22 +32,22 @@ Run the game using the provided entry point script:
 ### Command-Line Arguments
 
 - `grid_size`: Size of the grid (N for N×N) - **required**
-- `--interval`: Update interval in milliseconds (default: 100)
+- `--interval`: Update interval in milliseconds (default: 100). The screen refresh rate is automatically set to 1000/interval updates per second.
 - `--density`: Initial density of live cells between 0.0 and 1.0 (default: 0.3)
 
 ### Examples
 
-Run with a 20×20 grid using default settings:
+Run with a 20×20 grid using default settings (100ms interval = 10 fps):
 ```bash
 ./game.py 20
 ```
 
-Run with a 30×30 grid, slower updates, and higher initial density:
+Run with a 30×30 grid, slower updates (200ms interval = 5 fps), and higher initial density:
 ```bash
 ./game.py 30 --interval 200 --density 0.5
 ```
 
-Run with a small 10×10 grid and fast updates:
+Run with a small 10×10 grid and fast updates (50ms interval = 20 fps):
 ```bash
 ./game.py 10 --interval 50
 ```
@@ -73,13 +74,14 @@ The implementation follows these architectural principles:
 - **No Shared State**: Cells don't share mutable state, preventing race conditions
 - **Pure Functions**: State transitions are implemented as pure functions
 - **Thread Safety**: All inter-actor communication is thread-safe
+- **Adaptive Rendering**: Screen refresh rate automatically adjusts to update interval
 
 ### Components
 
 - **Grid Management**: Handles the game's state representation
 - **Cell Actor System**: Implements individual cell behavior
 - **Message Queue System**: Provides thread-safe communication
-- **Renderer**: Visualizes the game state in the terminal
+- **Renderer**: Visualizes the game state in the terminal with adaptive refresh rate
 - **Main Controller**: Orchestrates the game lifecycle
 
 ## Development

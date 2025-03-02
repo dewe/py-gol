@@ -8,8 +8,6 @@ import time
 from threading import Event
 from typing import Any, List
 
-from blessed import Terminal
-
 from gol.controller import (
     ControllerConfig,
     cleanup_game,
@@ -20,6 +18,7 @@ from gol.grid import Grid, GridConfig
 from gol.renderer import (
     RendererConfig,
     RendererState,
+    TerminalProtocol,
     cleanup_terminal,
     handle_user_input,
     initialize_terminal,
@@ -43,7 +42,8 @@ def parse_arguments() -> ControllerConfig:
         "--interval",
         type=int,
         default=100,
-        help="Update interval in milliseconds (default: 100)",
+        help="Update interval in milliseconds (default: 100). "
+        "The refresh rate is automatically set to 1000/interval updates per second.",
     )
 
     parser.add_argument(
@@ -51,13 +51,6 @@ def parse_arguments() -> ControllerConfig:
         type=float,
         default=0.3,
         help="Initial density of live cells (0.0-1.0, default: 0.3)",
-    )
-
-    parser.add_argument(
-        "--refresh-rate",
-        type=int,
-        default=5,
-        help="Screen refresh rate per second (default: 5)",
     )
 
     args = parser.parse_args()
@@ -72,24 +65,20 @@ def parse_arguments() -> ControllerConfig:
     if not 0.0 <= args.density <= 1.0:
         parser.error("Density must be between 0.0 and 1.0")
 
-    if args.refresh_rate <= 0:
-        parser.error("Refresh rate must be positive")
-
     # Create configuration
     return ControllerConfig(
         grid=GridConfig(size=args.grid_size, density=args.density),
         renderer=RendererConfig(
             update_interval=args.interval,
-            refresh_per_second=args.refresh_rate,
         ),
     )
 
 
-def setup_signal_handlers(terminal: Terminal) -> None:
+def setup_signal_handlers(terminal: TerminalProtocol) -> None:
     """Set up signal handlers for graceful shutdown.
 
     Args:
-        terminal: Terminal instance to clean up on exit
+        terminal: Terminal instance to cleanup on signals
     """
 
     def signal_handler(sig: int, frame: Any) -> None:
@@ -103,7 +92,7 @@ def setup_signal_handlers(terminal: Terminal) -> None:
 
 
 def run_game_loop(
-    terminal: Terminal,
+    terminal: TerminalProtocol,
     actors: List,
     config: ControllerConfig,
     renderer_state: RendererState,

@@ -43,7 +43,7 @@ def test_renderer_config_defaults() -> None:
     assert config.cell_dead == "□"
     assert config.cell_spacing == " "
     assert config.update_interval == 100
-    assert config.refresh_per_second == 5
+    assert config.refresh_per_second == 10  # 1000/100 = 10
 
 
 def test_terminal_initialization() -> None:
@@ -251,10 +251,11 @@ class TerminalProtocol(Protocol):
     def clear(self) -> str: ...
 
 
-class MockTerminal:
+class MockTerminal(TerminalProtocol):
     """Mock terminal for testing."""
 
     def __init__(self) -> None:
+        """Initialize mock terminal."""
         self._width = 80
         self._height = 24
         self._dim = ""
@@ -262,42 +263,54 @@ class MockTerminal:
 
     @property
     def width(self) -> int:
+        """Get terminal width."""
         return self._width
 
     @property
     def height(self) -> int:
+        """Get terminal height."""
         return self._height
 
     @property
     def dim(self) -> str:
+        """Get dim attribute."""
         return self._dim
 
     @property
     def normal(self) -> str:
+        """Get normal attribute."""
         return self._normal
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
+        """Mock move cursor that raises error."""
         raise IOError("Mock error")  # Simulate error for testing
 
     def exit_fullscreen(self) -> str:
+        """Mock exit fullscreen."""
         return ""
 
     def enter_fullscreen(self) -> str:
+        """Mock enter fullscreen."""
         return ""
 
     def hide_cursor(self) -> str:
+        """Mock hide cursor."""
         return ""
 
     def normal_cursor(self) -> str:
+        """Mock normal cursor."""
         return ""
 
     def clear(self) -> str:
+        """Mock clear screen."""
         return ""
 
     def enter_ca_mode(self) -> str:
+        """Mock enter ca mode."""
         return ""
 
     def exit_ca_mode(self) -> str:
+        """Mock exit ca mode."""
         return ""
 
 

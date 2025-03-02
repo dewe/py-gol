@@ -2,9 +2,11 @@
 
 import time
 from threading import Event
+from typing import Any
 
 import pytest
 from blessed import Terminal
+from blessed.formatters import ParameterizingString
 
 from gol.actor import CellActor
 from gol.controller import (
@@ -14,10 +16,10 @@ from gol.controller import (
     process_generation,
 )
 from gol.grid import GridConfig
-from gol.renderer import RendererConfig, calculate_grid_position
+from gol.renderer import RendererConfig, TerminalProtocol, calculate_grid_position
 
 
-class MockTerminal:
+class MockTerminal(TerminalProtocol):
     """Mock terminal for testing."""
 
     def __init__(self) -> None:
@@ -35,9 +37,19 @@ class MockTerminal:
         """Get terminal height."""
         return self._height
 
-    def move_xy(self, x: int, y: int) -> str:
+    @property
+    def dim(self) -> str:
+        """Get dim attribute."""
+        return ""
+
+    @property
+    def normal(self) -> str:
+        """Get normal attribute."""
+        return ""
+
+    def move_xy(self, x: int, y: int) -> ParameterizingString:
         """Mock move cursor."""
-        return f"\x1b[{y+1};{x+1}H"
+        return ParameterizingString(f"\x1b[{y+1};{x+1}H")
 
     def enter_fullscreen(self) -> str:
         """Mock enter fullscreen."""
@@ -67,15 +79,23 @@ class MockTerminal:
         """Mock clear screen."""
         return ""
 
+    def inkey(self, timeout: float = 0) -> Any:
+        """Mock inkey."""
+        return None
+
+    def cbreak(self) -> Any:
+        """Mock cbreak."""
+        return None
+
 
 @pytest.fixture
-def mock_terminal() -> Terminal:
+def mock_terminal() -> TerminalProtocol:
     """Create mock terminal.
 
     Returns:
         Mock terminal instance
     """
-    return MockTerminal()  # type: ignore[return-value]
+    return MockTerminal()
 
 
 @pytest.fixture

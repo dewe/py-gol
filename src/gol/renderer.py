@@ -1,15 +1,39 @@
 """Terminal renderer for Game of Life."""
 
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Protocol, Tuple
 
 from blessed import Terminal
+from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from .grid import Grid
 
 # Type alias for cell positions
 CellPos = Tuple[int, int]
+
+
+class TerminalProtocol(Protocol):
+    """Protocol defining the required terminal interface."""
+
+    @property
+    def width(self) -> int: ...
+    @property
+    def height(self) -> int: ...
+    @property
+    def dim(self) -> str: ...
+    @property
+    def normal(self) -> str: ...
+    def move_xy(self, x: int, y: int) -> ParameterizingString: ...
+    def exit_fullscreen(self) -> str: ...
+    def enter_fullscreen(self) -> str: ...
+    def hide_cursor(self) -> str: ...
+    def normal_cursor(self) -> str: ...
+    def clear(self) -> str: ...
+    def enter_ca_mode(self) -> str: ...
+    def exit_ca_mode(self) -> str: ...
+    def inkey(self, timeout: float = 0) -> Keystroke: ...
+    def cbreak(self) -> Any: ...
 
 
 @dataclass(frozen=True)
@@ -20,7 +44,14 @@ class RendererConfig:
     cell_dead: str = "□"
     cell_spacing: str = " "  # Space between cells
     update_interval: int = 100  # milliseconds
-    refresh_per_second: int = 5  # Lower refresh rate for larger grids
+    refresh_per_second: int = None  # type: ignore # Calculated from interval
+
+    def __post_init__(self) -> None:
+        """Calculate refresh rate based on update interval."""
+        # Calculate refresh rate as 1000/interval rounded to nearest integer
+        object.__setattr__(
+            self, "refresh_per_second", round(1000 / self.update_interval)
+        )
 
 
 @dataclass
@@ -37,7 +68,7 @@ CommandType = Literal["continue", "quit"]
 
 def initialize_terminal(
     config: RendererConfig,
-) -> Tuple[Terminal, RendererState]:
+) -> Tuple[TerminalProtocol, RendererState]:
     """Sets up blessed terminal interface.
 
     Args:
@@ -57,7 +88,7 @@ def initialize_terminal(
     return term, RendererState()
 
 
-def handle_user_input(terminal: Terminal, key: Keystroke) -> CommandType:
+def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType:
     """Handles keyboard input from user.
 
     Args:
@@ -81,7 +112,7 @@ def handle_user_input(terminal: Terminal, key: Keystroke) -> CommandType:
     return "continue"
 
 
-def handle_resize_event(terminal: Terminal, state: RendererState) -> None:
+def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> None:
     """Handles terminal resize events.
 
     Args:
@@ -98,7 +129,7 @@ def handle_resize_event(terminal: Terminal, state: RendererState) -> None:
     print(terminal.hide_cursor())
 
 
-def clear_screen(terminal: Terminal) -> None:
+def clear_screen(terminal: TerminalProtocol) -> None:
     """Clears the terminal screen.
 
     Args:
@@ -107,7 +138,7 @@ def clear_screen(terminal: Terminal) -> None:
     print(terminal.clear())
 
 
-def cleanup_terminal(terminal: Terminal) -> None:
+def cleanup_terminal(terminal: TerminalProtocol) -> None:
     """Restores terminal to original state.
 
     Args:
@@ -118,7 +149,9 @@ def cleanup_terminal(terminal: Terminal) -> None:
     print(terminal.exit_fullscreen() + terminal.normal_cursor())
 
 
-def calculate_grid_position(terminal: Terminal, grid_size: int) -> tuple[int, int]:
+def calculate_grid_position(
+    terminal: TerminalProtocol, grid_size: int
+) -> tuple[int, int]:
     """Calculates centered position for grid.
 
     Args:
@@ -169,7 +202,7 @@ def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
 
 
 def render_cell(
-    terminal: Terminal, x: int, y: int, state: bool, config: RendererConfig
+    terminal: TerminalProtocol, x: int, y: int, state: bool, config: RendererConfig
 ) -> str:
     """Render a single cell.
 
@@ -191,7 +224,7 @@ def render_cell(
 
 
 def render_grid(
-    terminal: Terminal, grid: Grid, config: RendererConfig, state: RendererState
+    terminal: TerminalProtocol, grid: Grid, config: RendererConfig, state: RendererState
 ) -> None:
     """Renders current grid state.
 
@@ -244,7 +277,10 @@ def render_grid(
 
 
 def safe_render_grid(
-    terminal: Terminal, grid: Grid, config: RendererConfig, state: RendererState
+    terminal: TerminalProtocol,  # Accept any terminal that implements the protocol
+    grid: Grid,
+    config: RendererConfig,
+    state: RendererState,
 ) -> None:
     """Safely renders grid with error handling.
 

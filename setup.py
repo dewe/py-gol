@@ -9,6 +9,7 @@ setup(
     install_requires=[
         "blessed>=1.20",  # Terminal UI
         "typing-extensions>=4.0.0",  # Type hints
+        "numpy>=1.24.0",  # Fast array operations
     ],
     extras_require={
         "dev": [

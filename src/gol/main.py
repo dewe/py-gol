@@ -18,7 +18,6 @@ from gol.grid import Grid, GridConfig
 from gol.renderer import (
     RendererConfig,
     RendererState,
-    Terminal,
     TerminalProtocol,
     cleanup_terminal,
     handle_user_input,
@@ -33,14 +32,6 @@ def parse_arguments() -> ControllerConfig:
     Returns:
         ControllerConfig with parsed arguments
     """
-    # Create terminal early to get dimensions
-    term = Terminal()
-
-    # Calculate default grid size based on terminal dimensions
-    # Each cell takes 2 characters width due to spacing
-    default_width = (term.width - 4) // 2  # Leave some margin
-    default_height = term.height - 4  # Leave some margin
-
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life with actor-based concurrency\n\n"
         "Controls:\n"
@@ -48,16 +39,17 @@ def parse_arguments() -> ControllerConfig:
         "  - Press Escape to exit"
     )
 
+    # Use more efficient default values
     parser.add_argument(
         "--width",
         type=int,
-        default=default_width,
+        default=0,  # Will be calculated later based on terminal
         help="Width of the grid (auto-sized to terminal width if not specified)",
     )
     parser.add_argument(
         "--height",
         type=int,
-        default=default_height,
+        default=0,  # Will be calculated later based on terminal
         help="Height of the grid (auto-sized to terminal height if not specified)",
     )
 
@@ -83,20 +75,14 @@ def parse_arguments() -> ControllerConfig:
 
     args = parser.parse_args()
 
-    # Validate arguments
-    if args.width <= 0:
-        parser.error("Grid width must be positive")
-
-    if args.height <= 0:
-        parser.error("Grid height must be positive")
-
+    # Validate non-terminal dependent arguments
     if args.interval <= 0:
         parser.error("Interval must be positive")
 
     if not 0.0 <= args.density <= 1.0:
         parser.error("Density must be between 0.0 and 1.0")
 
-    # Create configuration
+    # Create configuration with placeholder dimensions
     return ControllerConfig(
         grid=GridConfig(
             width=args.width,
@@ -107,6 +93,41 @@ def parse_arguments() -> ControllerConfig:
         renderer=RendererConfig(
             update_interval=args.interval,
         ),
+    )
+
+
+def adjust_grid_dimensions(
+    config: ControllerConfig, terminal: TerminalProtocol
+) -> ControllerConfig:
+    """Adjust grid dimensions based on terminal size if not specified.
+
+    Args:
+        config: Current configuration
+        terminal: Terminal instance
+
+    Returns:
+        Updated configuration with proper dimensions
+    """
+    # Calculate default grid size based on terminal dimensions
+    # Each cell takes 2 characters width due to spacing
+    width = config.grid.width or (terminal.width - 4) // 2  # Leave some margin
+    height = config.grid.height or terminal.height - 4  # Leave some margin
+
+    # Validate dimensions
+    if width <= 0:
+        raise ValueError("Grid width must be positive")
+    if height <= 0:
+        raise ValueError("Grid height must be positive")
+
+    # Create new config with adjusted dimensions
+    return ControllerConfig(
+        grid=GridConfig(
+            width=width,
+            height=height,
+            density=config.grid.density,
+            toroidal=config.grid.toroidal,
+        ),
+        renderer=config.renderer,
     )
 
 
@@ -205,11 +226,16 @@ def main() -> None:
     """Main entry point for the application."""
     terminal = None
     try:
-        # Parse command line arguments
+        # Parse command line arguments (without terminal dependency)
         config = parse_arguments()
 
-        # Initialize game components
+        # Initialize terminal only when needed
         terminal, renderer_state = initialize_terminal(config.renderer)
+
+        # Adjust grid dimensions based on terminal size
+        config = adjust_grid_dimensions(config, terminal)
+
+        # Initialize game components
         terminal, actors = initialize_game(config)
 
         # Run game loop

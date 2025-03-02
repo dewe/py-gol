@@ -1,9 +1,10 @@
 """Game of Life controller implementation."""
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Empty
 from threading import Event
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
 from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
@@ -53,6 +54,21 @@ def initialize_game(
     return terminal, actors
 
 
+def create_actor_batch(
+    positions: List[Position], states: List[bool]
+) -> List[CellActor]:
+    """Create a batch of cell actors in parallel.
+
+    Args:
+        positions: List of positions for actors
+        states: List of initial states for actors
+
+    Returns:
+        List of created cell actors
+    """
+    return [create_cell_actor(pos, state) for pos, state in zip(positions, states)]
+
+
 def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     """Create and connect cell actors.
 
@@ -63,27 +79,40 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     Returns:
         List of initialized and connected cell actors
     """
-    actors: List[CellActor] = []
-
-    # Create actors for each cell
+    # Prepare positions and states
+    positions = []
+    states = []
     for x in range(config.width):
         for y in range(config.height):
-            pos = Position((x, y))
-            actor = create_cell_actor(pos, grid[y][x])
-            actors.append(actor)
+            positions.append(Position((x, y)))
+            states.append(grid[y][x])
+
+    # Create actors in parallel batches
+    batch_size = 1000  # Adjust based on grid size
+    actors = []
+
+    for i in range(0, len(positions), batch_size):
+        batch_positions = positions[i : i + batch_size]
+        batch_states = states[i : i + batch_size]
+        actors.extend(create_actor_batch(batch_positions, batch_states))
 
     # Set up neighbor relationships
-    for actor in actors:
-        x, y = actor.position
-        neighbor_positions = get_neighbors(
-            grid, actor.position, toroidal=config.toroidal
-        )
+    with ThreadPoolExecutor() as executor:
 
-        # Find neighbor actors
-        neighbors: List[Actor] = [n for n in actors if n.position in neighbor_positions]
+        def setup_neighbors(actor: CellActor) -> None:
+            x, y = actor.position
+            neighbor_positions = get_neighbors(
+                grid, actor.position, toroidal=config.toroidal
+            )
+            # Find neighbor actors and cast to Actor type
+            neighbors = [
+                cast(Actor, n) for n in actors if n.position in neighbor_positions
+            ]
+            # Subscribe to neighbors
+            subscribe_to_neighbors(actor, neighbors)
 
-        # Subscribe to neighbors
-        subscribe_to_neighbors(actor, neighbors)
+        # Process neighbor setup in parallel
+        list(executor.map(setup_neighbors, actors))
 
     return actors
 

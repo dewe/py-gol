@@ -1,8 +1,10 @@
 """Grid management for Game of Life."""
 
-import random
 from dataclasses import dataclass
-from typing import NewType
+from typing import NewType, cast
+
+import numpy as np
+from numpy.typing import NDArray
 
 # Type definitions
 Position = NewType("Position", tuple[int, int])
@@ -28,12 +30,13 @@ def create_grid(config: GridConfig) -> Grid:
     Returns:
         A new Grid with random live cells based on density
     """
-    return Grid(
-        [
-            [random.random() < config.density for _ in range(config.width)]
-            for _ in range(config.height)
-        ]
+    # Use numpy for faster random generation
+    random_grid: NDArray[np.bool_] = (
+        np.random.random((config.height, config.width)) < config.density
     )
+    # Convert numpy array to list[list[bool]] with explicit casting
+    grid_list = cast(list[list[bool]], random_grid.tolist())
+    return Grid(grid_list)
 
 
 def get_neighbors(grid: Grid, pos: Position, toroidal: bool = False) -> list[Position]:

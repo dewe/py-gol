@@ -182,6 +182,38 @@ def test_process_generation_state_changes(
         ), f"Cell at {actor.position} changed unexpectedly"
 
 
+def test_process_generation_error_handling(
+    config: ControllerConfig, mock_terminal: Terminal
+) -> None:
+    """
+    Given: A set of cell actors where one has an invalid state
+    When: Processing one generation
+    Then: Should handle errors gracefully
+    And: Should maintain system stability
+    """
+    # Given
+    terminal, actors = initialize_game(config)
+    completion_event = Event()
+
+    # Create an error condition by corrupting one actor's queue
+    problem_actor = actors[0]
+    problem_actor.queue.put(("invalid_id", "invalid_state"))  # Wrong message format
+
+    # When
+    process_generation(actors, completion_event)
+
+    # Then
+    # Verify system remains stable
+    assert completion_event.is_set(), "Generation should complete despite errors"
+    assert all(
+        actor.queue.empty() for actor in actors
+    ), "All queues should be cleared even with errors"
+
+    # Verify other actors were processed
+    processed_count = sum(1 for actor in actors[1:] if actor.queue.empty())
+    assert processed_count == len(actors) - 1, "Other actors should be processed"
+
+
 def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None:
     """
     Given: Running game state

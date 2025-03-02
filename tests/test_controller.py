@@ -16,6 +16,7 @@ from gol.controller import (
     process_generation,
 )
 from gol.grid import GridConfig
+from gol.messaging import broadcast_state
 from gol.renderer import RendererConfig, Terminal
 
 
@@ -134,6 +135,51 @@ def test_process_generation_timing(
     # Then
     assert duration < 1.0, "Generation processing took too long"
     assert all(actor.queue.empty() for actor in actors)
+
+
+def test_process_generation_state_changes(
+    config: ControllerConfig, mock_terminal: Terminal
+) -> None:
+    """
+    Given: A known pattern of live and dead cells
+    When: Processing one generation
+    Then: Should correctly apply Game of Life rules
+    And: Should maintain stable patterns
+    """
+    # Given
+    terminal, actors = initialize_game(config)
+    completion_event = Event()
+
+    # Set up a 2x2 block pattern (stable pattern)
+    # [1,1,0]
+    # [1,1,0] -> Should stay the same
+    # [0,0,0]
+    for actor in actors:
+        x, y = actor.position
+        # Set top-left 2x2 block to live
+        actor.state = x < 2 and y < 2
+        # Broadcast initial state to neighbors
+        broadcast_state(actor, actor.state)
+
+    # Store initial state
+    initial_live_cells = sum(1 for actor in actors if actor.state)
+    assert initial_live_cells == 4, "Initial pattern should have 4 live cells"
+
+    # When
+    process_generation(actors, completion_event)
+
+    # Then
+    # Count live cells - should still be exactly 4 (stable pattern)
+    final_live_cells = sum(1 for actor in actors if actor.state)
+    assert final_live_cells == 4, f"Expected 4 live cells but got {final_live_cells}"
+
+    # Verify pattern stayed the same (block is stable)
+    for actor in actors:
+        x, y = actor.position
+        expected_state = x < 2 and y < 2
+        assert (
+            actor.state == expected_state
+        ), f"Cell at {actor.position} changed unexpectedly"
 
 
 def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None:

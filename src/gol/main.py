@@ -143,16 +143,18 @@ def run_game_loop(
 
                 if time_since_last_render >= min_frame_time:
                     # Extract grid state from actors
+                    # Create empty grid with correct dimensions [rows][columns]
                     grid = Grid(
                         [
-                            [False for _ in range(config.grid.width)]
-                            for _ in range(config.grid.height)
+                            [False for _ in range(config.grid.width)]  # columns
+                            for _ in range(config.grid.height)  # rows
                         ]
                     )
 
+                    # Update grid with actor states
                     for actor in actors:
                         x, y = actor.position
-                        grid[x][y] = actor.state
+                        grid[y][x] = actor.state  # Access as [row][column]
 
                     # Render grid with differential updates
                     safe_render_grid(terminal, grid, config.renderer, renderer_state)

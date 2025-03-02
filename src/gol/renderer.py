@@ -235,8 +235,9 @@ def render_grid(
         config: Renderer configuration
         state: Current renderer state
     """
-    grid_width = len(grid[0])
-    grid_height = len(grid)
+    # Grid dimensions - grid is stored as [rows][columns]
+    grid_height = len(grid)  # Number of rows
+    grid_width = len(grid[0])  # Number of columns in first row
     start_x, start_y = calculate_grid_position(terminal, grid_width, grid_height)
 
     # Update stored position if changed

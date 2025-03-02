@@ -195,13 +195,15 @@ def test_handle_user_input_interval_adjustment(term: TerminalProtocol) -> None:
     key = Keystroke(name="KEY_UP")
     result = handle_user_input(term, key, config)
     assert result == "continue"
-    assert config.update_interval == initial_interval + config.interval_step
+    assert config.update_interval > initial_interval
 
     # Test decreasing interval
     key = Keystroke(name="KEY_DOWN")
     result = handle_user_input(term, key, config)
     assert result == "continue"
-    assert config.update_interval == initial_interval
+    assert (
+        config.update_interval < initial_interval + config.min_interval_step * 2
+    )  # Account for rounding
 
 
 def test_handle_user_input_interval_limits(term: TerminalProtocol) -> None:

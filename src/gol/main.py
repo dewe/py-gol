@@ -13,8 +13,9 @@ from gol.controller import (
     cleanup_game,
     initialize_game,
     process_generation,
+    setup_cell_actors,
 )
-from gol.grid import Grid, GridConfig
+from gol.grid import Grid, GridConfig, create_grid
 from gol.renderer import (
     RendererConfig,
     RendererState,
@@ -36,6 +37,7 @@ def parse_arguments() -> ControllerConfig:
         description="Conway's Game of Life with actor-based concurrency\n\n"
         "Controls:\n"
         "  - Press 'q' or Ctrl-C to quit the game\n"
+        "  - Press 'r' to restart with a new grid\n"
         "  - Press Escape to exit"
     )
 
@@ -208,8 +210,15 @@ def run_game_loop(
                         timeout=0.01
                     )  # Short timeout for responsiveness
                     if key:  # Only process if we got a key
-                        if handle_user_input(terminal, key) == "quit":
+                        command = handle_user_input(terminal, key)
+                        if command == "quit":
                             break
+                        elif command == "restart":
+                            # Create new grid and actors
+                            grid = create_grid(config.grid)
+                            actors.clear()  # Clear old actors
+                            actors.extend(setup_cell_actors(grid, config.grid))
+                            renderer_state.previous_grid = None  # Force full redraw
                 except Exception:
                     # If there's any error reading input, ignore it and continue
                     pass

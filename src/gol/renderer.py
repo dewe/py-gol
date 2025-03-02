@@ -63,7 +63,7 @@ class RendererState:
     start_y: int = 0
 
 
-CommandType = Literal["continue", "quit"]
+CommandType = Literal["continue", "quit", "restart"]
 
 
 def initialize_terminal(
@@ -96,8 +96,9 @@ def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType
         key: Keystroke from user containing input details
 
     Returns:
-        CommandType: Either "quit" or "continue" based on input:
+        CommandType: Command based on input:
             - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
+            - Returns "restart" for 'r' or 'R'
             - Returns "continue" for any other key
     """
     # Check for quit commands
@@ -108,6 +109,10 @@ def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType
         or key in ("q", "Q")  # Raw key values
     ):
         return "quit"
+
+    # Check for restart command
+    if key.name in ("r", "R") or key in ("r", "R"):
+        return "restart"
 
     # All other keys continue the game
     return "continue"

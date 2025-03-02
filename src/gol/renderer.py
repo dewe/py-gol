@@ -355,7 +355,6 @@ def render_status_line(
     plain_fps = f"FPS: {state.actual_fps:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
     plain_cpu = f"CPU: {state.cpu_percent:.1f}%"
-    plain_mem = f"Mem: {state.memory_mb:.1f}MB"
 
     # Calculate true length without escape sequences
     true_length = (
@@ -366,8 +365,7 @@ def render_status_line(
         + len(plain_fps)
         + len(plain_interval)
         + len(plain_cpu)
-        + len(plain_mem)
-        + len(" | ") * 6
+        + len(" | ") * 5
         + len(" ")
     )
 
@@ -383,12 +381,9 @@ def render_status_line(
         f"{terminal.magenta}Interval: {terminal.normal}{config.update_interval}ms"
     )
     cpu = f"{terminal.yellow}CPU: {terminal.normal}{state.cpu_percent:.1f}%"
-    mem = f"{terminal.blue}Mem: {terminal.normal}{state.memory_mb:.1f}MB"
 
     # Combine metrics with separators
-    status = (
-        f"{cells} {active} | {changes} | {msgs} | {fps} | {interval} | {cpu} | {mem}"
-    )
+    status = f"{cells} {active} | {changes} | {msgs} | {fps} | {interval} | {cpu}"
 
     # Position at bottom of screen
     y = terminal.height - 1

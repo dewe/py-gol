@@ -46,8 +46,7 @@ def parse_arguments() -> ControllerConfig:
         "--interval",
         type=int,
         default=100,
-        help="Update interval in milliseconds (default: 100). "
-        "The refresh rate is automatically set to 1000/interval updates per second.",
+        help="Update interval in milliseconds (default: 100).",
     )
 
     parser.add_argument(

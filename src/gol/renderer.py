@@ -289,10 +289,28 @@ def render_status_line(
         state.changes_this_second = 0
         state.last_fps_update = current_time
 
-    # Format each metric with colors
+    # Create plain text version to calculate true length
+    plain_cells = f"Cells: {state.total_cells}"
+    plain_active = f"(Active: {state.active_cells})"
+    plain_changes = f"Changes/s: {state.changes_per_second:.0f}"
+    msg_count = state.messages_per_second / 1000
+    plain_msgs = f"Msgs/s: {msg_count:.1f}k"
+    plain_fps = f"FPS: {state.actual_fps:.1f}"
+
+    # Calculate true length without escape sequences
+    true_length = (
+        len(plain_cells)
+        + len(plain_active)
+        + len(plain_changes)
+        + len(plain_msgs)
+        + len(plain_fps)
+        + len(" | ") * 3
+        + len(" ")
+    )
+
+    # Format colored version
     cells = f"{terminal.blue}Cells: {terminal.normal}{state.total_cells}"
     active = f"({terminal.green}Active: {state.active_cells}{terminal.normal})"
-    msg_count = state.messages_per_second / 1000
     changes = (
         f"{terminal.magenta}Changes/s: {terminal.normal}{state.changes_per_second:.0f}"
     )
@@ -304,19 +322,10 @@ def render_status_line(
 
     # Position at bottom of screen
     y = terminal.height - 1
-    x = 0
 
-    # Calculate padding considering color escape sequences
-    color_padding = (
-        len(terminal.blue) * 4
-        + len(terminal.green)
-        + len(terminal.magenta)
-        + len(terminal.yellow)
-        + len(terminal.normal) * 7
-    )
-    padding = (terminal.width - len(status) + color_padding) // 2
-    if padding > 0:
-        x = padding
+    # Center based on true content length
+    x = (terminal.width - true_length) // 2
+    x = max(0, x)  # Ensure we don't go negative
 
     # Clear the line and render the status
     return (

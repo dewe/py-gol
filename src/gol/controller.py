@@ -5,12 +5,15 @@ from queue import Empty
 from threading import Event
 from typing import List, Tuple
 
-from blessed import Terminal
-
 from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
 from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
 from gol.messaging import Actor, subscribe_to_neighbors
-from gol.renderer import RendererConfig, cleanup_terminal, initialize_terminal
+from gol.renderer import (
+    RendererConfig,
+    TerminalProtocol,
+    cleanup_terminal,
+    initialize_terminal,
+)
 
 
 @dataclass(frozen=True)
@@ -21,7 +24,9 @@ class ControllerConfig:
     renderer: RendererConfig
 
 
-def initialize_game(config: ControllerConfig) -> Tuple[Terminal, List[CellActor]]:
+def initialize_game(
+    config: ControllerConfig,
+) -> Tuple[TerminalProtocol, List[CellActor]]:
     """Initialize game components.
 
     Args:
@@ -111,7 +116,7 @@ def process_generation(actors: List[CellActor], completion_event: Event) -> None
         completion_event.set()
 
 
-def cleanup_game(terminal: Terminal, actors: List[CellActor]) -> None:
+def cleanup_game(terminal: TerminalProtocol, actors: List[CellActor]) -> None:
     """Clean up game resources.
 
     Args:

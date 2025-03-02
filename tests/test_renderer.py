@@ -1,9 +1,10 @@
 """Tests for the terminal renderer module."""
 
-from typing import Any
+from typing import Protocol
 
 import pytest
 from blessed import Terminal
+from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
@@ -212,12 +213,33 @@ def test_handle_resize_event() -> None:
         cleanup_terminal(term)
 
 
-class MockTerminal(Terminal):
-    """Mock terminal that raises errors for testing."""
+class TerminalProtocol(Protocol):
+    """Protocol defining the required terminal interface."""
+
+    @property
+    def width(self) -> int: ...
+    @property
+    def height(self) -> int: ...
+    @property
+    def dim(self) -> str: ...
+    @property
+    def normal(self) -> str: ...
+    def move_xy(self, x: int, y: int) -> ParameterizingString: ...
+    def exit_fullscreen(self) -> str: ...
+    def enter_fullscreen(self) -> str: ...
+    def hide_cursor(self) -> str: ...
+    def normal_cursor(self) -> str: ...
+    def clear(self) -> str: ...
+
+
+class MockTerminal:
+    """Mock terminal for testing."""
 
     def __init__(self) -> None:
         self._width = 80
         self._height = 24
+        self._dim = ""
+        self._normal = ""
 
     @property
     def width(self) -> int:
@@ -227,13 +249,21 @@ class MockTerminal(Terminal):
     def height(self) -> int:
         return self._height
 
-    def move_xy(self, x: int, y: int) -> Any:
-        raise IOError("Mock error")
+    @property
+    def dim(self) -> str:
+        return self._dim
 
-    def exit_ca_mode(self) -> str:
+    @property
+    def normal(self) -> str:
+        return self._normal
+
+    def move_xy(self, x: int, y: int) -> ParameterizingString:
+        raise IOError("Mock error")  # Simulate error for testing
+
+    def exit_fullscreen(self) -> str:
         return ""
 
-    def enter_ca_mode(self) -> str:
+    def enter_fullscreen(self) -> str:
         return ""
 
     def hide_cursor(self) -> str:
@@ -245,7 +275,10 @@ class MockTerminal(Terminal):
     def clear(self) -> str:
         return ""
 
-    def exit_fullscreen(self) -> str:
+    def enter_ca_mode(self) -> str:
+        return ""
+
+    def exit_ca_mode(self) -> str:
         return ""
 
 

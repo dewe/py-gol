@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from time import time
 from typing import Any, Dict, Literal, Optional, Protocol, Tuple
 
+import psutil
 from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
@@ -12,6 +13,9 @@ from .grid import Grid
 
 # Type alias for cell positions
 CellPos = Tuple[int, int]
+
+# Get current process for metrics
+_process = psutil.Process()
 
 
 class TerminalProtocol(Protocol):
@@ -122,6 +126,8 @@ class RendererState:
     last_message_update: float = 0.0
     changes_this_second: int = 0
     changes_per_second: float = 0.0
+    cpu_percent: float = 0.0
+    memory_mb: float = 0.0
 
 
 CommandType = Literal["continue", "quit", "restart"]
@@ -336,6 +342,10 @@ def render_status_line(
         state.changes_this_second = 0
         state.last_fps_update = current_time
 
+        # Update process metrics
+        state.cpu_percent = _process.cpu_percent()
+        state.memory_mb = _process.memory_info().rss / 1024 / 1024  # Convert to MB
+
     # Create plain text version to calculate true length
     plain_cells = f"Cells: {state.total_cells}"
     plain_active = f"(Active: {state.active_cells})"
@@ -344,6 +354,8 @@ def render_status_line(
     plain_msgs = f"Msgs/s: {msg_count:.1f}k"
     plain_fps = f"FPS: {state.actual_fps:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
+    plain_cpu = f"CPU: {state.cpu_percent:.1f}%"
+    plain_mem = f"Mem: {state.memory_mb:.1f}MB"
 
     # Calculate true length without escape sequences
     true_length = (
@@ -353,7 +365,9 @@ def render_status_line(
         + len(plain_msgs)
         + len(plain_fps)
         + len(plain_interval)
-        + len(" | ") * 4
+        + len(plain_cpu)
+        + len(plain_mem)
+        + len(" | ") * 6
         + len(" ")
     )
 
@@ -368,9 +382,13 @@ def render_status_line(
     interval = (
         f"{terminal.magenta}Interval: {terminal.normal}{config.update_interval}ms"
     )
+    cpu = f"{terminal.yellow}CPU: {terminal.normal}{state.cpu_percent:.1f}%"
+    mem = f"{terminal.blue}Mem: {terminal.normal}{state.memory_mb:.1f}MB"
 
     # Combine metrics with separators
-    status = f"{cells} {active} | {changes} | {msgs} | {fps} | {interval}"
+    status = (
+        f"{cells} {active} | {changes} | {msgs} | {fps} | {interval} | {cpu} | {mem}"
+    )
 
     # Position at bottom of screen
     y = terminal.height - 1

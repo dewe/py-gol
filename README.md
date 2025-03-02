@@ -2,8 +2,6 @@
 
 A terminal-based implementation of Conway's Game of Life using an actor-based concurrent model where each cell operates independently.
 
-![demo](./docs/demo.gif)
-
 ## Features
 
 - **Actor-Based Concurrency**: Each cell is implemented as an independent actor
@@ -13,6 +11,8 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 - **Configurable**: Adjustable grid size, update interval, and initial cell density
 - **Adaptive Refresh Rate**: Screen refresh rate automatically optimized based on update interval
 - **Toroidal Grid**: Optional wrapping of edges to create a continuous surface
+
+![demo](./docs/demo.gif)
 
 ## Installation
 

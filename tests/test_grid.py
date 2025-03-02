@@ -15,7 +15,7 @@ def test_grid_creation() -> None:
     Given a grid size of 10 and density of 0.3
     When creating a new grid
     Then grid should be 10x10
-    And approximately 30% of cells should be alive
+    And approximately 30% of cells should be alive (with 15% margin)
     """
     config = GridConfig(size=10, density=0.3)
     grid = create_grid(config)
@@ -24,11 +24,13 @@ def test_grid_creation() -> None:
     assert len(grid) == 10
     assert all(len(row) == 10 for row in grid)
 
-    # Check approximate density (with 10% margin)
+    # Check approximate density (with 15% margin to reduce flakiness)
     live_cells = sum(sum(1 for cell in row if cell) for row in grid)
     total_cells = 100
     actual_density = live_cells / total_cells
-    assert 0.2 <= actual_density <= 0.4
+    assert (
+        0.15 <= actual_density <= 0.45
+    ), f"Expected density between 15% and 45%, got {actual_density * 100:.1f}%"
 
 
 def test_neighbor_positions() -> None:

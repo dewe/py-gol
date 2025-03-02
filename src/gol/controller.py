@@ -31,7 +31,7 @@ def initialize_game(config: ControllerConfig) -> Tuple[Terminal, List[CellActor]
         Tuple of (terminal, list of cell actors)
     """
     # Initialize terminal
-    terminal = initialize_terminal(config.renderer)
+    terminal, _ = initialize_terminal(config.renderer)
 
     # Create initial grid
     grid = create_grid(config.grid)

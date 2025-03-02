@@ -1,14 +1,15 @@
-"""Tests for the terminal renderer component."""
+"""Tests for the terminal renderer module."""
 
-from typing import Any, Callable, Optional
-from unittest.mock import MagicMock
+from typing import Any
 
+import pytest
 from blessed import Terminal
 from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
 from gol.renderer import (
     RendererConfig,
+    RendererState,
     cleanup_terminal,
     handle_resize_event,
     handle_user_input,
@@ -18,52 +19,45 @@ from gol.renderer import (
 )
 
 
-def create_mock_keystroke(
-    name: str, code: Optional[int] = None, is_sequence: bool = False
-) -> Keystroke:
+def create_mock_keystroke(name: str = "") -> Keystroke:
     """Create a mock keystroke for testing.
 
     Args:
-        name: Name of the key
-        code: Optional key code
-        is_sequence: Whether this is a sequence
+        name: Name of the key pressed
 
     Returns:
-        Mock keystroke instance
+        Mock keystroke object
     """
-    mock = MagicMock(spec=Keystroke)
-    mock.name = name
-    mock.code = code
-    return mock
+    return Keystroke(name=name)
 
 
 def test_renderer_config_defaults() -> None:
     """
     Given: Default renderer configuration
-    When: Creating a new config
+    When: Creating new config
     Then: Should have expected default values
     """
     config = RendererConfig()
     assert config.cell_alive == "■"
     assert config.cell_dead == "□"
+    assert config.cell_spacing == " "
     assert config.update_interval == 100
+    assert config.refresh_per_second == 5
 
 
 def test_terminal_initialization() -> None:
     """
     Given: A new terminal initialization
     When: Setting up the terminal
-    Then: Should return configured Terminal instance
+    Then: Should return configured Terminal instance and RendererState
     And: Terminal should be in fullscreen mode
     And: Terminal should have cursor hidden
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     assert isinstance(term, Terminal)
-    # Note: We can't directly test terminal properties in unit tests
-    # as they depend on actual terminal capabilities.
-    # These would be better tested in integration tests.
+    assert isinstance(state, RendererState)
 
 
 def test_terminal_cleanup() -> None:
@@ -73,7 +67,7 @@ def test_terminal_cleanup() -> None:
     Then: Should restore terminal to original state
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     try:
         # Verify terminal is initialized
@@ -95,7 +89,7 @@ def test_terminal_initialization_and_cleanup_cycle() -> None:
     config = RendererConfig()
 
     for _ in range(3):  # Test multiple cycles
-        term = initialize_terminal(config)
+        term, state = initialize_terminal(config)
         assert isinstance(term, Terminal)
         cleanup_terminal(term)
 
@@ -110,7 +104,7 @@ def test_grid_rendering() -> None:
     """
     # Setup
     renderer_config = RendererConfig()
-    term = initialize_terminal(renderer_config)
+    term, state = initialize_terminal(renderer_config)
 
     # Create a small test grid with known state
     grid_config = GridConfig(size=3, density=0.0)  # Start with empty grid
@@ -122,7 +116,7 @@ def test_grid_rendering() -> None:
 
     try:
         # Act
-        render_grid(term, grid, renderer_config)
+        render_grid(term, grid, renderer_config, state)
 
         # We can't directly test terminal output in unit tests,
         # but we can verify the function runs without errors
@@ -138,11 +132,11 @@ def test_grid_rendering_empty() -> None:
     Then: Should display all dead cells
     """
     renderer_config = RendererConfig()
-    term = initialize_terminal(renderer_config)
+    term, state = initialize_terminal(renderer_config)
     grid = create_grid(GridConfig(size=3, density=0.0))
 
     try:
-        render_grid(term, grid, renderer_config)
+        render_grid(term, grid, renderer_config, state)
     finally:
         cleanup_terminal(term)
 
@@ -154,7 +148,7 @@ def test_input_handling_quit() -> None:
     Then: Should return QUIT command
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     try:
         # Simulate 'q' keypress
@@ -172,7 +166,7 @@ def test_input_handling_continue() -> None:
     Then: Should return CONTINUE command
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     try:
         # Simulate 'x' keypress
@@ -190,7 +184,7 @@ def test_input_handling_ctrl_c() -> None:
     Then: Should return QUIT command
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     try:
         # Simulate Ctrl-C
@@ -208,49 +202,63 @@ def test_handle_resize_event() -> None:
     Then: Should clear screen and rehide cursor
     """
     config = RendererConfig()
-    term = initialize_terminal(config)
+    term, state = initialize_terminal(config)
 
     try:
         # Test resize handling
-        handle_resize_event(term)
+        handle_resize_event(term, state)
         # We can't test actual resize, but we can verify it runs without errors
     finally:
         cleanup_terminal(term)
 
 
+class MockTerminal(Terminal):
+    """Mock terminal that raises errors for testing."""
+
+    def __init__(self) -> None:
+        self._width = 80
+        self._height = 24
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    def move_xy(self, x: int, y: int) -> Any:
+        raise IOError("Mock error")
+
+    def exit_ca_mode(self) -> str:
+        return ""
+
+    def enter_ca_mode(self) -> str:
+        return ""
+
+    def hide_cursor(self) -> str:
+        return ""
+
+    def normal_cursor(self) -> str:
+        return ""
+
+    def clear(self) -> str:
+        return ""
+
+    def exit_fullscreen(self) -> str:
+        return ""
+
+
 def test_safe_render_grid_handles_errors() -> None:
-    """
-    Given: A terminal instance and grid
-    When: Rendering encounters an error
-    Then: Should cleanup terminal and raise appropriate error
-    """
+    """Test that safe_render_grid properly handles rendering errors."""
     config = RendererConfig()
-    term = initialize_terminal(config)
     grid = create_grid(GridConfig(size=3, density=0.0))
+    term = MockTerminal()
+    state = RendererState()
 
-    try:
-        # Test normal rendering
-        safe_render_grid(term, grid, config)
+    # Force a render that should trigger the error
+    with pytest.raises(RuntimeError) as exc_info:
+        safe_render_grid(term, grid, config, state)
 
-        # Test error handling by forcing an error
-        # We'll do this by temporarily breaking the terminal's move_xy
-        original_move_xy: Callable[[int, int], str] = term.move_xy
-
-        def mock_error(*args: Any) -> None:
-            raise IOError("Mock error")
-
-        # Store reference to mock function to avoid assignment to method
-        mock_move_xy = mock_error
-        term.move_xy = mock_move_xy  # type: ignore
-
-        try:
-            safe_render_grid(term, grid, config)
-            assert False, "Expected RuntimeError"
-        except RuntimeError as e:
-            assert "Failed to render grid" in str(e)
-        finally:
-            # Restore original move_xy
-            term.move_xy = original_move_xy  # type: ignore
-
-    finally:
-        cleanup_terminal(term)
+    assert "Failed to render grid" in str(exc_info.value)
+    assert "Mock error" in str(exc_info.value)

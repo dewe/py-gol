@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 from blessed import Terminal
 
-from gol.actor import CellActor, create_cell_actor, process_messages
+from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
 from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
 from gol.messaging import Actor, subscribe_to_neighbors
 from gol.renderer import RendererConfig, initialize_terminal
@@ -85,12 +85,11 @@ def process_generation(actors: List[CellActor], completion_event: Event) -> None
         # Reset completion event
         completion_event.clear()
 
-        # Broadcast current states
+        # First, broadcast current states to neighbors
         for actor in actors:
-            actor.subscribers = []  # Clear old subscribers
-            actor.queue.queue.clear()  # Clear old messages
+            broadcast_state(actor, actor.state)
 
-        # Process all messages
+        # Then process all messages to calculate next states
         for actor in actors:
             process_messages(actor, completion_event)
 

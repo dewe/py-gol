@@ -36,7 +36,7 @@ def subscribe_to_neighbors(actor: Actor, neighbors: list[Actor]) -> None:
         neighbor.subscribers.append(actor)
 
 
-def broadcast_state(actor: Actor, state: bool) -> None:
+def broadcast_message(actor: Actor, state: bool) -> None:
     """Broadcasts state changes to subscribers.
 
     Args:

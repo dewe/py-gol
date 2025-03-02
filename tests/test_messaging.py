@@ -57,7 +57,7 @@ def test_broadcast_state() -> None:
     Then all subscribers should receive the update
     """
     from gol.messaging import (
-        broadcast_state,
+        broadcast_message,
         create_message_queue,
         subscribe_to_neighbors,
     )
@@ -73,7 +73,7 @@ def test_broadcast_state() -> None:
 
     # Broadcast state change
     new_state = True
-    broadcast_state(publisher, new_state)
+    broadcast_message(publisher, new_state)
 
     # Check that subscribers received the message
     msg1 = subscriber1.queue.get_nowait()
@@ -93,7 +93,7 @@ def test_message_queue_thread_safety() -> None:
     """
     import threading
 
-    from gol.messaging import broadcast_state, create_message_queue
+    from gol.messaging import broadcast_message, create_message_queue
 
     # Create actors
     publisher = MockActor("pub", create_message_queue(), [])
@@ -107,7 +107,7 @@ def test_message_queue_thread_safety() -> None:
 
     def send_messages() -> None:
         for _ in range(msg_count):
-            broadcast_state(publisher, True)
+            broadcast_message(publisher, True)
 
     def receive_messages() -> None:
         nonlocal received_count

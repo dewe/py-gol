@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from gol.grid import Position
 from gol.messaging import Actor as ActorProtocol
-from gol.messaging import broadcast_state as broadcast_message
+from gol.messaging import broadcast_message
 
 
 @dataclass
@@ -41,21 +41,19 @@ def create_cell_actor(position: Position, initial_state: bool) -> CellActor:
     )
 
 
-def calculate_next_state(current: bool, live_neighbors: int) -> bool:
+def calculate_next_state(is_alive: bool, live_neighbors: int) -> bool:
     """Pure function implementing Conway's Game of Life rules.
 
     Args:
-        current: Current state of the cell (True for live, False for dead)
+        is_alive: Current state of the cell (True for live, False for dead)
         live_neighbors: Number of live neighboring cells (0-8)
 
     Returns:
         bool: Next state of the cell based on Game of Life rules
     """
-    if current:
-        # Live cell rules
+    if is_alive:
         return live_neighbors in (2, 3)  # Survives with 2-3 neighbors, dies otherwise
     else:
-        # Dead cell rules
         return live_neighbors == 3  # Becomes alive with exactly 3 neighbors
 
 

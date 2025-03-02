@@ -119,3 +119,81 @@ The implementation follows functional programming principles with:
 - No shared mutable state
 
 This architecture makes the system robust and well-suited for concurrent execution while maintaining clear separation of concerns. 
+
+# Architecture Diagrams
+
+<!-- Actor Communication Flow -->
+## Actor Communication Flow
+
+```mermaid
+graph LR
+    A[Cell Actor] -->|State Update| B[Neighbors]
+    B -->|Live Count| A
+    A -->|Grid State| C[Renderer]
+    D[Controller] -->|Generation Tick| A
+    D -->|Refresh Rate| C
+
+    %% Styling
+    classDef component fill:#f9f,stroke:#333,stroke-width:2px;
+    class A,B,C,D component;
+```
+
+This diagram illustrates how cell actors communicate with each other and other components:
+
+1. Each cell actor broadcasts its state to neighboring cells
+2. Neighbors respond with their live/dead status
+3. The renderer receives grid state updates for display
+4. The controller orchestrates generation updates and refresh rates
+
+<!-- Component Architecture -->
+## Component Architecture
+
+```mermaid
+graph TD
+    Controller -->|Manages| Grid
+    Controller -->|Orchestrates| Renderer
+    Grid -->|Contains| CellActors
+    CellActors -->|Update| MessageQueues
+    MessageQueues -->|Notify| CellActors
+    Renderer -->|Displays| Grid
+    Terminal -->|Input| Controller
+
+    %% Styling
+    classDef component fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef system fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    class Controller,Grid,Renderer,CellActors component;
+    class MessageQueues,Terminal system;
+```
+
+This diagram shows the high-level architecture and relationships between components:
+
+1. The Controller is the central orchestrator
+2. Grid manages the game state through Cell Actors
+3. Cell Actors communicate via thread-safe Message Queues
+4. The Renderer visualizes the grid state
+5. Terminal input is processed by the Controller
+
+<!-- Cell State Transitions -->
+## Cell State Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> Dead
+    Dead --> Alive: 3 live neighbors
+    Alive --> Dead: <2 live neighbors
+    Alive --> Dead: >3 live neighbors
+    Alive --> Alive: 2-3 live neighbors
+
+    %% Styling
+    classDef dead fill:#ffebee,stroke:#b71c1c,stroke-width:2px;
+    classDef alive fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    class Dead dead;
+    class Alive alive;
+```
+
+This diagram illustrates Conway's Game of Life rules as state transitions:
+
+1. A dead cell becomes alive when it has exactly 3 live neighbors (reproduction)
+2. A live cell dies when it has fewer than 2 live neighbors (underpopulation)
+3. A live cell dies when it has more than 3 live neighbors (overpopulation)
+4. A live cell stays alive when it has 2 or 3 live neighbors (survival)

@@ -14,6 +14,14 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 
 ![demo](./docs/demo.gif)
 
+## Architecture Diagrams
+
+The architecture of this project is documented with Mermaid diagrams in [docs/diagrams.md](docs/diagrams.md). The diagrams include:
+
+1. **Actor Communication Flow** - Shows how cell actors interact with neighbors, the renderer, and controller
+2. **Component Architecture** - Illustrates the relationships between major system components
+3. **Cell State Transitions** - Visualizes the rules of Conway's Game of Life as state transitions
+
 ## Installation
 
 Clone the repository and install the package:

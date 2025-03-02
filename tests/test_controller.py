@@ -39,52 +39,87 @@ class MockTerminal(TerminalProtocol):
 
     @property
     def dim(self) -> str:
-        """Get dim attribute."""
+        """Get dim text style."""
         return ""
 
     @property
     def normal(self) -> str:
-        """Get normal attribute."""
+        """Get normal text style."""
+        return ""
+
+    @property
+    def reverse(self) -> str:
+        """Get reverse text style."""
+        return ""
+
+    @property
+    def black(self) -> str:
+        """Get black color."""
+        return ""
+
+    @property
+    def blue(self) -> str:
+        """Get blue color."""
+        return ""
+
+    @property
+    def green(self) -> str:
+        """Get green color."""
+        return ""
+
+    @property
+    def yellow(self) -> str:
+        """Get yellow color."""
+        return ""
+
+    @property
+    def magenta(self) -> str:
+        """Get magenta color."""
+        return ""
+
+    @property
+    def on_blue(self) -> str:
+        """Get blue background color."""
         return ""
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
-        """Mock move cursor."""
+        """Move cursor to position."""
         return ParameterizingString(f"\x1b[{y+1};{x+1}H")
 
     def enter_fullscreen(self) -> str:
-        """Mock enter fullscreen."""
+        """Enter fullscreen mode."""
         return ""
 
     def exit_fullscreen(self) -> str:
-        """Mock exit fullscreen."""
+        """Exit fullscreen mode."""
         return ""
 
     def hide_cursor(self) -> str:
-        """Mock hide cursor."""
+        """Hide cursor."""
         return ""
 
     def normal_cursor(self) -> str:
-        """Mock normal cursor."""
+        """Show normal cursor."""
         return ""
 
     def enter_ca_mode(self) -> str:
-        """Mock enter ca mode."""
+        """Enter alternate screen mode."""
         return ""
 
     def exit_ca_mode(self) -> str:
-        """Mock exit ca mode."""
+        """Exit alternate screen mode."""
         return ""
 
     def clear(self) -> str:
-        """Mock clear screen."""
+        """Clear screen."""
         return ""
 
     def inkey(self, timeout: float = 0) -> Any:
-        """Mock inkey."""
+        """Get key press."""
         return None
 
     def cbreak(self) -> Any:
-        """Mock cbreak."""
+        """Enter cbreak mode."""
         return None
 
 

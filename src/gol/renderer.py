@@ -15,6 +15,7 @@ class RendererConfig:
 
     cell_alive: str = "■"
     cell_dead: str = "□"
+    cell_spacing: str = " "  # Space between cells
     update_interval: int = 100  # milliseconds
 
 
@@ -66,8 +67,10 @@ def calculate_grid_position(terminal: Terminal, grid_size: int) -> tuple[int, in
     center_x = terminal.width // 2
 
     # Calculate top-left corner of grid
+    # Account for cell width (1 char) plus spacing (1 char)
+    total_width = grid_size * 2  # Each cell is now 2 chars wide with spacing
     start_y = center_y - (grid_size // 2)
-    start_x = center_x - grid_size  # Each cell is 2 chars wide
+    start_x = center_x - (total_width // 2)
 
     # Ensure we don't start outside the terminal
     start_y = max(0, start_y)
@@ -109,7 +112,7 @@ def render_grid(terminal: Terminal, grid: Grid, config: RendererConfig) -> None:
         line = ""
         for x, cell in enumerate(row):
             char = config.cell_alive if cell else config.cell_dead
-            line += char
+            line += char + config.cell_spacing  # Add spacing between cells
 
         # Position cursor and print line
         print(terminal.move_xy(start_x, start_y + y) + line)

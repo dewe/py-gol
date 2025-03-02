@@ -105,6 +105,7 @@ def handle_user_input(terminal: TerminalProtocol, key: Keystroke) -> CommandType
         key.name in ("q", "Q", "^C", "KEY_ESCAPE", "escape")  # Named keys
         or key == "\x1b"  # Raw escape character
         or key == "\x03"  # Raw Ctrl-C
+        or key in ("q", "Q")  # Raw key values
     ):
         return "quit"
 

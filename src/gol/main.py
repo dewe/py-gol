@@ -161,9 +161,16 @@ def run_game_loop(
                     last_render_time = current_time
 
                 # Check for user input (non-blocking)
-                key = terminal.inkey(timeout=0.01)  # Short timeout for responsiveness
-                if key and handle_user_input(terminal, key) == "quit":
-                    break
+                try:
+                    key = terminal.inkey(
+                        timeout=0.01
+                    )  # Short timeout for responsiveness
+                    if key:  # Only process if we got a key
+                        if handle_user_input(terminal, key) == "quit":
+                            break
+                except Exception:
+                    # If there's any error reading input, ignore it and continue
+                    pass
 
                 # Sleep for the update interval
                 time.sleep(config.renderer.update_interval / 1000)

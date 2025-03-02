@@ -10,7 +10,7 @@ from blessed import Terminal
 from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
 from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
 from gol.messaging import Actor, subscribe_to_neighbors
-from gol.renderer import RendererConfig, initialize_terminal
+from gol.renderer import RendererConfig, cleanup_terminal, initialize_terminal
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,5 @@ def cleanup_game(terminal: Terminal, actors: List[CellActor]) -> None:
         while not actor.queue.empty():
             actor.queue.get_nowait()
 
-    # Restore terminal state
-    terminal.exit_fullscreen()
-    terminal.normal_cursor()
+    # Restore terminal state using proper cleanup sequence
+    cleanup_terminal(terminal)

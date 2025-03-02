@@ -17,12 +17,7 @@ from gol.controller import (
     process_generation,
 )
 from gol.grid import Grid, GridConfig
-from gol.renderer import (
-    RendererConfig,
-    cleanup_terminal,
-    handle_user_input,
-    safe_render_grid,
-)
+from gol.renderer import RendererConfig, cleanup_terminal, safe_render_grid
 
 
 def parse_arguments() -> ControllerConfig:
@@ -103,29 +98,32 @@ def run_game_loop(terminal: Terminal, actors: List, config: ControllerConfig) ->
 
     try:
         # Main game loop
-        while True:
-            # Process one generation
-            process_generation(actors, completion_event)
+        with terminal.cbreak():
+            while True:
+                # Process one generation
+                process_generation(actors, completion_event)
 
-            # Extract grid state from actors
-            grid_size = config.grid.size
-            grid = Grid([[False for _ in range(grid_size)] for _ in range(grid_size)])
+                # Extract grid state from actors
+                grid_size = config.grid.size
+                grid = Grid(
+                    [[False for _ in range(grid_size)] for _ in range(grid_size)]
+                )
 
-            for actor in actors:
-                x, y = actor.position
-                grid[x][y] = actor.state
+                for actor in actors:
+                    x, y = actor.position
+                    grid[x][y] = actor.state
 
-            # Render grid
-            safe_render_grid(terminal, grid, config.renderer)
+                # Render grid
+                safe_render_grid(terminal, grid, config.renderer)
 
-            # Check for user input (non-blocking)
-            if terminal.inkey(timeout=config.renderer.update_interval / 1000):
-                key = terminal.inkey()
-                if handle_user_input(terminal, key) == "quit":
-                    break
+                # Check for user input (non-blocking)
+                key = terminal.inkey(timeout=0.01)  # Short timeout for responsiveness
+                if key:
+                    if key.lower() == "q" or key == "\x03":  # q or Ctrl+C
+                        break
 
-            # Sleep for the update interval
-            time.sleep(config.renderer.update_interval / 1000)
+                # Sleep for the update interval
+                time.sleep(config.renderer.update_interval / 1000)
 
     finally:
         # Clean up resources

@@ -62,7 +62,8 @@ class RendererConfig:
     refresh_per_second: int = None  # type: ignore # Calculated from interval
     min_interval: int = 10  # Minimum interval in milliseconds
     max_interval: int = 1000  # Maximum interval in milliseconds
-    interval_step: int = 10  # Step size for interval adjustments
+    min_interval_step: int = 10  # Minimum step size for interval adjustments
+    interval_change_factor: float = 0.2  # 20% change per adjustment
 
     def __post_init__(self) -> None:
         """Calculate refresh rate based on update interval."""
@@ -72,18 +73,34 @@ class RendererConfig:
         """Update refresh rate based on current interval."""
         self.refresh_per_second = round(1000 / self.update_interval)
 
+    def _round_to_step(self, value: int) -> int:
+        """Round value to nearest step size."""
+        return round(value / self.min_interval_step) * self.min_interval_step
+
     def increase_interval(self) -> None:
-        """Increase update interval by interval_step up to max_interval."""
-        self.update_interval = min(
-            self.update_interval + self.interval_step, self.max_interval
+        """Increase update interval proportionally."""
+        # Calculate proportional change
+        change = max(
+            self.min_interval_step,
+            round(self.update_interval * self.interval_change_factor),
         )
+        # Round to nearest step
+        new_interval = self._round_to_step(self.update_interval + change)
+        # Apply bounds
+        self.update_interval = min(new_interval, self.max_interval)
         self._update_refresh_rate()
 
     def decrease_interval(self) -> None:
-        """Decrease update interval by interval_step down to min_interval."""
-        self.update_interval = max(
-            self.update_interval - self.interval_step, self.min_interval
+        """Decrease update interval proportionally."""
+        # Calculate proportional change
+        change = max(
+            self.min_interval_step,
+            round(self.update_interval * self.interval_change_factor),
         )
+        # Round to nearest step
+        new_interval = self._round_to_step(self.update_interval - change)
+        # Apply bounds
+        self.update_interval = max(new_interval, self.min_interval)
         self._update_refresh_rate()
 
 

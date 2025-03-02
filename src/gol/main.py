@@ -176,6 +176,8 @@ def run_game_loop(
         # Calculate timing constraints
         min_frame_time = 1.0 / config.renderer.refresh_per_second
         last_render_time = 0.0
+        last_key_time = 0.0  # Track last key press time
+        key_repeat_delay = 0.1  # Minimum seconds between key repeats
 
         # Main game loop
         with terminal.cbreak():
@@ -209,6 +211,12 @@ def run_game_loop(
                 # Check for user input
                 key = terminal.inkey(timeout=0)
                 if key:
+                    # For arrow keys, limit repeat rate
+                    if key.name in ("KEY_UP", "KEY_DOWN"):
+                        if current_time - last_key_time < key_repeat_delay:
+                            continue
+                        last_key_time = current_time
+
                     command = handle_user_input(terminal, key, config.renderer)
                     if command == "quit":
                         break

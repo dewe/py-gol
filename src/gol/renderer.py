@@ -1,6 +1,7 @@
 """Terminal renderer for Game of Life."""
 
 from dataclasses import dataclass
+from time import time
 from typing import Any, Dict, Literal, Optional, Protocol, Tuple
 
 from blessed import Terminal
@@ -24,6 +25,8 @@ class TerminalProtocol(Protocol):
     def dim(self) -> str: ...
     @property
     def normal(self) -> str: ...
+    @property
+    def reverse(self) -> str: ...
     def move_xy(self, x: int, y: int) -> ParameterizingString: ...
     def exit_fullscreen(self) -> str: ...
     def enter_fullscreen(self) -> str: ...
@@ -61,6 +64,12 @@ class RendererState:
     previous_grid: Optional[Dict[CellPos, bool]] = None
     start_x: int = 0
     start_y: int = 0
+    last_frame_time: float = 0.0
+    frames_this_second: int = 0
+    actual_fps: float = 0.0
+    last_fps_update: float = 0.0
+    total_cells: int = 0
+    active_cells: int = 0
 
 
 CommandType = Literal["continue", "quit", "restart"]
@@ -173,12 +182,15 @@ def calculate_grid_position(
     total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
     total_height = grid_height  # Each cell is 1 char high
 
+    # Account for status line at bottom
+    usable_height = terminal.height - 1
+
     # If terminal is smaller than grid in either dimension, align to top-left
-    if terminal.width <= total_width or terminal.height <= total_height:
+    if terminal.width <= total_width or usable_height <= total_height:
         return 0, 0
 
     # Calculate center position
-    center_y = terminal.height // 2
+    center_y = usable_height // 2
     center_x = terminal.width // 2
 
     # Calculate top-left corner of grid
@@ -191,7 +203,7 @@ def calculate_grid_position(
 
     # Ensure grid doesn't extend beyond terminal edges
     start_x = min(start_x, terminal.width - total_width)
-    start_y = min(start_y, terminal.height - total_height)
+    start_y = min(start_y, usable_height - total_height)
 
     return start_x, start_y
 
@@ -230,6 +242,54 @@ def render_cell(
     return terminal.move_xy(x, y) + char + config.cell_spacing
 
 
+def render_status_line(
+    terminal: TerminalProtocol,
+    config: RendererConfig,
+    state: RendererState,
+) -> str:
+    """Renders status line at bottom of screen.
+
+    Args:
+        terminal: Terminal instance
+        config: Renderer configuration
+        state: Current renderer state
+
+    Returns:
+        String containing the rendered status line
+    """
+    # Update FPS calculation
+    current_time = time()
+    state.frames_this_second += 1
+
+    if current_time - state.last_fps_update >= 1.0:
+        state.actual_fps = state.frames_this_second
+        state.frames_this_second = 0
+        state.last_fps_update = current_time
+
+    # Format status line
+    status = (
+        f"Cells: {state.total_cells} (Active: {state.active_cells}) | "
+        f"Interval: {config.update_interval}ms | "
+        f"FPS: {state.actual_fps:.1f}"
+    )
+
+    # Position at bottom of screen
+    y = terminal.height - 1
+    x = 0
+
+    # Center the status line and pad with spaces to fill width
+    padding = (terminal.width - len(status)) // 2
+    if padding > 0:
+        x = padding
+
+    # Fill entire bottom line with reverse video
+    full_line = " " * terminal.width
+    base = terminal.move_xy(0, y) + terminal.reverse + full_line + terminal.normal
+
+    # Overlay the status text
+    return base + terminal.move_xy(x, y) + status
+
+
 def render_grid(
     terminal: TerminalProtocol, grid: Grid, config: RendererConfig, state: RendererState
 ) -> None:
@@ -244,6 +304,10 @@ def render_grid(
     # Grid dimensions - grid is stored as [rows][columns]
     grid_height = len(grid)  # Number of rows
     grid_width = len(grid[0])  # Number of columns in first row
+
+    # Reserve bottom line for status
+    usable_height = terminal.height - 1
+
     start_x, start_y = calculate_grid_position(terminal, grid_width, grid_height)
 
     # Update stored position if changed
@@ -255,6 +319,10 @@ def render_grid(
     # Convert current grid to dictionary
     current_grid = grid_to_dict(grid)
 
+    # Update statistics
+    state.total_cells = grid_width * grid_height
+    state.active_cells = sum(1 for cell in current_grid.values() if cell)
+
     # If no previous state or position changed, do full redraw
     if state.previous_grid is None:
         clear_screen(terminal)
@@ -262,11 +330,13 @@ def render_grid(
         for (x, y), cell_state in current_grid.items():
             screen_x = start_x + (x * 2)  # Account for spacing
             screen_y = start_y + y
-            if screen_y < terminal.height:
+            if screen_y < usable_height:  # Don't render in status line area
                 buffer.append(
                     render_cell(terminal, screen_x, screen_y, cell_state, config)
                 )
-        print("".join(buffer))
+        # Add status line without newline
+        buffer.append(render_status_line(terminal, config, state))
+        print("".join(buffer), end="", flush=True)
     else:
         # Only render cells that changed
         buffer = []
@@ -274,10 +344,12 @@ def render_grid(
             if state.previous_grid.get((x, y)) != cell_state:
                 screen_x = start_x + (x * 2)  # Account for spacing
                 screen_y = start_y + y
-                if screen_y < terminal.height:
+                if screen_y < usable_height:  # Don't render in status line area
                     buffer.append(
                         render_cell(terminal, screen_x, screen_y, cell_state, config)
                     )
+        # Always update status line without newline
+        buffer.append(render_status_line(terminal, config, state))
         if buffer:
             print("".join(buffer), end="", flush=True)
 

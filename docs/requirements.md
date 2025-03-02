@@ -56,10 +56,12 @@ gol.py <width> <height> [--interval <ms>] [--density <float>]
 ```
 
 #### Required Arguments
+
 - `width`: Integer specifying grid width
 - `height`: Integer specifying grid height
 
 #### Optional Arguments
+
 - `--interval`: Integer specifying update interval in milliseconds (default: 100)
 - `--density`: Float between 0.0 and 1.0 specifying initial live cell density (default: 0.3)
 - `--toroidal`: Flag to enable toroidal grid (edges wrap around)

@@ -41,21 +41,25 @@ Run the game using the provided entry point script:
 ### Examples
 
 Run with default settings (grid sized to terminal dimensions):
+
 ```bash
 ./game.py
 ```
 
 Run with a custom 20×20 grid:
+
 ```bash
 ./game.py --width 20 --height 20
 ```
 
 Run with a 30×30 grid, slower updates, and higher initial density:
+
 ```bash
 ./game.py --width 30 --height 30 --interval 200 --density 0.5
 ```
 
 Run with terminal-sized grid, fast updates, and toroidal wrapping:
+
 ```bash
 ./game.py --interval 50 --toroidal
 ```
@@ -97,7 +101,7 @@ The implementation follows these architectural principles:
 
 ### Project Structure
 
-```
+```text
 py-gol/
 ├── src/
 │   └── gol/

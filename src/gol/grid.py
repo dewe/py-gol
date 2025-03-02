@@ -17,7 +17,7 @@ class GridConfig:
 
     width: int
     height: int
-    density: float = 0.3
+    density: float = 0.15  # Lower default density for better patterns
     toroidal: bool = False  # Whether grid wraps around edges
 
 

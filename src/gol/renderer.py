@@ -170,17 +170,13 @@ def initialize_terminal(
         Tuple of (Terminal instance, RendererState)
     """
     try:
-        print("Creating Terminal instance...")
         term = Terminal()
-        print("Terminal instance created")
 
         # Clear screen and hide cursor
-        print("Setting up terminal...")
         sys.stdout.write(term.enter_ca_mode())
         sys.stdout.write(term.hide_cursor())
         sys.stdout.write(term.clear())
         sys.stdout.flush()
-        print("Terminal setup complete")
 
         return term, RendererState()
     except Exception as e:

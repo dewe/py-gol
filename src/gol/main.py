@@ -296,31 +296,22 @@ def main() -> None:
     """Main entry point for the application."""
     terminal = None
     try:
-        print("Starting Game of Life...")
         # Parse command line arguments (without terminal dependency)
         config = parse_arguments()
-        print("Arguments parsed successfully")
 
         # Initialize terminal only when needed
-        print("Initializing terminal...")
         terminal, renderer_state = initialize_terminal(config.renderer)
-        print("Terminal initialized")
 
         # Adjust grid dimensions based on terminal size
         config = adjust_grid_dimensions(config, terminal)
-        print(f"Grid dimensions adjusted: {config.grid.width}x{config.grid.height}")
 
         # Initialize game components
-        print("Initializing game components...")
         terminal, actors = initialize_game(config)
-        print("Game components initialized")
 
         # Create initial grid
         grid = create_grid(config.grid)
-        print("Initial grid created")
 
         # Run game loop
-        print("Starting game loop...")
         run_game_loop(terminal, grid, config, renderer_state)
 
     except Exception as e:

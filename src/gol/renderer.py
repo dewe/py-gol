@@ -158,7 +158,7 @@ class RendererState:
     cursor_y: int = 0
 
 
-CommandType = Literal["continue", "quit", "restart"]
+CommandType = Literal["continue", "quit", "restart", "pattern"]
 
 
 def initialize_terminal(
@@ -201,6 +201,7 @@ def handle_user_input(
         CommandType: Command based on input:
             - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
             - Returns "restart" for 'r' or 'R'
+            - Returns "pattern" for 'p' or 'P'
             - Returns "continue" for any other key
 
     Side effects:
@@ -219,6 +220,10 @@ def handle_user_input(
     # Check for restart command
     if key.name in ("r", "R") or key in ("r", "R"):
         return "restart"
+
+    # Check for pattern mode
+    if key.name in ("p", "P") or key in ("p", "P"):
+        return "pattern"
 
     # Handle interval adjustment
     if key.name == "KEY_UP":

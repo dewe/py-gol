@@ -320,7 +320,7 @@ def run_game_loop(
     command_handlers: Dict[str, Callable[[], tuple[Grid, ControllerConfig, bool]]] = {
         "quit": handle_quit,
         "restart": handle_restart,
-        "pattern_mode": handle_pattern_mode,
+        "pattern": handle_pattern_mode,
         "rotate_pattern": handle_rotate_pattern,
         "place_pattern": handle_place_pattern,
         "cycle_boundary": handle_cycle_boundary,

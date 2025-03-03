@@ -1,8 +1,8 @@
 """Terminal renderer for Game of Life."""
 
 import sys
+import time
 from dataclasses import dataclass
-from time import time
 from typing import Any, Dict, Literal, Optional, Protocol, Tuple, runtime_checkable
 
 import psutil
@@ -135,11 +135,17 @@ class RendererState:
     terminal_width: int = 0
     terminal_height: int = 0
     last_frame_time: float = 0.0
+    generation_count: int = 0
+    total_cells: int = 0
+    active_cells: int = 0
+    births_this_second: int = 0
+    deaths_this_second: int = 0
+    birth_rate: float = 0.0
+    death_rate: float = 0.0
+    last_stats_update: float = 0.0
     frames_this_second: int = 0
     actual_fps: float = 0.0
     last_fps_update: float = 0.0
-    total_cells: int = 0
-    active_cells: int = 0
     messages_this_second: int = 0
     messages_per_second: float = 0.0
     last_message_update: float = 0.0
@@ -375,63 +381,42 @@ def render_status_line(
     Returns:
         String containing the rendered status line
     """
-    # Update FPS calculation
-    current_time = time()
-    state.frames_this_second += 1
-    state.messages_this_second += state.active_cells  # Each active cell sends a message
-
-    # Update metrics every second
-    if current_time - state.last_fps_update >= 1.0:
-        state.actual_fps = state.frames_this_second
-        state.messages_per_second = state.messages_this_second
-        state.changes_per_second = state.changes_this_second
-        state.frames_this_second = 0
-        state.messages_this_second = 0
-        state.changes_this_second = 0
-        state.last_fps_update = current_time
-
-        # Update process metrics
-        state.cpu_percent = _process.cpu_percent()
-        state.memory_mb = _process.memory_info().rss / 1024 / 1024  # Convert to MB
+    # Update statistics every second
+    current_time = time.time()
+    if current_time - state.last_stats_update >= 1.0:
+        state.birth_rate = state.births_this_second
+        state.death_rate = state.deaths_this_second
+        state.births_this_second = 0
+        state.deaths_this_second = 0
+        state.last_stats_update = current_time
 
     # Create plain text version to calculate true length
-    plain_cells = f"Cells: {state.total_cells}"
-    plain_active = f"(Active: {state.active_cells})"
-    plain_changes = f"Changes/s: {state.changes_per_second:.0f}"
-    msg_count = state.messages_per_second / 1000
-    plain_msgs = f"Msgs/s: {msg_count:.1f}k"
-    plain_fps = f"FPS: {state.actual_fps:.1f}"
+    plain_pop = f"Population: {state.active_cells}"
+    plain_gen = f"Generation: {state.generation_count}"
+    plain_births = f"Births/s: {state.birth_rate:.1f}"
+    plain_deaths = f"Deaths/s: {state.death_rate:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
-    plain_cpu = f"CPU: {state.cpu_percent:.1f}%"
 
     # Calculate true length without escape sequences
     true_length = (
-        len(plain_cells)
-        + len(plain_active)
-        + len(plain_changes)
-        + len(plain_msgs)
-        + len(plain_fps)
+        len(plain_pop)
+        + len(plain_gen)
+        + len(plain_births)
+        + len(plain_deaths)
         + len(plain_interval)
-        + len(plain_cpu)
-        + len(" | ") * 5
+        + len(" | ") * 4
         + len(" ")
     )
 
     # Format colored version
-    cells = f"{terminal.blue}Cells: {terminal.normal}{state.total_cells}"
-    active = f"({terminal.green}Active: {state.active_cells}{terminal.normal})"
-    changes = (
-        f"{terminal.magenta}Changes/s: {terminal.normal}{state.changes_per_second:.0f}"
-    )
-    msgs = f"{terminal.yellow}Msgs/s: {terminal.normal}{msg_count:.1f}k"
-    fps = f"{terminal.blue}FPS: {terminal.normal}{state.actual_fps:.1f}"
-    interval = (
-        f"{terminal.magenta}Interval: {terminal.normal}{config.update_interval}ms"
-    )
-    cpu = f"{terminal.yellow}CPU: {terminal.normal}{state.cpu_percent:.1f}%"
+    pop = f"{terminal.blue}Population: {terminal.normal}{state.active_cells}"
+    gen = f"{terminal.green}Generation: {terminal.normal}{state.generation_count}"
+    births = f"{terminal.magenta}Births/s: {terminal.normal}{state.birth_rate:.1f}"
+    deaths = f"{terminal.yellow}Deaths/s: {terminal.normal}{state.death_rate:.1f}"
+    interval = f"{terminal.white}Interval: {terminal.normal}{config.update_interval}ms"
 
     # Combine metrics with separators
-    status = f"{cells} {active} | {changes} | {msgs} | {fps} | {interval} | {cpu}"
+    status = f"{pop} | {gen} | {births} | {deaths} | {interval}"
 
     # Position at bottom of screen
     y = terminal.height - 1
@@ -481,13 +466,17 @@ def render_grid(
         1 for cell in current_grid.values() if cell[0]
     )  # Check is_alive field
 
-    # Count state changes if we have a previous grid
+    # Track births and deaths if we have a previous grid
     if state.previous_grid is not None:
-        state.changes_this_second += sum(
-            1
-            for pos, current_state in current_grid.items()
-            if state.previous_grid.get(pos) != current_state
-        )
+        for pos, current_state in current_grid.items():
+            previous_state = state.previous_grid.get(pos)
+            if previous_state is not None:
+                # Count births (was dead, now alive)
+                if not previous_state[0] and current_state[0]:
+                    state.births_this_second += 1
+                # Count deaths (was alive, now dead)
+                elif previous_state[0] and not current_state[0]:
+                    state.deaths_this_second += 1
 
     # If no previous state or position changed, do full redraw
     if state.previous_grid is None:

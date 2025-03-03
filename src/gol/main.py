@@ -28,7 +28,6 @@ from gol.renderer import (
     RendererState,
     TerminalProtocol,
     cleanup_terminal,
-    handle_resize_event,
     handle_user_input,
     initialize_terminal,
     safe_render_grid,
@@ -235,51 +234,37 @@ def run_game_loop(
 
     Args:
         terminal: Terminal instance
-        grid: Initial grid state
-        config: Game configuration
-        state: Renderer state
+        grid: Current game grid
+        config: Controller configuration
+        state: Current renderer state
     """
-    # Initialize timing variables
-    last_update = time.time()
-    last_frame = last_update
-
-    # Event for synchronizing cell updates
+    # Initialize actors
+    actors = setup_cell_actors(grid, config.grid)
     completion_event = Event()
 
-    # Create and connect cell actors
-    actors = setup_cell_actors(grid, config.grid)
+    # Track timing
+    last_frame = time.time()
+    last_update = time.time()
 
     try:
         with terminal.cbreak():
             while True:
-                # Handle input with proper timeout
-                try:
-                    key = terminal.inkey(timeout=0.001)
-                    if key:
-                        command = handle_user_input(terminal, key, config.renderer)
-                        if command == "quit":
-                            print("\nQuitting game...")
-                            return  # Exit cleanly
-                        elif command == "restart":
-                            grid = create_grid(config.grid)
-                            actors = setup_cell_actors(grid, config.grid)
-                            state.previous_grid = None  # Force full redraw
-                            continue
-                except KeyboardInterrupt:
-                    print("\nGame interrupted by user")
-                    return  # Exit cleanly
-
-                # Check for resize events
-                if (
-                    terminal.width != state.terminal_width
-                    or terminal.height != state.terminal_height
-                ):
-                    handle_resize_event(terminal, state)
-                    state.terminal_width = terminal.width
-                    state.terminal_height = terminal.height
-
-                # Update game state at fixed interval
                 current_time = time.time()
+
+                # Check for user input
+                key = terminal.inkey(timeout=0.001)
+                if key:
+                    command = handle_user_input(terminal, key, config.renderer)
+                    if command == "quit":
+                        print("Quitting game...")
+                        break
+                    elif command == "restart":
+                        grid = create_grid(config.grid)
+                        actors = setup_cell_actors(grid, config.grid)
+                        state.generation_count = 0  # Reset generation count
+                        continue
+
+                # Process next generation at configured interval
                 if (
                     current_time - last_update
                     >= config.renderer.update_interval / 1000.0
@@ -295,6 +280,7 @@ def run_game_loop(
                             for y in range(0, len(actors), config.grid.width)
                         ]
                     )
+                    state.generation_count += 1  # Increment generation count
                     last_update = current_time
 
                 # Render at maximum frame rate

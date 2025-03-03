@@ -6,7 +6,7 @@ import signal
 import sys
 import time
 from threading import Event
-from typing import Any, List
+from typing import Any, List, Tuple
 
 from gol.controller import (
     ControllerConfig,
@@ -15,12 +15,20 @@ from gol.controller import (
     process_generation,
     setup_cell_actors,
 )
-from gol.grid import Grid, GridConfig, create_grid
+from gol.grid import (
+    Grid,
+    GridConfig,
+    Position,
+    count_live_neighbors,
+    create_grid,
+    get_neighbors,
+)
 from gol.renderer import (
     RendererConfig,
     RendererState,
     TerminalProtocol,
     cleanup_terminal,
+    handle_resize_event,
     handle_user_input,
     initialize_terminal,
     safe_render_grid,
@@ -112,16 +120,22 @@ def adjust_grid_dimensions(
     Returns:
         Updated configuration with proper dimensions
     """
+    print(f"Terminal dimensions: {terminal.width}x{terminal.height}")
+
+    # Minimum grid dimensions
+    MIN_WIDTH = 30
+    MIN_HEIGHT = 20
+
     # Calculate default grid size based on terminal dimensions
     # Each cell takes 2 characters width due to spacing
-    width = config.grid.width or (terminal.width - 4) // 2  # Leave some margin
-    height = config.grid.height or terminal.height - 4  # Leave some margin
+    width = config.grid.width or max(
+        MIN_WIDTH, (terminal.width - 4) // 2
+    )  # Leave some margin
+    height = config.grid.height or max(
+        MIN_HEIGHT, terminal.height - 4
+    )  # Leave some margin
 
-    # Validate dimensions
-    if width <= 0:
-        raise ValueError("Grid width must be positive")
-    if height <= 0:
-        raise ValueError("Grid height must be positive")
+    print(f"Calculated grid dimensions: {width}x{height}")
 
     # Create new config with adjusted dimensions
     return ControllerConfig(
@@ -152,86 +166,143 @@ def setup_signal_handlers(terminal: TerminalProtocol) -> None:
     signal.signal(signal.SIGTERM, signal_handler)
 
 
-def run_game_loop(
-    terminal: TerminalProtocol,
-    actors: List,
-    config: ControllerConfig,
-    renderer_state: RendererState,
-) -> None:
-    """Run the main game loop.
+def update_cell(
+    grid: Grid, pos: Position, neighbors: List[Position], config: GridConfig
+) -> Tuple[bool, int]:
+    """Determines new cell state based on neighbors.
 
     Args:
-        terminal: Terminal instance for rendering
-        actors: List of cell actors
-        config: Controller configuration
-        renderer_state: State for differential rendering
+        grid: Current grid state
+        pos: Position to update
+        neighbors: List of neighbor positions
+        config: Grid configuration
+
+    Returns:
+        Tuple of (new_state, new_age) for the cell
     """
-    # Create synchronization event
+    x, y = pos
+    is_alive, age = grid[y][x]
+    live_count = count_live_neighbors(grid, neighbors)
+
+    # Apply Conway's rules with aging
+    if is_alive:
+        # Cell survives
+        if live_count in (2, 3):
+            return True, age + 1
+        # Cell dies
+        return False, 0
+    else:
+        # Cell becomes alive
+        if live_count == 3:
+            return True, 1
+        # Cell stays dead
+        return False, 0
+
+
+def update_grid(grid: Grid, config: GridConfig) -> Grid:
+    """Updates entire grid based on Game of Life rules.
+
+    Args:
+        grid: Current grid state
+        config: Grid configuration
+
+    Returns:
+        New grid state
+    """
+    width = len(grid[0])
+    height = len(grid)
+    new_grid = []
+
+    for y in range(height):
+        new_row = []
+        for x in range(width):
+            pos = Position((x, y))
+            neighbors = get_neighbors(grid, pos, config.toroidal)
+            new_state = update_cell(grid, pos, neighbors, config)
+            new_row.append(new_state)
+        new_grid.append(new_row)
+
+    return Grid(new_grid)
+
+
+def run_game_loop(
+    terminal: TerminalProtocol,
+    grid: Grid,
+    config: ControllerConfig,
+    state: RendererState,
+) -> None:
+    """Main game loop.
+
+    Args:
+        terminal: Terminal instance
+        grid: Initial grid state
+        config: Game configuration
+        state: Renderer state
+    """
+    # Initialize timing variables
+    last_update = time.time()
+    last_frame = last_update
+
+    # Event for synchronizing cell updates
     completion_event = Event()
 
-    # Set up signal handlers
-    setup_signal_handlers(terminal)
+    # Create and connect cell actors
+    actors = setup_cell_actors(grid, config.grid)
 
     try:
-        # Calculate timing constraints
-        min_frame_time = 1.0 / config.renderer.refresh_per_second
-        last_render_time = 0.0
-        last_key_time = 0.0  # Track last key press time
-        key_repeat_delay = 0.1  # Minimum seconds between key repeats
-
-        # Main game loop
         with terminal.cbreak():
             while True:
-                # Process one generation
-                process_generation(actors, completion_event)
+                # Handle input with proper timeout
+                try:
+                    key = terminal.inkey(timeout=0.001)
+                    if key:
+                        command = handle_user_input(terminal, key, config.renderer)
+                        if command == "quit":
+                            print("\nQuitting game...")
+                            return  # Exit cleanly
+                        elif command == "restart":
+                            grid = create_grid(config.grid)
+                            actors = setup_cell_actors(grid, config.grid)
+                            state.previous_grid = None  # Force full redraw
+                            continue
+                except KeyboardInterrupt:
+                    print("\nGame interrupted by user")
+                    return  # Exit cleanly
 
-                # Check if it's time to render
+                # Check for resize events
+                if (
+                    terminal.width != state.terminal_width
+                    or terminal.height != state.terminal_height
+                ):
+                    handle_resize_event(terminal, state)
+                    state.terminal_width = terminal.width
+                    state.terminal_height = terminal.height
+
+                # Update game state at fixed interval
                 current_time = time.time()
-                time_since_last_render = current_time - last_render_time
-
-                if time_since_last_render >= min_frame_time:
-                    # Extract grid state from actors
-                    # Create empty grid with correct dimensions [rows][columns]
+                if (
+                    current_time - last_update
+                    >= config.renderer.update_interval / 1000.0
+                ):
+                    process_generation(actors, completion_event)
+                    # Update grid state from actors
                     grid = Grid(
                         [
-                            [False for _ in range(config.grid.width)]  # columns
-                            for _ in range(config.grid.height)  # rows
+                            [
+                                (actor.state, actor.age)
+                                for actor in actors[y : y + config.grid.width]
+                            ]
+                            for y in range(0, len(actors), config.grid.width)
                         ]
                     )
+                    last_update = current_time
 
-                    # Update grid with actor states
-                    for actor in actors:
-                        x, y = actor.position
-                        grid[y][x] = actor.state  # Access as [row][column]
-
-                    # Render grid with differential updates
-                    safe_render_grid(terminal, grid, config.renderer, renderer_state)
-                    last_render_time = current_time
-
-                # Check for user input
-                key = terminal.inkey(timeout=0)
-                if key:
-                    # For arrow keys, limit repeat rate
-                    if key.name in ("KEY_UP", "KEY_DOWN"):
-                        if current_time - last_key_time < key_repeat_delay:
-                            continue
-                        last_key_time = current_time
-
-                    command = handle_user_input(terminal, key, config.renderer)
-                    if command == "quit":
-                        break
-                    elif command == "restart":
-                        # Create new grid and actors
-                        grid = create_grid(config.grid)
-                        actors.clear()  # Clear old actors
-                        actors.extend(setup_cell_actors(grid, config.grid))
-                        renderer_state.previous_grid = None  # Force full redraw
-
-                # Sleep for the update interval
-                time.sleep(config.renderer.update_interval / 1000)
+                # Render at maximum frame rate
+                if current_time - last_frame >= 1.0 / 60:  # Cap at 60 FPS
+                    safe_render_grid(terminal, grid, config.renderer, state)
+                    last_frame = current_time
 
     finally:
-        # Clean up resources
         cleanup_game(terminal, actors)
 
 
@@ -239,20 +310,32 @@ def main() -> None:
     """Main entry point for the application."""
     terminal = None
     try:
+        print("Starting Game of Life...")
         # Parse command line arguments (without terminal dependency)
         config = parse_arguments()
+        print("Arguments parsed successfully")
 
         # Initialize terminal only when needed
+        print("Initializing terminal...")
         terminal, renderer_state = initialize_terminal(config.renderer)
+        print("Terminal initialized")
 
         # Adjust grid dimensions based on terminal size
         config = adjust_grid_dimensions(config, terminal)
+        print(f"Grid dimensions adjusted: {config.grid.width}x{config.grid.height}")
 
         # Initialize game components
+        print("Initializing game components...")
         terminal, actors = initialize_game(config)
+        print("Game components initialized")
+
+        # Create initial grid
+        grid = create_grid(config.grid)
+        print("Initial grid created")
 
         # Run game loop
-        run_game_loop(terminal, actors, config, renderer_state)
+        print("Starting game loop...")
+        run_game_loop(terminal, grid, config, renderer_state)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

@@ -57,13 +57,13 @@ def initialize_game(
 
 
 def create_actor_batch(
-    positions: List[Position], states: List[bool]
+    positions: List[Position], states: List[Tuple[bool, int]]
 ) -> List[CellActor]:
     """Create a batch of cell actors in parallel.
 
     Args:
         positions: List of positions for actors
-        states: List of initial states for actors
+        states: List of initial states for actors (is_alive, age)
 
     Returns:
         List of created cell actors
@@ -78,10 +78,14 @@ def create_actor_batch(
             for i in range(0, len(positions), chunk_size)
         ]
 
-        def process_chunk(chunk: Tuple[List[Position], List[bool]]) -> List[CellActor]:
+        def process_chunk(
+            chunk: Tuple[List[Position], List[Tuple[bool, int]]],
+        ) -> List[CellActor]:
             pos_list, state_list = chunk
             return [
-                create_cell_actor(pos, state)
+                create_cell_actor(
+                    pos, state[0], state[1]
+                )  # Pass both alive state and age
                 for pos, state in zip(pos_list, state_list)
             ]
 

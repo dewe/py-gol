@@ -104,7 +104,7 @@ sequenceDiagram
 
 1. Minimal latency between state updates
 2. Efficient message passing between cells
-3. Smooth rendering at default interval (100ms)
+3. Smooth rendering at default interval (200ms)
 4. Graceful shutdown on exit
 
 ## Error Handling

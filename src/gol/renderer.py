@@ -153,6 +153,9 @@ class RendererState:
     changes_per_second: float = 0.0
     cpu_percent: float = 0.0
     memory_mb: float = 0.0
+    pattern_mode: bool = False
+    cursor_x: int = 0
+    cursor_y: int = 0
 
 
 CommandType = Literal["continue", "quit", "restart"]

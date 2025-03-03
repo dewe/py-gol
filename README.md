@@ -45,7 +45,7 @@ pip install -e .
 Run the game using the provided entry point script:
 
 ```bash
-./game.py [--width <width>] [--height <height>] [--interval <ms>] [--density <float>] [--toroidal]
+./game.py [--width <width>] [--height <height>] [--interval <ms>] [--density <float>] [--boundary <type>]
 ```
 
 ### Parameters
@@ -54,7 +54,7 @@ Run the game using the provided entry point script:
 - `--height`: Height of the grid (auto-sized to terminal height if not specified)
 - `--interval`: Update interval in milliseconds (default: 100)
 - `--density`: Initial density of live cells (0.0-1.0, default: 0.3)
-- `--toroidal`: Enable toroidal grid (edges wrap around)
+- `--boundary`: Boundary condition type: 'finite', 'toroidal', or 'infinite' (default: finite)
 
 ### Examples
 
@@ -76,10 +76,10 @@ Run with a 30×30 grid, slower updates, and higher initial density:
 ./game.py --width 30 --height 30 --interval 200 --density 0.5
 ```
 
-Run with terminal-sized grid, fast updates, and toroidal wrapping:
+Run with terminal-sized grid, fast updates, and toroidal boundaries:
 
 ```bash
-./game.py --interval 50 --toroidal
+./game.py --interval 50 --boundary toroidal
 ```
 
 ## Game Controls
@@ -90,6 +90,47 @@ Run with terminal-sized grid, fast updates, and toroidal wrapping:
 - Press `r` to restart the game with a new grid
 - Press `↑` to slow down the simulation (increase interval)
 - Press `↓` to speed up the simulation (decrease interval)
+- Press `p` to enter pattern mode
+- Press `[` or `]` to rotate pattern in pattern mode
+- Press `Space` to place pattern in pattern mode
+- Press `Escape` to exit pattern mode
+
+## Pattern System
+
+The game includes a pattern system that allows you to place and manipulate predefined patterns on the grid:
+
+### Built-in Patterns
+
+- **Block**: A stable 2×2 square pattern
+- **Blinker**: A simple period-2 oscillator
+- **Glider**: A classic pattern that moves diagonally across the grid
+
+### Pattern Mode Controls
+
+1. Press `p` to enter pattern mode
+2. Select a pattern from the numbered list
+3. Use arrow keys to move the cursor
+4. Press `[` or `]` to rotate the pattern (90-degree increments)
+5. Press `Space` to place the pattern at the cursor position
+6. Press `Escape` to exit pattern mode
+
+### Pattern Storage
+
+The game automatically saves custom patterns to `~/.gol/patterns/`. Each pattern is stored as a JSON file containing:
+
+- Pattern metadata (name, description, category)
+- Cell configuration
+- Pattern dimensions
+
+### Pattern Categories
+
+Patterns are organized into categories:
+- Still Life: Stable patterns that don't change
+- Oscillator: Patterns that repeat in a cycle
+- Spaceship: Patterns that move across the grid
+- Gun: Patterns that emit other patterns
+- Methuselah: Patterns with long evolutionary sequences
+- Custom: User-created patterns
 
 ## Game Rules
 

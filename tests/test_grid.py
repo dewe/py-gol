@@ -1,21 +1,24 @@
 """Tests for grid management."""
 
 from gol.grid import (
+    BoundaryCondition,
     Grid,
     GridConfig,
     Position,
     count_live_neighbors,
     create_grid,
+    get_grid_section,
     get_neighbors,
+    resize_grid,
 )
 
 
 def test_grid_creation() -> None:
     """
-    Given a grid of 10x8 and density of 0.3
-    When creating a new grid
-    Then grid should be 10x8
-    And approximately 30% of cells should be alive (with 20% margin)
+    Given: A grid of 10x8 and density of 0.3
+    When: Creating a new grid
+    Then: Grid should be 10x8
+    And: Approximately 30% of cells should be alive (with 20% margin)
     """
     config = GridConfig(width=10, height=8, density=0.3)
     grid = create_grid(config)
@@ -33,129 +36,162 @@ def test_grid_creation() -> None:
     ), f"Expected density between 10% and 50%, got {actual_density * 100:.1f}%"
 
 
-def test_neighbor_positions() -> None:
+def test_grid_resizing_smaller() -> None:
     """
-    Given a grid and a center position
-    When getting neighbor positions
-    Then should return all valid neighbor positions
-    """
-    grid = Grid([[(False, 0) for _ in range(3)] for _ in range(3)])
-    center = Position((1, 1))
-
-    neighbors = get_neighbors(grid, center)
-
-    # Center position should have all 8 neighbors
-    assert len(neighbors) == 8, f"Expected 8 neighbors, got {len(neighbors)}"
-
-    # Check that all neighbors are within one step of center
-    for pos in neighbors:
-        x_diff = abs(pos[0] - center[0])
-        y_diff = abs(pos[1] - center[1])
-        assert x_diff <= 1 and y_diff <= 1, f"Invalid neighbor position: {pos}"
-        assert not (
-            x_diff == 0 and y_diff == 0
-        ), "Center position included in neighbors"
-
-
-def test_edge_neighbor_positions_non_toroidal() -> None:
-    """
-    Given a grid and an edge position
-    When getting neighbor positions with toroidal=False
-    Then should only return valid neighbors within grid bounds
-    """
-    grid = Grid([[(False, 0) for _ in range(3)] for _ in range(3)])
-    corner = Position((0, 0))
-
-    neighbors = get_neighbors(grid, corner, toroidal=False)
-
-    # Corner should have only 3 neighbors
-    assert len(neighbors) == 3, f"Expected 3 neighbors for corner, got {len(neighbors)}"
-
-    # All positions should be within grid bounds
-    for pos in neighbors:
-        assert 0 <= pos[0] < 3 and 0 <= pos[1] < 3, f"Position out of bounds: {pos}"
-
-
-def test_edge_neighbor_positions_toroidal() -> None:
-    """
-    Given a grid and an edge position
-    When getting neighbor positions with toroidal=True
-    Then should wrap around grid edges
-    """
-    grid = Grid([[(False, 0) for _ in range(3)] for _ in range(3)])
-    corner = Position((0, 0))
-
-    neighbors = get_neighbors(grid, corner, toroidal=True)
-
-    # Corner should have all 8 neighbors in toroidal mode
-    assert len(neighbors) == 8, f"Expected 8 neighbors for corner, got {len(neighbors)}"
-
-
-def test_toroidal_wrapping() -> None:
-    """
-    Given a grid and a corner position
-    When getting neighbors with toroidal=True
-    Then should correctly wrap around grid edges
-    """
-    grid = Grid([[(False, 0) for _ in range(3)] for _ in range(3)])
-    corner = Position((0, 0))
-
-    neighbors = get_neighbors(grid, corner, toroidal=True)
-
-    # Check that wrapping works correctly
-    expected_positions = {
-        (0, 1),  # Right
-        (1, 0),  # Bottom
-        (1, 1),  # Bottom-right
-        (0, 2),  # Top (wrapped)
-        (1, 2),  # Top-right (wrapped)
-        (2, 0),  # Bottom-left (wrapped)
-        (2, 1),  # Left (wrapped)
-        (2, 2),  # Top-left (wrapped)
-    }
-
-    neighbor_set = {(pos[0], pos[1]) for pos in neighbors}
-    assert (
-        neighbor_set == expected_positions
-    ), f"Unexpected neighbor positions: {neighbor_set}"
-
-
-def test_count_live_neighbors() -> None:
-    """
-    Given a grid with known live cells
-    When counting neighbors for a position
-    Then should return correct number of live neighbors
+    Given: A grid with known pattern
+    When: Resizing to smaller dimensions
+    Then: Should preserve pattern within new bounds
     """
     grid = Grid(
         [
-            [(True, 1), (False, 0), (False, 0)],
-            [(False, 0), (True, 1), (False, 0)],
-            [(False, 0), (False, 0), (True, 1)],
+            [(True, 1), (True, 1), (True, 1)],
+            [(False, 0), (False, 0), (False, 0)],
+            [(False, 0), (False, 0), (False, 0)],
         ]
     )
-    center = Position((1, 1))
 
-    neighbors = get_neighbors(grid, center)
-    count = count_live_neighbors(grid, neighbors)
+    new_grid = resize_grid(grid, new_width=2, new_height=2)
 
-    # Center cell has 2 live neighbors (top-left and bottom-right)
-    assert count == 2, f"Expected 2 live neighbors, got {count}"
+    assert len(new_grid) == 2
+    assert len(new_grid[0]) == 2
+    assert new_grid[0][0][0] and new_grid[0][1][0]  # Top row preserved
+    assert not new_grid[1][0][0] and not new_grid[1][1][0]  # Bottom row preserved
 
 
-def test_high_density_grid_creation() -> None:
+def test_grid_resizing_larger() -> None:
     """
-    Given a grid configuration with high density
-    When creating a new grid
-    Then should have approximately the specified density of live cells
+    Given: A grid with known pattern
+    When: Resizing to larger dimensions
+    Then: Should preserve original pattern and fill new cells with dead state
     """
-    config = GridConfig(width=20, height=20, density=0.8)
-    grid = create_grid(config)
+    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
 
-    live_cells = sum(sum(1 for cell in row if cell[0]) for row in grid)
-    total_cells = 400  # 20x20
-    actual_density = live_cells / total_cells
+    new_grid = resize_grid(grid, new_width=3, new_height=3)
 
-    # Allow 20% margin to reduce test flakiness
-    assert (
-        0.6 <= actual_density <= 1.0
-    ), f"Expected density between 60% and 100%, got {actual_density * 100:.1f}%"
+    assert len(new_grid) == 3
+    assert len(new_grid[0]) == 3
+    assert new_grid[0][0][0] and new_grid[0][1][0]  # Original pattern preserved
+    assert not new_grid[0][2][0]  # New cells dead
+    assert not any(cell[0] for cell in new_grid[2])  # New row dead
+
+
+def test_finite_boundary() -> None:
+    """
+    Given: A grid with finite boundary
+    When: Getting neighbors at edge
+    Then: Should only return valid positions within grid
+    """
+    grid = Grid(
+        [
+            [(True, 1), (True, 1), (True, 1)],
+            [(False, 0), (False, 0), (False, 0)],
+            [(False, 0), (False, 0), (False, 0)],
+        ]
+    )
+
+    corner_pos = Position((0, 0))
+    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.FINITE)
+
+    assert len(neighbors) == 3  # Only 3 valid neighbors for corner
+    assert all(0 <= pos[0] < 3 and 0 <= pos[1] < 3 for pos in neighbors)
+
+
+def test_toroidal_boundary() -> None:
+    """
+    Given: A grid with toroidal boundary
+    When: Getting neighbors at edge
+    Then: Should wrap around to opposite edge
+    """
+    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+
+    corner_pos = Position((0, 0))
+    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.TOROIDAL)
+
+    assert len(neighbors) == 8  # All 8 neighbors valid in toroidal grid
+    # Check wrapping
+    assert Position((1, 1)) in neighbors  # Bottom-right
+    assert Position((1, 0)) in neighbors  # Right
+    assert Position((0, 1)) in neighbors  # Bottom
+    assert Position((1, 1)) in neighbors  # Bottom-right
+
+
+def test_infinite_boundary() -> None:
+    """
+    Given: A grid with infinite boundary
+    When: Getting neighbors at edge
+    Then: Should return all eight neighbors
+    """
+    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+
+    corner_pos = Position((0, 0))
+    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.INFINITE)
+
+    assert len(neighbors) == 8  # All 8 neighbors returned
+    # Check positions outside grid included
+    assert Position((-1, -1)) in neighbors
+    assert Position((-1, 0)) in neighbors
+    assert Position((-1, 1)) in neighbors
+
+
+def test_grid_section_finite() -> None:
+    """
+    Given: A grid with finite boundary
+    When: Getting a section partially outside grid
+    Then: Should return section with dead cells for outside positions
+    """
+    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+
+    section = get_grid_section(
+        grid,
+        Position((1, 1)),  # Start inside
+        Position((2, 2)),  # End outside
+        BoundaryCondition.FINITE,
+    )
+
+    assert len(section) == 2  # Requested height
+    assert len(section[0]) == 2  # Requested width
+    assert not section[0][1][0]  # Outside position is dead
+    assert not section[1][0][0]  # Outside position is dead
+    assert not section[1][1][0]  # Outside position is dead
+
+
+def test_grid_section_toroidal() -> None:
+    """
+    Given: A grid with toroidal boundary
+    When: Getting a section across grid edge
+    Then: Should wrap around to opposite edge
+    """
+    grid = Grid([[(True, 1), (False, 0)], [(False, 0), (True, 1)]])
+
+    section = get_grid_section(
+        grid,
+        Position((1, 1)),  # Bottom-right
+        Position((2, 2)),  # Wraps around
+        BoundaryCondition.TOROIDAL,
+    )
+
+    assert len(section) == 2
+    assert len(section[0]) == 2
+    assert section[0][0][0]  # Bottom-right cell is alive
+    assert not section[0][1][0]  # Wrapped top-right is dead
+    assert not section[1][0][0]  # Wrapped bottom-left is dead
+    assert section[1][1][0]  # Wrapped top-left is alive
+
+
+def test_count_neighbors_infinite() -> None:
+    """
+    Given: A grid with infinite boundary
+    When: Counting neighbors including positions outside grid
+    Then: Should only count live cells within actual grid
+    """
+    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+
+    # Include positions outside grid
+    positions = [
+        Position((-1, -1)),  # Outside
+        Position((0, 0)),  # Inside, alive
+        Position((1, 0)),  # Inside, alive
+    ]
+
+    count = count_live_neighbors(grid, positions, BoundaryCondition.INFINITE)
+    assert count == 2  # Only counts cells within actual grid

@@ -4,12 +4,20 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Empty
 from threading import Event
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
 from gol.actor import CellActor, broadcast_state, create_cell_actor, process_messages
-from gol.grid import Grid, GridConfig, Position, create_grid, get_neighbors
+from gol.grid import (
+    BoundaryCondition,
+    Grid,
+    GridConfig,
+    Position,
+    create_grid,
+    get_neighbors,
+    resize_grid,
+)
 from gol.messaging import Actor, subscribe_to_neighbors
 from gol.renderer import (
     RendererConfig,
@@ -25,6 +33,8 @@ class ControllerConfig:
 
     grid: GridConfig
     renderer: RendererConfig
+    selected_pattern: Optional[str] = None
+    pattern_rotation: int = 0
 
 
 def initialize_game(
@@ -41,7 +51,6 @@ def initialize_game(
     Raises:
         RuntimeError: If terminal initialization fails
     """
-
     # Initialize terminal
     terminal, _ = initialize_terminal(config.renderer)
     if terminal is None:
@@ -57,13 +66,16 @@ def initialize_game(
 
 
 def create_actor_batch(
-    positions: List[Position], states: List[Tuple[bool, int]]
+    positions: List[Position],
+    states: List[Tuple[bool, int]],
+    boundary: BoundaryCondition,
 ) -> List[CellActor]:
     """Create a batch of cell actors in parallel.
 
     Args:
         positions: List of positions for actors
         states: List of initial states for actors (is_alive, age)
+        boundary: Boundary condition to apply
 
     Returns:
         List of created cell actors
@@ -83,9 +95,7 @@ def create_actor_batch(
         ) -> List[CellActor]:
             pos_list, state_list = chunk
             return [
-                create_cell_actor(
-                    pos, state[0], state[1]
-                )  # Pass both alive state and age
+                create_cell_actor(pos, state[0], state[1])
                 for pos, state in zip(pos_list, state_list)
             ]
 
@@ -112,7 +122,7 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     states = [grid[y][x] for y, x in zip(y_indices.flat, x_indices.flat)]
 
     # Create actors in parallel batches
-    actors = create_actor_batch(positions, states)
+    actors = create_actor_batch(positions, states, config.boundary)
 
     # Set up neighbor relationships efficiently
     actor_map = {actor.position: actor for actor in actors}
@@ -120,9 +130,14 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
     with ThreadPoolExecutor() as executor:
 
         def setup_neighbors(actor: CellActor) -> None:
-            neighbor_positions = get_neighbors(
-                grid, actor.position, toroidal=config.toroidal
-            )
+            neighbor_positions = get_neighbors(grid, actor.position, config.boundary)
+            # Filter out positions outside grid for infinite boundary
+            if config.boundary == BoundaryCondition.INFINITE:
+                neighbor_positions = [
+                    pos
+                    for pos in neighbor_positions
+                    if 0 <= pos[0] < config.width and 0 <= pos[1] < config.height
+                ]
             # Use dictionary lookup instead of list comprehension
             neighbors = [cast(Actor, actor_map[pos]) for pos in neighbor_positions]
             subscribe_to_neighbors(actor, neighbors)
@@ -131,6 +146,48 @@ def setup_cell_actors(grid: Grid, config: GridConfig) -> List[CellActor]:
         list(executor.map(setup_neighbors, actors))
 
     return actors
+
+
+def resize_game(
+    grid: Grid,
+    actors: List[CellActor],
+    new_width: int,
+    new_height: int,
+    config: GridConfig,
+) -> Tuple[Grid, List[CellActor]]:
+    """Resize the game grid and recreate actors.
+
+    Args:
+        grid: Current grid state
+        actors: Current cell actors
+        new_width: New grid width
+        new_height: New grid height
+        config: Grid configuration
+
+    Returns:
+        Tuple of (new grid, new actors)
+    """
+    # Clean up old actors
+    for actor in actors:
+        actor.subscribers.clear()
+        while not actor.queue.empty():
+            actor.queue.get_nowait()
+
+    # Create new grid with preserved pattern
+    new_grid = resize_grid(grid, new_width, new_height)
+
+    # Create new configuration
+    new_config = GridConfig(
+        width=new_width,
+        height=new_height,
+        density=config.density,
+        boundary=config.boundary,
+    )
+
+    # Create and connect new actors
+    new_actors = setup_cell_actors(new_grid, new_config)
+
+    return new_grid, new_actors
 
 
 def process_generation(actors: List[CellActor], completion_event: Event) -> None:

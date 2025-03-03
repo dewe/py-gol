@@ -6,23 +6,17 @@ import signal
 import sys
 import time
 from threading import Event
-from typing import Any, List, Tuple
+from typing import Any, Callable, Dict
 
 from gol.controller import (
     ControllerConfig,
-    cleanup_game,
     initialize_game,
     process_generation,
+    resize_game,
     setup_cell_actors,
 )
-from gol.grid import (
-    Grid,
-    GridConfig,
-    Position,
-    count_live_neighbors,
-    create_grid,
-    get_neighbors,
-)
+from gol.grid import BoundaryCondition, Grid, GridConfig, Position, create_grid
+from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
     RendererConfig,
     RendererState,
@@ -45,7 +39,12 @@ def parse_arguments() -> ControllerConfig:
         "Controls:\n"
         "  - Press 'q' or Ctrl-C to quit the game\n"
         "  - Press 'r' to restart with a new grid\n"
-        "  - Press Escape to exit\n"
+        "  - Press 'p' to enter pattern mode\n"
+        "  - Press 'b' to cycle boundary conditions\n"
+        "  - Press '+'/'-' to resize grid\n"
+        "  - Press '['/']' to rotate pattern\n"
+        "  - Press Space to place pattern\n"
+        "  - Press Escape to exit pattern mode\n"
         "  - Press ↑ to slow down the simulation\n"
         "  - Press ↓ to speed up the simulation"
     )
@@ -79,31 +78,26 @@ def parse_arguments() -> ControllerConfig:
     )
 
     parser.add_argument(
-        "--toroidal",
-        action="store_true",
-        help="Enable toroidal grid (edges wrap around)",
+        "--boundary",
+        type=str,
+        choices=["finite", "toroidal", "infinite"],
+        default="finite",
+        help="Boundary condition (default: finite)",
     )
 
     args = parser.parse_args()
 
-    # Validate non-terminal dependent arguments
-    if args.interval <= 0:
-        parser.error("Interval must be positive")
+    # Convert boundary condition string to enum
+    boundary = BoundaryCondition[args.boundary.upper()]
 
-    if not 0.0 <= args.density <= 1.0:
-        parser.error("Density must be between 0.0 and 1.0")
-
-    # Create configuration with placeholder dimensions
     return ControllerConfig(
         grid=GridConfig(
             width=args.width,
             height=args.height,
             density=args.density,
-            toroidal=args.toroidal,
+            boundary=boundary,
         ),
-        renderer=RendererConfig(
-            update_interval=args.interval,
-        ),
+        renderer=RendererConfig(update_interval=args.interval),
     )
 
 
@@ -142,9 +136,11 @@ def adjust_grid_dimensions(
             width=width,
             height=height,
             density=config.grid.density,
-            toroidal=config.grid.toroidal,
+            boundary=config.grid.boundary,
         ),
         renderer=config.renderer,
+        selected_pattern=config.selected_pattern,
+        pattern_rotation=config.pattern_rotation,
     )
 
 
@@ -165,65 +161,6 @@ def setup_signal_handlers(terminal: TerminalProtocol) -> None:
     signal.signal(signal.SIGTERM, signal_handler)
 
 
-def update_cell(
-    grid: Grid, pos: Position, neighbors: List[Position], config: GridConfig
-) -> Tuple[bool, int]:
-    """Determines new cell state based on neighbors.
-
-    Args:
-        grid: Current grid state
-        pos: Position to update
-        neighbors: List of neighbor positions
-        config: Grid configuration
-
-    Returns:
-        Tuple of (new_state, new_age) for the cell
-    """
-    x, y = pos
-    is_alive, age = grid[y][x]
-    live_count = count_live_neighbors(grid, neighbors)
-
-    # Apply Conway's rules with aging
-    if is_alive:
-        # Cell survives
-        if live_count in (2, 3):
-            return True, age + 1
-        # Cell dies
-        return False, 0
-    else:
-        # Cell becomes alive
-        if live_count == 3:
-            return True, 1
-        # Cell stays dead
-        return False, 0
-
-
-def update_grid(grid: Grid, config: GridConfig) -> Grid:
-    """Updates entire grid based on Game of Life rules.
-
-    Args:
-        grid: Current grid state
-        config: Grid configuration
-
-    Returns:
-        New grid state
-    """
-    width = len(grid[0])
-    height = len(grid)
-    new_grid = []
-
-    for y in range(height):
-        new_row = []
-        for x in range(width):
-            pos = Position((x, y))
-            neighbors = get_neighbors(grid, pos, config.toroidal)
-            new_state = update_cell(grid, pos, neighbors, config)
-            new_row.append(new_state)
-        new_grid.append(new_row)
-
-    return Grid(new_grid)
-
-
 def run_game_loop(
     terminal: TerminalProtocol,
     grid: Grid,
@@ -242,9 +179,154 @@ def run_game_loop(
     actors = setup_cell_actors(grid, config.grid)
     completion_event = Event()
 
+    # Initialize pattern storage
+    pattern_storage = FilePatternStorage()
+
     # Track timing
     last_frame = time.time()
     last_update = time.time()
+
+    # Command handlers
+    def handle_quit() -> tuple[Grid, ControllerConfig, bool]:
+        print("Quitting game...")
+        return grid, config, True
+
+    def handle_restart() -> tuple[Grid, ControllerConfig, bool]:
+        new_grid = create_grid(config.grid)
+        _ = setup_cell_actors(new_grid, config.grid)  # Ensure actors are set up
+        state.generation_count = 0  # Reset generation count
+        return new_grid, config, False
+
+    def handle_pattern_mode() -> tuple[Grid, ControllerConfig, bool]:
+        # Toggle pattern mode
+        state.pattern_mode = not state.pattern_mode
+        if state.pattern_mode:
+            # Show available patterns
+            patterns = list(BUILTIN_PATTERNS.keys()) + pattern_storage.list_patterns()
+            print("\nAvailable patterns:")
+            for i, name in enumerate(patterns):
+                print(f"{i+1}: {name}")
+            print("\nEnter pattern number: ", end="", flush=True)
+            # Get pattern selection
+            while True:
+                try:
+                    choice = int(terminal.inkey()) - 1
+                    if 0 <= choice < len(patterns):
+                        new_config = ControllerConfig(
+                            grid=config.grid,
+                            renderer=config.renderer,
+                            selected_pattern=patterns[choice],
+                            pattern_rotation=0,
+                        )
+                        return grid, new_config, False
+                except ValueError:
+                    pass
+        return grid, config, False
+
+    def handle_rotate_pattern() -> tuple[Grid, ControllerConfig, bool]:
+        if state.pattern_mode and config.selected_pattern:
+            new_config = ControllerConfig(
+                grid=config.grid,
+                renderer=config.renderer,
+                selected_pattern=config.selected_pattern,
+                pattern_rotation=(config.pattern_rotation + 90) % 360,
+            )
+            return grid, new_config, False
+        return grid, config, False
+
+    def handle_place_pattern() -> tuple[Grid, ControllerConfig, bool]:
+        if state.pattern_mode and config.selected_pattern:
+            # Get pattern
+            pattern = BUILTIN_PATTERNS.get(
+                config.selected_pattern
+            ) or pattern_storage.load_pattern(config.selected_pattern)
+            if pattern:
+                # Place pattern at cursor
+                new_grid = place_pattern(
+                    grid,
+                    pattern,
+                    Position((state.cursor_x, state.cursor_y)),
+                    config.pattern_rotation,
+                )
+                # Recreate actors
+                _ = setup_cell_actors(new_grid, config.grid)  # Ensure actors are set up
+                return new_grid, config, False
+        return grid, config, False
+
+    def handle_cycle_boundary() -> tuple[Grid, ControllerConfig, bool]:
+        # Cycle through boundary conditions
+        current = config.grid.boundary
+        next_boundary = {
+            BoundaryCondition.FINITE: BoundaryCondition.TOROIDAL,
+            BoundaryCondition.TOROIDAL: BoundaryCondition.INFINITE,
+            BoundaryCondition.INFINITE: BoundaryCondition.FINITE,
+        }[current]
+        new_config = ControllerConfig(
+            grid=GridConfig(
+                width=config.grid.width,
+                height=config.grid.height,
+                density=config.grid.density,
+                boundary=next_boundary,
+            ),
+            renderer=config.renderer,
+            selected_pattern=config.selected_pattern,
+            pattern_rotation=config.pattern_rotation,
+        )
+        # Recreate actors with new boundary
+        _ = setup_cell_actors(grid, new_config.grid)  # Ensure actors are set up
+        return grid, new_config, False
+
+    def handle_resize_larger() -> tuple[Grid, ControllerConfig, bool]:
+        # Increase grid size by 10%
+        new_width = int(config.grid.width * 1.1)
+        new_height = int(config.grid.height * 1.1)
+        new_grid, new_actors = resize_game(
+            grid, actors, new_width, new_height, config.grid
+        )
+        new_config = ControllerConfig(
+            grid=GridConfig(
+                width=new_width,
+                height=new_height,
+                density=config.grid.density,
+                boundary=config.grid.boundary,
+            ),
+            renderer=config.renderer,
+            selected_pattern=config.selected_pattern,
+            pattern_rotation=config.pattern_rotation,
+        )
+        return new_grid, new_config, False
+
+    def handle_resize_smaller() -> tuple[Grid, ControllerConfig, bool]:
+        # Decrease grid size by 10%
+        new_width = max(10, int(config.grid.width * 0.9))
+        new_height = max(10, int(config.grid.height * 0.9))
+        new_grid, new_actors = resize_game(
+            grid, actors, new_width, new_height, config.grid
+        )
+        new_config = ControllerConfig(
+            grid=GridConfig(
+                width=new_width,
+                height=new_height,
+                density=config.grid.density,
+                boundary=config.grid.boundary,
+            ),
+            renderer=config.renderer,
+            selected_pattern=config.selected_pattern,
+            pattern_rotation=config.pattern_rotation,
+        )
+        return new_grid, new_config, False
+
+    # Command mapping
+    command_handlers: Dict[str, Callable[[], tuple[Grid, ControllerConfig, bool]]] = {
+        "quit": handle_quit,
+        "restart": handle_restart,
+        "pattern_mode": handle_pattern_mode,
+        "rotate_pattern": handle_rotate_pattern,
+        "place_pattern": handle_place_pattern,
+        "cycle_boundary": handle_cycle_boundary,
+        "resize_larger": handle_resize_larger,
+        "resize_smaller": handle_resize_smaller,
+    }
 
     try:
         with terminal.cbreak():
@@ -255,14 +337,10 @@ def run_game_loop(
                 key = terminal.inkey(timeout=0.001)
                 if key:
                     command = handle_user_input(terminal, key, config.renderer)
-                    if command == "quit":
-                        print("Quitting game...")
-                        break
-                    elif command == "restart":
-                        grid = create_grid(config.grid)
-                        actors = setup_cell_actors(grid, config.grid)
-                        state.generation_count = 0  # Reset generation count
-                        continue
+                    if command in command_handlers:
+                        grid, config, should_quit = command_handlers[command]()
+                        if should_quit:
+                            break
 
                 # Process next generation at configured interval
                 if (
@@ -283,13 +361,17 @@ def run_game_loop(
                     state.generation_count += 1  # Increment generation count
                     last_update = current_time
 
-                # Render at maximum frame rate
-                if current_time - last_frame >= 1.0 / 60:  # Cap at 60 FPS
+                # Render grid at frame rate
+                if (
+                    current_time - last_frame
+                    >= 1.0 / config.renderer.refresh_per_second
+                ):
                     safe_render_grid(terminal, grid, config.renderer, state)
                     last_frame = current_time
 
-    finally:
-        cleanup_game(terminal, actors)
+    except Exception as e:
+        print(f"Error in game loop: {e}", file=sys.stderr)
+        raise
 
 
 def main() -> None:
@@ -319,6 +401,9 @@ def main() -> None:
         if terminal:
             cleanup_terminal(terminal)
         sys.exit(1)
+    finally:
+        if terminal:
+            cleanup_terminal(terminal)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 """Terminal renderer for Game of Life."""
 
+import sys
 from dataclasses import dataclass
 from time import time
-from typing import Any, Dict, Literal, Optional, Protocol, Tuple
+from typing import Any, Dict, Literal, Optional, Protocol, Tuple, runtime_checkable
 
 import psutil
 from blessed import Terminal
@@ -11,13 +12,25 @@ from blessed.keyboard import Keystroke
 
 from .grid import Grid
 
-# Type alias for cell positions
+# Type alias for cell positions and states
 CellPos = Tuple[int, int]
+CellState = Tuple[bool, int]  # (is_alive, age)
 
 # Get current process for metrics
 _process = psutil.Process()
 
+# Age color thresholds and their meanings
+AGE_COLORS = [
+    (1, "white"),  # New cells
+    (3, "yellow"),  # Young cells
+    (5, "green"),  # Adult cells
+    (10, "blue"),  # Mature cells
+    (20, "magenta"),  # Elder cells
+    (float("inf"), "red"),  # Ancient cells
+]
 
+
+@runtime_checkable
 class TerminalProtocol(Protocol):
     """Protocol defining the required terminal interface."""
 
@@ -34,6 +47,8 @@ class TerminalProtocol(Protocol):
     @property
     def black(self) -> str: ...
     @property
+    def white(self) -> str: ...
+    @property
     def blue(self) -> str: ...
     @property
     def green(self) -> str: ...
@@ -41,6 +56,8 @@ class TerminalProtocol(Protocol):
     def yellow(self) -> str: ...
     @property
     def magenta(self) -> str: ...
+    @property
+    def red(self) -> str: ...
     @property
     def on_blue(self) -> str: ...
     def move_xy(self, x: int, y: int) -> ParameterizingString: ...
@@ -112,9 +129,11 @@ class RendererConfig:
 class RendererState:
     """Maintains renderer state between frames."""
 
-    previous_grid: Optional[Dict[CellPos, bool]] = None
+    previous_grid: Optional[Dict[CellPos, CellState]] = None
     start_x: int = 0
     start_y: int = 0
+    terminal_width: int = 0
+    terminal_height: int = 0
     last_frame_time: float = 0.0
     frames_this_second: int = 0
     actual_fps: float = 0.0
@@ -144,15 +163,23 @@ def initialize_terminal(
     Returns:
         Tuple of (Terminal instance, RendererState)
     """
-    term = Terminal()
+    try:
+        print("Creating Terminal instance...")
+        term = Terminal()
+        print("Terminal instance created")
 
-    # Enter fullscreen mode with alternate screen buffer
-    print(term.enter_fullscreen() + term.hide_cursor())
+        # Clear screen and hide cursor
+        print("Setting up terminal...")
+        sys.stdout.write(term.enter_ca_mode())
+        sys.stdout.write(term.hide_cursor())
+        sys.stdout.write(term.clear())
+        sys.stdout.flush()
+        print("Terminal setup complete")
 
-    # Enable double buffering by using alternate screen
-    print(term.enter_ca_mode())
-
-    return term, RendererState()
+        return term, RendererState()
+    except Exception as e:
+        print(f"Failed to initialize terminal: {str(e)}", file=sys.stderr)
+        raise
 
 
 def handle_user_input(
@@ -176,10 +203,11 @@ def handle_user_input(
     """
     # Check for quit commands
     if (
-        key.name in ("q", "Q", "^C", "KEY_ESCAPE", "escape")  # Named keys
+        key.name in ("q", "Q", "^C", "KEY_ESCAPE")  # Named keys
         or key == "\x1b"  # Raw escape character
         or key == "\x03"  # Raw Ctrl-C
         or key in ("q", "Q")  # Raw key values
+        or key.code == 27  # Escape key code
     ):
         return "quit"
 
@@ -229,9 +257,14 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
     Args:
         terminal: Terminal instance to cleanup
     """
-    # Disable double buffering
-    print(terminal.exit_ca_mode())
-    print(terminal.exit_fullscreen() + terminal.normal_cursor())
+    try:
+        # Restore terminal to normal state
+        sys.stdout.write(terminal.exit_ca_mode())
+        sys.stdout.write(terminal.normal_cursor())
+        sys.stdout.write(terminal.clear())
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"Error during terminal cleanup: {str(e)}", file=sys.stderr)
 
 
 def calculate_grid_position(
@@ -278,38 +311,53 @@ def calculate_grid_position(
     return start_x, start_y
 
 
-def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
-    """Convert grid to dictionary for efficient comparison.
+def grid_to_dict(grid: Grid) -> Dict[CellPos, CellState]:
+    """Converts grid to dictionary format for comparison.
 
     Args:
-        grid: Current game grid
+        grid: Current grid state
 
     Returns:
-        Dictionary mapping positions to cell states
+        Dictionary mapping positions to cell states (is_alive, age)
     """
-    return {(x, y): cell for y, row in enumerate(grid) for x, cell in enumerate(row)}
+    return {(x, y): grid[y][x] for y in range(len(grid)) for x in range(len(grid[0]))}
 
 
 def render_cell(
-    terminal: TerminalProtocol, x: int, y: int, state: bool, config: RendererConfig
+    terminal: TerminalProtocol,
+    x: int,
+    y: int,
+    cell_state: CellState,
+    config: RendererConfig,
 ) -> str:
-    """Render a single cell.
+    """Renders a single cell.
 
     Args:
         terminal: Terminal instance
-        x: Cell x coordinate
-        y: Cell y coordinate
-        state: Cell state
+        x: X coordinate
+        y: Y coordinate
+        cell_state: Tuple of (is_alive, age)
         config: Renderer configuration
 
     Returns:
-        String to render the cell
+        String to render cell
     """
-    char = config.cell_alive if state else config.cell_dead
-    # Apply dim attribute to dead cells
-    if not state:
-        char = terminal.dim + char + terminal.normal
-    return terminal.move_xy(x, y) + char + config.cell_spacing
+    is_alive, age = cell_state
+    if not is_alive:
+        return str(
+            terminal.dim + config.cell_dead + terminal.normal + config.cell_spacing
+        )
+
+    # Get color based on age
+    color = "white"  # Default color
+    for threshold, col in AGE_COLORS:
+        if age <= threshold:
+            color = col
+            break
+
+    # Apply color using terminal attributes
+    color_attr = getattr(terminal, color)
+    return str(color_attr + config.cell_alive + terminal.normal + config.cell_spacing)
 
 
 def render_status_line(
@@ -429,7 +477,9 @@ def render_grid(
 
     # Update statistics
     state.total_cells = grid_width * grid_height
-    state.active_cells = sum(1 for cell in current_grid.values() if cell)
+    state.active_cells = sum(
+        1 for cell in current_grid.values() if cell[0]
+    )  # Check is_alive field
 
     # Count state changes if we have a previous grid
     if state.previous_grid is not None:
@@ -447,6 +497,7 @@ def render_grid(
             screen_x = start_x + (x * 2)  # Account for spacing
             screen_y = start_y + y
             if screen_y < usable_height:  # Don't render in status line area
+                buffer.append(str(terminal.move_xy(screen_x, screen_y)))
                 buffer.append(
                     render_cell(terminal, screen_x, screen_y, cell_state, config)
                 )
@@ -461,6 +512,7 @@ def render_grid(
                 screen_x = start_x + (x * 2)  # Account for spacing
                 screen_y = start_y + y
                 if screen_y < usable_height:  # Don't render in status line area
+                    buffer.append(str(terminal.move_xy(screen_x, screen_y)))
                     buffer.append(
                         render_cell(terminal, screen_x, screen_y, cell_state, config)
                     )

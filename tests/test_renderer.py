@@ -43,8 +43,8 @@ def test_renderer_config_defaults() -> None:
     assert config.cell_alive == "■"
     assert config.cell_dead == "□"
     assert config.cell_spacing == " "
-    assert config.update_interval == 100
-    assert config.refresh_per_second == 10  # 1000/100 = 10
+    assert config.update_interval == 200
+    assert config.refresh_per_second == 5  # 1000/200 = 5
 
 
 def test_terminal_initialization() -> None:

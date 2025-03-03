@@ -7,7 +7,7 @@ date: 2024-03-22
 
 ## Overview
 
-This document outlines the test-driven implementation plan for Conway's Game of Life using an actor-based concurrent model. The implementation follows functional programming principles and is organized by major components.
+This document outlines the test-driven implementation plan for Conway's Game of Life using a pure functional approach. The implementation follows functional programming principles and is organized by major components.
 
 ## Architecture
 
@@ -16,8 +16,8 @@ This document outlines the test-driven implementation plan for Conway's Game of 
 title: Component Dependencies
 ---
 graph TD
-    A[Grid Management] --> B[Message Queue System]
-    B --> C[Cell Actor System]
+    A[Grid Management] --> B[State Management]
+    B --> C[Grid Operations]
     C --> D[Renderer]
     D --> E[Main Controller]
     
@@ -68,70 +68,77 @@ def test_neighbor_counting():
     """
 ```
 
-### 2. Cell Actor System
+### 2. State Management
 
-Implementation of individual cell behavior using the actor model.
+Pure functional implementation of state transitions.
 
 #### Key Functions
 
 ```python
-# actor.py
-def create_cell_actor(position: Position, initial_state: bool) -> Actor:
-    """Creates a cell actor with message queue"""
+# state.py
+def calculate_next_generation(grid: Grid) -> Grid:
+    """Pure function to compute next generation state"""
 
-def process_messages(actor: Actor) -> None:
-    """Pure function to process incoming messages"""
+def update_cell_state(cell: Cell, neighbors: list[Cell]) -> Cell:
+    """Pure function to compute next cell state"""
 
-def calculate_next_state(current: bool, live_neighbors: int) -> bool:
+def apply_rules(alive: bool, live_neighbors: int) -> bool:
     """Pure function implementing Game of Life rules"""
 ```
 
 #### BDD Tests
 
 ```python
-# test_actor.py
-def test_cell_state_transition():
+# test_state.py
+def test_next_generation():
     """
-    Given a live cell with 1 live neighbor
-    When calculating next state
-    Then cell should die from underpopulation
+    Given a grid with known state
+    When calculating next generation
+    Then should return correct new state
     """
 
-def test_message_processing():
+def test_cell_state_update():
     """
-    Given a cell actor
-    When receiving state update messages
-    Then should update its state correctly
+    Given a cell with known neighbors
+    When updating state
+    Then should return correct new state
     """
 ```
 
-### 3. Message Queue System
+### 3. Grid Operations
 
-Thread-safe communication system between cell actors.
+Pure functions for grid manipulation and neighbor calculations.
 
 #### Key Functions
 
 ```python
-# messaging.py
-def create_message_queue() -> Queue:
-    """Creates thread-safe message queue"""
+# grid_ops.py
+def get_cell_neighbors(grid: Grid, pos: Position) -> list[Cell]:
+    """Pure function to get cell neighbors"""
 
-def subscribe_to_neighbors(actor: Actor, neighbors: list[Actor]) -> None:
-    """Sets up message subscriptions between cells"""
+def update_grid(grid: Grid, updates: list[CellUpdate]) -> Grid:
+    """Pure function to create new grid with updates"""
 
-def broadcast_state(actor: Actor, state: bool) -> None:
-    """Broadcasts state changes to subscribers"""
+def create_empty_grid(size: Size) -> Grid:
+    """Pure function to create empty grid"""
 ```
 
 #### BDD Tests
 
 ```python
-# test_messaging.py
-def test_message_delivery():
+# test_grid_ops.py
+def test_neighbor_retrieval():
     """
-    Given connected cell actors
-    When one broadcasts state change
-    Then all subscribers should receive update
+    Given a grid position
+    When getting neighbors
+    Then should return correct cells
+    """
+
+def test_grid_update():
+    """
+    Given a list of cell updates
+    When applying to grid
+    Then should return new grid with updates
     """
 ```
 
@@ -215,19 +222,19 @@ def test_game_initialization():
 ## Implementation Order
 
 1. Grid Management
-   - Core game logic
+   - Core data structures
    - State representation
+   - Grid operations
+
+2. State Management
+   - Pure state transitions
+   - Rule implementation
+   - Generation updates
+
+3. Grid Operations
    - Neighbor calculations
-
-2. Message Queue System
-   - Thread-safe queues
-   - Subscription mechanism
-   - Message broadcasting
-
-3. Cell Actor System
-   - Actor lifecycle
-   - State transitions
-   - Message handling
+   - Grid updates
+   - Boundary handling
 
 4. Renderer
    - Terminal setup

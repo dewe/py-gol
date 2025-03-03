@@ -2,7 +2,7 @@
 
 ## Overview
 
-A terminal-based implementation of Conway's Game of Life using an actor-based concurrent model where each cell operates independently.
+A terminal-based implementation of Conway's Game of Life using a pure functional approach with immutable state transitions.
 
 ## Core Requirements
 
@@ -21,17 +21,17 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 
 #### Architecture
 
-- Each cell implemented as an independent actor using Python threading
-- Actors communicate via thread-safe message queues
-- No shared mutable state between cells
-- Pure functional approach for state transitions
+- Pure functional implementation with immutable state transitions
+- No shared mutable state
+- Thread-safe operations using functional patterns
+- Efficient state management with immutable data structures
 
 #### Concurrency Model
 
-- Each cell runs in its own thread (lightweight concurrency)
-- Thread-safe message passing using Queue objects
-- Synchronization using threading primitives (Event, Barrier)
-- Efficient resource usage with thread pooling
+- Functional concurrency patterns
+- Thread-safe operations through immutability
+- Synchronization using pure functional constructs
+- Efficient resource usage with functional patterns
 
 #### User Interface
 
@@ -76,11 +76,10 @@ title: Component Architecture
 ---
 graph TD
     A[Main Controller] --> B[Grid Manager]
-    B --> C[Cell Actor Pool]
+    B --> C[State Manager]
     B --> D[Renderer]
-    C --> E[Cell Actor]
-    C --> F[Cell Actor]
-    C --> G[Cell Actor]
+    C --> E[Grid State]
+    C --> F[Next State]
     D --> H[Terminal UI]
 ```
 
@@ -88,18 +87,17 @@ graph TD
 
 ```mermaid
 ---
-title: Actor Communication
+title: State Transitions
 ---
 sequenceDiagram
-    participant C as Cell Actor
-    participant N as Neighbor Cells
+    participant S as State Manager
+    participant G as Grid State
     participant R as Renderer
     
-    C->>N: Subscribe to state changes
-    N->>C: State update notifications
-    C->>C: Calculate next state
-    C->>R: Report current state
-    R->>R: Update display
+    S->>G: Calculate next state
+    G->>S: Return new state
+    S->>R: Update display
+    R->>R: Render new state
 ```
 
 ## Performance Requirements

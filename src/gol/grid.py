@@ -85,47 +85,48 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
 def get_neighbors(
     grid: Grid, pos: Position, boundary: BoundaryCondition
 ) -> list[Position]:
-    """Get valid neighbor positions using vectorized operations.
+    """Get valid neighbor positions based on boundary condition.
 
     Args:
-        grid: Current grid state
+        grid: The game grid
         pos: Position to get neighbors for
         boundary: Boundary condition to apply
 
     Returns:
         List of valid neighbor positions
     """
-    x, y = pos
-    width = len(grid[0])
     height = len(grid)
+    width = len(grid[0])
+    x, y = pos
 
-    # Generate all possible neighbor offsets using numpy
-    dx = np.array([-1, -1, -1, 0, 0, 1, 1, 1])
-    dy = np.array([-1, 0, 1, -1, 1, -1, 0, 1])
-
-    # Calculate new positions
-    new_x = x + dx
-    new_y = y + dy
-
-    match boundary:
-        case BoundaryCondition.TOROIDAL:
-            # Vectorized modulo operation for wrapping
-            new_x = new_x % width
-            new_y = new_y % height
-            return [Position((int(nx), int(ny))) for nx, ny in zip(new_x, new_y)]
-
-        case BoundaryCondition.INFINITE:
-            # All positions are valid in infinite grid
-            return [Position((int(nx), int(ny))) for nx, ny in zip(new_x, new_y)]
-
-        case _:  # FINITE
-            # Vectorized bounds checking
-            valid_mask = (
-                (new_x >= 0) & (new_x < width) & (new_y >= 0) & (new_y < height)
-            )
-            valid_x = new_x[valid_mask]
-            valid_y = new_y[valid_mask]
-            return [Position((int(nx), int(ny))) for nx, ny in zip(valid_x, valid_y)]
+    if boundary == BoundaryCondition.FINITE:
+        return [
+            Position((new_x, new_y))
+            for new_x in range(max(0, x - 1), min(width, x + 2))
+            for new_y in range(max(0, y - 1), min(height, y + 2))
+            if (new_x, new_y) != (x, y)
+        ]
+    elif boundary == BoundaryCondition.TOROIDAL:
+        # For toroidal boundaries, wrap around edges
+        neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                # Calculate wrapped positions
+                new_x = (x + dx) % width
+                new_y = (y + dy) % height
+                neighbors.append(Position((new_x, new_y)))
+        return neighbors
+    else:  # INFINITE
+        # For infinite boundaries, return all 8 neighbors regardless of grid bounds
+        neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                neighbors.append(Position((x + dx, y + dy)))
+        return neighbors
 
 
 def count_live_neighbors(

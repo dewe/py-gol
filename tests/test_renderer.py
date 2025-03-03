@@ -158,11 +158,14 @@ def test_handle_user_input_quit_commands(term: TerminalProtocol) -> None:
         Keystroke("q"),
         Keystroke("Q"),
         Keystroke("\x03"),  # Ctrl-C
-        Keystroke("\x1b"),  # Escape
     ]
     for key in quit_keys:
         result = handle_user_input(term, key, config)
         assert result == "quit"
+
+    # Escape key should exit pattern mode
+    result = handle_user_input(term, Keystroke("\x1b"), config)
+    assert result == "exit_pattern"
 
 
 def test_handle_user_input_restart_command(term: TerminalProtocol) -> None:
@@ -175,15 +178,19 @@ def test_handle_user_input_restart_command(term: TerminalProtocol) -> None:
 
 
 def test_handle_user_input_continue_command(term: TerminalProtocol) -> None:
-    """Test that other keys return continue."""
+    """Test that other keys return appropriate commands."""
     config = RendererConfig()
-    continue_keys = [
+    # Space key should place pattern
+    result = handle_user_input(term, Keystroke(" "), config)
+    assert result == "place_pattern"
+
+    # Other keys should continue
+    other_keys = [
         Keystroke("a"),
         Keystroke("1"),
-        Keystroke(" "),
         Keystroke("\t"),
     ]
-    for key in continue_keys:
+    for key in other_keys:
         result = handle_user_input(term, key, config)
         assert result == "continue"
 
@@ -196,13 +203,13 @@ def test_handle_user_input_interval_adjustment(term: TerminalProtocol) -> None:
     # Test increasing interval
     key = Keystroke(name="KEY_UP")
     result = handle_user_input(term, key, config)
-    assert result == "continue"
+    assert result == "move_cursor_up"
     assert config.update_interval > initial_interval
 
     # Test decreasing interval
     key = Keystroke(name="KEY_DOWN")
     result = handle_user_input(term, key, config)
-    assert result == "continue"
+    assert result == "move_cursor_down"
     assert (
         config.update_interval < initial_interval + config.min_interval_step * 2
     )  # Account for rounding
@@ -216,14 +223,14 @@ def test_handle_user_input_interval_limits(term: TerminalProtocol) -> None:
     config.update_interval = config.max_interval
     key = Keystroke(name="KEY_UP")
     result = handle_user_input(term, key, config)
-    assert result == "continue"
+    assert result == "move_cursor_up"
     assert config.update_interval == config.max_interval
 
     # Test minimum limit
     config.update_interval = config.min_interval
     key = Keystroke(name="KEY_DOWN")
     result = handle_user_input(term, key, config)
-    assert result == "continue"
+    assert result == "move_cursor_down"
     assert config.update_interval == config.min_interval
 
 

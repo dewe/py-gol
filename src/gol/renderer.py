@@ -11,6 +11,7 @@ from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from .grid import Grid
+from .patterns import BUILTIN_PATTERNS, FilePatternStorage, get_pattern_cells
 
 # Type alias for cell positions and states
 CellPos = Tuple[int, int]
@@ -85,6 +86,8 @@ class RendererConfig:
     max_interval: int = 1000  # Maximum interval in milliseconds
     min_interval_step: int = 10  # Minimum step size for interval adjustments
     interval_change_factor: float = 0.2  # 20% change per adjustment
+    selected_pattern: Optional[str] = None
+    pattern_rotation: int = 0
 
     def __post_init__(self) -> None:
         """Calculate refresh rate based on update interval."""
@@ -124,6 +127,16 @@ class RendererConfig:
         self.update_interval = max(new_interval, self.min_interval)
         self._update_refresh_rate()
 
+    def set_pattern(self, pattern_name: Optional[str], rotation: int = 0) -> None:
+        """Set the selected pattern and rotation.
+
+        Args:
+            pattern_name: Name of the pattern to select, or None to clear
+            rotation: Pattern rotation in degrees (0, 90, 180, 270)
+        """
+        self.selected_pattern = pattern_name
+        self.pattern_rotation = rotation
+
 
 @dataclass
 class RendererState:
@@ -158,7 +171,19 @@ class RendererState:
     cursor_y: int = 0
 
 
-CommandType = Literal["continue", "quit", "restart", "pattern"]
+CommandType = Literal[
+    "continue",
+    "quit",
+    "restart",
+    "pattern",
+    "move_cursor_left",
+    "move_cursor_right",
+    "move_cursor_up",
+    "move_cursor_down",
+    "place_pattern",
+    "rotate_pattern",
+    "exit_pattern",
+]
 
 
 def initialize_terminal(
@@ -199,23 +224,25 @@ def handle_user_input(
 
     Returns:
         CommandType: Command based on input:
-            - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or Escape
+            - Returns "quit" for 'q', 'Q', or Ctrl-C (^C)
             - Returns "restart" for 'r' or 'R'
             - Returns "pattern" for 'p' or 'P'
+            - Returns "exit_pattern" for Escape
+            - Returns movement commands for arrow keys
+            - Returns "place_pattern" for space
             - Returns "continue" for any other key
-
-    Side effects:
-        - Adjusts update_interval when up/down arrow keys are pressed
     """
     # Check for quit commands
     if (
-        key.name in ("q", "Q", "^C", "KEY_ESCAPE")  # Named keys
-        or key == "\x1b"  # Raw escape character
+        key.name in ("q", "Q", "^C")  # Named keys
         or key == "\x03"  # Raw Ctrl-C
         or key in ("q", "Q")  # Raw key values
-        or key.code == 27  # Escape key code
     ):
         return "quit"
+
+    # Check for Escape key to exit pattern mode
+    if key.name == "KEY_ESCAPE" or key == "\x1b":
+        return "exit_pattern"
 
     # Check for restart command
     if key.name in ("r", "R") or key in ("r", "R"):
@@ -225,11 +252,27 @@ def handle_user_input(
     if key.name in ("p", "P") or key in ("p", "P"):
         return "pattern"
 
-    # Handle interval adjustment
-    if key.name == "KEY_UP":
+    # Handle cursor movement and interval adjustment
+    if key.name == "KEY_LEFT":
+        config.decrease_interval()
+        return "move_cursor_left"
+    elif key.name == "KEY_RIGHT":
         config.increase_interval()
+        return "move_cursor_right"
+    elif key.name == "KEY_UP":
+        config.increase_interval()
+        return "move_cursor_up"
     elif key.name == "KEY_DOWN":
         config.decrease_interval()
+        return "move_cursor_down"
+
+    # Handle pattern placement
+    if key == " " or key.name == "KEY_SPACE":
+        return "place_pattern"
+
+    # Handle pattern rotation
+    if key == "]":
+        return "rotate_pattern"
 
     # All other keys continue the game
     return "continue"
@@ -482,6 +525,61 @@ def render_grid(
                 elif previous_state[0] and not current_state[0]:
                     state.deaths_this_second += 1
 
+    # Get pattern preview cells if in pattern mode
+    pattern_cells = set()
+    if state.pattern_mode:
+        # Always highlight cursor position in pattern mode
+        pattern_cells.add((state.cursor_x, state.cursor_y))
+
+        if config.selected_pattern:
+            # Debug info
+            debug_y = terminal.height - 3
+            debug_msg = (
+                f"Pattern mode: {state.pattern_mode}, "
+                f"Selected: {config.selected_pattern}, "
+                f"Cursor: ({state.cursor_x}, {state.cursor_y})"
+            )
+            print(
+                terminal.move_xy(2, debug_y)
+                + " " * (terminal.width - 2)
+                + terminal.move_xy(2, debug_y)
+                + debug_msg
+            )
+
+            pattern = BUILTIN_PATTERNS.get(
+                config.selected_pattern
+            ) or FilePatternStorage().load_pattern(config.selected_pattern)
+
+            if pattern:
+                cells = get_pattern_cells(pattern, config.pattern_rotation)
+                # Debug pattern cells
+                debug_msg = f"Raw pattern cells: {cells}"
+                print(
+                    terminal.move_xy(2, debug_y + 1)
+                    + " " * (terminal.width - 2)
+                    + terminal.move_xy(2, debug_y + 1)
+                    + debug_msg
+                )
+
+                # Add all pattern cells to the set, adjusting for cursor position
+                for dx, dy in cells:
+                    x = (state.cursor_x + dx) % grid_width
+                    y = (state.cursor_y + dy) % grid_height
+                    pattern_cells.add((x, y))
+
+                # Debug preview cells
+                debug_msg = f"Preview cells: {pattern_cells}"
+                print(
+                    terminal.move_xy(2, debug_y + 2)
+                    + " " * (terminal.width - 2)
+                    + terminal.move_xy(2, debug_y + 2)
+                    + debug_msg
+                )
+
+    # Force full redraw in pattern mode to ensure pattern is visible
+    if state.pattern_mode:
+        state.previous_grid = None
+
     # If no previous state or position changed, do full redraw
     if state.previous_grid is None:
         # Clear entire terminal area
@@ -492,30 +590,71 @@ def render_grid(
             buffer.append(str(terminal.move_xy(0, y)))
             buffer.append(" " * terminal.width)
 
-        # Render grid cells
+        # First render the base grid
         for (x, y), cell_state in current_grid.items():
             screen_x = start_x + (x * 2)  # Account for spacing
             screen_y = start_y + y
             if screen_y < usable_height:  # Don't render in status line area
                 buffer.append(str(terminal.move_xy(screen_x, screen_y)))
-                buffer.append(
-                    render_cell(terminal, screen_x, screen_y, cell_state, config)
-                )
+                # Only render base grid if not a pattern cell
+                if not state.pattern_mode or (x, y) not in pattern_cells:
+                    buffer.append(
+                        render_cell(terminal, screen_x, screen_y, cell_state, config)
+                    )
+
+        # Then overlay pattern preview if in pattern mode
+        if state.pattern_mode:
+            for x, y in pattern_cells:
+                screen_x = start_x + (x * 2)  # Account for spacing
+                screen_y = start_y + y
+                if screen_y < usable_height:  # Don't render in status line area
+                    buffer.append(str(terminal.move_xy(screen_x, screen_y)))
+                    # Use bright magenta for cursor, bright yellow for pattern cells
+                    if (x, y) == (state.cursor_x, state.cursor_y):
+                        buffer.append(terminal.magenta)  # Bright magenta
+                    else:
+                        buffer.append(terminal.yellow)  # Bright yellow
+                    buffer.append(config.cell_alive)  # Always show as alive
+                    buffer.append(terminal.normal)
+                    buffer.append(config.cell_spacing)
+
         # Add status line without newline
         buffer.append(render_status_line(terminal, config, state))
         print("".join(buffer), end="", flush=True)
     else:
         # Only render cells that changed
         buffer = []
+        # First update changed grid cells
         for (x, y), cell_state in current_grid.items():
             if state.previous_grid.get((x, y)) != cell_state:
                 screen_x = start_x + (x * 2)  # Account for spacing
                 screen_y = start_y + y
                 if screen_y < usable_height:  # Don't render in status line area
                     buffer.append(str(terminal.move_xy(screen_x, screen_y)))
-                    buffer.append(
-                        render_cell(terminal, screen_x, screen_y, cell_state, config)
-                    )
+                    # Only render base grid if not a pattern cell
+                    if not state.pattern_mode or (x, y) not in pattern_cells:
+                        buffer.append(
+                            render_cell(
+                                terminal, screen_x, screen_y, cell_state, config
+                            )
+                        )
+
+        # Then overlay pattern preview if in pattern mode
+        if state.pattern_mode:
+            for x, y in pattern_cells:
+                screen_x = start_x + (x * 2)  # Account for spacing
+                screen_y = start_y + y
+                if screen_y < usable_height:  # Don't render in status line area
+                    buffer.append(str(terminal.move_xy(screen_x, screen_y)))
+                    # Use bright magenta for cursor, bright yellow for pattern cells
+                    if (x, y) == (state.cursor_x, state.cursor_y):
+                        buffer.append(terminal.magenta)  # Bright magenta
+                    else:
+                        buffer.append(terminal.yellow)  # Bright yellow
+                    buffer.append(config.cell_alive)  # Always show as alive
+                    buffer.append(terminal.normal)
+                    buffer.append(config.cell_spacing)
+
         # Always update status line without newline
         buffer.append(render_status_line(terminal, config, state))
         if buffer:

@@ -268,3 +268,31 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[Position]:
                 matches.append(Position((x, y)))
 
     return matches
+
+
+def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[Tuple[int, int]]:
+    """Extract cell positions from a pattern with rotation support.
+
+    Args:
+        pattern: Pattern to extract cells from
+        rotation: Rotation in degrees (0, 90, 180, 270)
+
+    Returns:
+        List of (x, y) coordinates for live cells in the pattern
+    """
+    # Create numpy array for efficient rotation
+    pattern_array = np.array(
+        [[(cell[0], cell[1]) for cell in row] for row in pattern.cells]
+    )
+    if rotation:
+        pattern_array = np.rot90(pattern_array, k=rotation // 90)
+
+    # Extract live cell positions
+    height, width = pattern_array.shape[:2]  # Get dimensions from first two axes
+    cells = []
+    for y in range(height):
+        for x in range(width):
+            if pattern_array[y, x][0]:  # Check is_alive from the tuple
+                cells.append((x, y))
+
+    return cells

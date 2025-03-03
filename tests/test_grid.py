@@ -1,5 +1,9 @@
 """Tests for grid management."""
 
+from typing import Callable
+
+import pytest
+
 from gol.grid import (
     BoundaryCondition,
     Grid,
@@ -75,62 +79,115 @@ def test_grid_resizing_larger() -> None:
     assert not any(cell[0] for cell in new_grid[2])  # New row dead
 
 
-def test_finite_boundary() -> None:
+@pytest.mark.parametrize(
+    "boundary,grid,pos,expected_neighbors,expected_conditions",
+    [
+        # Test finite boundary
+        (
+            BoundaryCondition.FINITE,
+            Grid(
+                [
+                    [(True, 1), (True, 1), (True, 1)],
+                    [(False, 0), (False, 0), (False, 0)],
+                    [(False, 0), (False, 0), (False, 0)],
+                ]
+            ),
+            Position((0, 0)),  # Corner position
+            3,  # Expected number of neighbors
+            lambda neighbors: all(  # All positions within grid
+                [
+                    Position((0, 1)) in neighbors,
+                    Position((1, 0)) in neighbors,
+                    Position((0, 1)) in neighbors,
+                ]
+            ),
+        ),
+        # Test toroidal boundary
+        (
+            BoundaryCondition.TOROIDAL,
+            Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]]),
+            Position((0, 0)),  # Corner position
+            8,  # Expected number of neighbors
+            lambda neighbors: all(
+                [  # Check wrapping positions
+                    Position((1, 1)) in neighbors,  # Bottom-right
+                    Position((1, 0)) in neighbors,  # Right
+                    Position((0, 1)) in neighbors,  # Bottom
+                ]
+            ),
+        ),
+        (
+            BoundaryCondition.TOROIDAL,
+            Grid(
+                [
+                    [(True, 1), (True, 1), (True, 1)],
+                    [(False, 0), (False, 0), (False, 0)],
+                    [(False, 0), (False, 0), (False, 0)],
+                ]
+            ),
+            Position((0, 0)),  # Corner position
+            8,  # Expected number of neighbors
+            lambda neighbors: all(  # All positions within grid
+                [
+                    Position((0, 1)) in neighbors,
+                    Position((1, 1)) in neighbors,
+                    Position((1, 0)) in neighbors,
+                    Position((2, 0)) in neighbors,
+                    Position((0, 2)) in neighbors,
+                    Position((2, 2)) in neighbors,
+                    Position((2, 1)) in neighbors,
+                    Position((1, 2)) in neighbors,
+                ]
+            ),
+        ),  # Test infinite boundary
+        (
+            BoundaryCondition.INFINITE,
+            Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]]),
+            Position((0, 0)),  # Corner position
+            8,  # Expected number of neighbors
+            lambda neighbors: all(
+                [  # Check positions outside grid
+                    Position((-1, -1)) in neighbors,
+                    Position((-1, 0)) in neighbors,
+                    Position((-1, 1)) in neighbors,
+                ]
+            ),
+        ),
+    ],
+)
+def test_boundary_conditions(
+    boundary: BoundaryCondition,
+    grid: Grid,
+    pos: Position,
+    expected_neighbors: int,
+    expected_conditions: Callable[
+        [list[Position]],  # Input type: list of positions
+        bool,  # Return type: boolean
+    ],
+) -> None:
+    """Test neighbor calculation for different boundary conditions.
+
+    Args:
+        boundary: The boundary condition to test
+        grid: Test grid configuration
+        pos: Position to get neighbors for
+        expected_neighbors: Expected number of neighbors
+        expected_conditions: Function to verify specific conditions for each boundary type
     """
-    Given: A grid with finite boundary
-    When: Getting neighbors at edge
-    Then: Should only return valid positions within grid
-    """
-    grid = Grid(
-        [
-            [(True, 1), (True, 1), (True, 1)],
-            [(False, 0), (False, 0), (False, 0)],
-            [(False, 0), (False, 0), (False, 0)],
-        ]
-    )
+    neighbors = get_neighbors(grid, pos, boundary)
 
-    corner_pos = Position((0, 0))
-    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.FINITE)
+    # Print debug info
+    print(f"\nTesting {boundary} boundary:")
+    print(f"Position: {pos}")
+    print("Neighbors:")
+    for n in neighbors:
+        print(f"  {n}")
 
-    assert len(neighbors) == 3  # Only 3 valid neighbors for corner
-    assert all(0 <= pos[0] < 3 and 0 <= pos[1] < 3 for pos in neighbors)
+    # Verify number of neighbors
+    assert len(neighbors) == expected_neighbors
 
-
-def test_toroidal_boundary() -> None:
-    """
-    Given: A grid with toroidal boundary
-    When: Getting neighbors at edge
-    Then: Should wrap around to opposite edge
-    """
-    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
-
-    corner_pos = Position((0, 0))
-    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.TOROIDAL)
-
-    assert len(neighbors) == 8  # All 8 neighbors valid in toroidal grid
-    # Check wrapping
-    assert Position((1, 1)) in neighbors  # Bottom-right
-    assert Position((1, 0)) in neighbors  # Right
-    assert Position((0, 1)) in neighbors  # Bottom
-    assert Position((1, 1)) in neighbors  # Bottom-right
-
-
-def test_infinite_boundary() -> None:
-    """
-    Given: A grid with infinite boundary
-    When: Getting neighbors at edge
-    Then: Should return all eight neighbors
-    """
-    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
-
-    corner_pos = Position((0, 0))
-    neighbors = get_neighbors(grid, corner_pos, BoundaryCondition.INFINITE)
-
-    assert len(neighbors) == 8  # All 8 neighbors returned
-    # Check positions outside grid included
-    assert Position((-1, -1)) in neighbors
-    assert Position((-1, 0)) in neighbors
-    assert Position((-1, 1)) in neighbors
+    # Verify boundary-specific conditions
+    assert expected_conditions(neighbors)
 
 
 def test_grid_section_finite() -> None:

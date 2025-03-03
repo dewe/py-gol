@@ -36,14 +36,19 @@ def initialize_game(config: ControllerConfig) -> Tuple[TerminalProtocol, Grid]:
         RuntimeError: If terminal initialization fails
     """
     # Initialize terminal
-    terminal, _ = initialize_terminal(config.renderer)
-    if terminal is None:
+    terminal, state = initialize_terminal(config.renderer)
+    if terminal is None or state is None:
         raise RuntimeError("Failed to initialize terminal")
 
-    # Create initial grid
-    grid = create_grid(config.grid)
-
-    return terminal, grid
+    try:
+        # Enter raw mode for keyboard input
+        with terminal.cbreak():
+            # Create initial grid
+            grid = create_grid(config.grid)
+            return terminal, grid
+    except Exception as e:
+        cleanup_terminal(terminal)
+        raise RuntimeError(f"Failed to initialize game: {str(e)}")
 
 
 def resize_game(

@@ -201,7 +201,6 @@ def run_game_loop(
 
     # Command handlers
     def handle_quit() -> tuple[Grid, ControllerConfig, bool]:
-        print("Quitting game...")
         return grid, config, True
 
     def handle_restart() -> tuple[Grid, ControllerConfig, bool]:
@@ -275,36 +274,37 @@ def run_game_loop(
         "resize_smaller": lambda: handle_resize(False),
     }
 
-    # Main loop
+    # Main loop with terminal in raw mode
     should_quit = False
-    while not should_quit:
-        current_time = time.time()
+    with terminal.cbreak():
+        while not should_quit:
+            current_time = time.time()
 
-        # Handle user input
-        key = terminal.inkey(timeout=0.001)
-        if key:
-            command = handle_user_input(terminal, key, config.renderer)
-            if command:
-                handler = command_map.get(command)
-                if handler:
-                    grid, config, should_quit = handler()
+            # Handle user input
+            key = terminal.inkey(timeout=0.001)
+            if key:
+                command = handle_user_input(terminal, key, config.renderer)
+                if command:
+                    handler = command_map.get(command)
+                    if handler:
+                        grid, config, should_quit = handler()
 
-        # Update game state if not paused
-        if (
-            not is_paused
-            and current_time - last_update >= config.renderer.update_interval / 1000
-        ):
-            grid = process_generation(grid, config.grid.boundary)
-            state.generation_count += 1
-            last_update = current_time
+            # Update game state if not paused
+            if (
+                not is_paused
+                and current_time - last_update >= config.renderer.update_interval / 1000
+            ):
+                grid = process_generation(grid, config.grid.boundary)
+                state.generation_count += 1
+                last_update = current_time
 
-        # Render frame if enough time has passed
-        if current_time - last_frame >= 1 / 60:  # Cap at 60 FPS
-            safe_render_grid(terminal, grid, config.renderer, state)
-            last_frame = current_time
+            # Render frame if enough time has passed
+            if current_time - last_frame >= 1 / 60:  # Cap at 60 FPS
+                safe_render_grid(terminal, grid, config.renderer, state)
+                last_frame = current_time
 
-        # Small sleep to prevent busy waiting
-        time.sleep(0.001)
+            # Small sleep to prevent busy waiting
+            time.sleep(0.001)
 
 
 def main() -> None:

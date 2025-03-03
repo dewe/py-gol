@@ -186,30 +186,45 @@ CommandType = Literal[
 ]
 
 
-def initialize_terminal(
-    config: RendererConfig,
-) -> Tuple[TerminalProtocol, RendererState]:
-    """Sets up blessed terminal interface.
+# Type aliases
+TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
+
+
+def initialize_terminal(config: RendererConfig) -> TerminalResult:
+    """Initialize terminal for game display.
 
     Args:
-        config: Renderer configuration parameters
+        config: Renderer configuration
 
     Returns:
-        Tuple of (Terminal instance, RendererState)
+        (terminal, state) tuple or (None, None) if initialization fails.
     """
     try:
-        term = Terminal()
+        # Initialize terminal
+        terminal = Terminal()
 
-        # Clear screen and hide cursor
-        sys.stdout.write(term.enter_ca_mode())
-        sys.stdout.write(term.hide_cursor())
-        sys.stdout.write(term.clear())
+        # Enter alternate screen buffer
+        print(terminal.enter_ca_mode(), end="", flush=True)
+        print(terminal.hide_cursor(), end="", flush=True)
+        print(terminal.enter_fullscreen(), end="", flush=True)
+
+        # Clear screen
+        print(terminal.clear(), end="", flush=True)
         sys.stdout.flush()
 
-        return term, RendererState()
+        # Initialize renderer state
+        state = RendererState()
+        state.terminal_width = terminal.width
+        state.terminal_height = terminal.height
+        state.last_frame_time = time.time()
+
+        return terminal, state
+
     except Exception as e:
         print(f"Failed to initialize terminal: {str(e)}", file=sys.stderr)
-        raise
+        if "terminal" in locals():
+            cleanup_terminal(terminal)
+        return None, None
 
 
 def handle_user_input(
@@ -311,11 +326,13 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
         terminal: Terminal instance to cleanup
     """
     try:
-        # Restore terminal to normal state
-        sys.stdout.write(terminal.exit_ca_mode())
-        sys.stdout.write(terminal.normal_cursor())
-        sys.stdout.write(terminal.clear())
+        print(terminal.normal_cursor(), end="", flush=True)  # Show cursor
+        print(terminal.exit_ca_mode(), end="", flush=True)  # Exit alternate screen
+        print(terminal.exit_fullscreen(), end="", flush=True)
+        print(terminal.normal, end="", flush=True)  # Reset attributes
+        print(terminal.clear(), end="", flush=True)  # Clear screen
         sys.stdout.flush()
+
     except Exception as e:
         print(f"Error during terminal cleanup: {str(e)}", file=sys.stderr)
 

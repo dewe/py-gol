@@ -80,8 +80,8 @@ def parse_arguments() -> ControllerConfig:
     parser.add_argument(
         "--interval",
         type=int,
-        default=100,
-        help="Update interval in milliseconds (default: 100).",
+        default=200,
+        help="Update interval in milliseconds (default: 200).",
     )
 
     parser.add_argument(

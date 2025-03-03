@@ -27,7 +27,7 @@ class GridConfig:
 
     width: int
     height: int
-    density: float = 0.15  # Lower default density for better patterns
+    density: float = 0.3  # Default density matching CLI and docs
     boundary: BoundaryCondition = BoundaryCondition.FINITE
 
 

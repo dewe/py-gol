@@ -80,7 +80,7 @@ class RendererConfig:
     cell_alive: str = "■"
     cell_dead: str = "□"
     cell_spacing: str = " "  # Space between cells
-    update_interval: int = 100  # milliseconds
+    update_interval: int = 200  # milliseconds
     refresh_per_second: int = None  # type: ignore # Calculated from interval
     min_interval: int = 10  # Minimum interval in milliseconds
     max_interval: int = 1000  # Maximum interval in milliseconds

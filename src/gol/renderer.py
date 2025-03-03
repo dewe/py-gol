@@ -21,12 +21,12 @@ _process = psutil.Process()
 
 # Age color thresholds and their meanings
 AGE_COLORS = [
-    (1, 154),  # Bright green - youngest
-    (3, 148),  # Light green
-    (5, 142),  # Yellow-green
-    (10, 136),  # Yellow
-    (20, 130),  # Orange
-    (float("inf"), 124),  # Red - oldest
+    (1, 15),  # white - youngest
+    (3, 250),  # light gray
+    (5, 247),  # gray
+    (10, 133),  # faded pink
+    (20, 89),  # dark pink
+    (float("inf"), 52),  # dark red - oldest
 ]
 
 

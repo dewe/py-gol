@@ -476,8 +476,15 @@ def render_grid(
 
     # If no previous state or position changed, do full redraw
     if state.previous_grid is None:
-        clear_screen(terminal)
-        buffer = []
+        # Clear entire terminal area
+        buffer = [terminal.clear()]
+
+        # Clear each line in the grid area to prevent artifacts
+        for y in range(usable_height):
+            buffer.append(str(terminal.move_xy(0, y)))
+            buffer.append(" " * terminal.width)
+
+        # Render grid cells
         for (x, y), cell_state in current_grid.items():
             screen_x = start_x + (x * 2)  # Account for spacing
             screen_y = start_y + y

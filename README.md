@@ -8,6 +8,14 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
 - **Thread-Safe Communication**: Actors communicate via thread-safe message queues
 - **Functional Approach**: Pure functional approach for state transitions
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
+- **Cell Age Visualization**: Cells change color based on their age:
+  - White (youngest, age 1)
+  - Light gray (age 2-3)
+  - Gray (age 4-5)
+  - Faded pink (age 6-10)
+  - Dark pink (age 11-20)
+  - Dark red (oldest, age 21+)
+  - Dimmed cells for dead state
 - **Configurable**: Adjustable grid size, update interval, and initial cell density
 - **Adaptive Refresh Rate**: Screen refresh rate automatically optimized based on update interval
 - **Toroidal Grid**: Optional wrapping of edges to create a continuous surface
@@ -91,6 +99,22 @@ Conway's Game of Life follows these rules:
 2. Any live cell with two or three live neighbors survives
 3. Any live cell with more than three live neighbors dies (overpopulation)
 4. Any dead cell with exactly three live neighbors becomes alive (reproduction)
+
+### Cell Age Visualization
+
+The game tracks the age of each living cell, which is visualized through a color progression:
+
+- Cells start white when they first come alive
+- As cells survive more generations, their color gradually changes:
+  1. White (age 1) - Newly born cells
+  2. Light gray (age 2-3) - Young cells
+  3. Gray (age 4-5) - Maturing cells
+  4. Faded pink (age 6-10) - Established cells
+  5. Dark pink (age 11-20) - Aging cells
+  6. Dark red (age 21+) - Ancient cells
+- Dead cells are shown in a dimmed state
+
+This visualization helps track stable structures and identify areas of high activity in the grid.
 
 ## Development
 

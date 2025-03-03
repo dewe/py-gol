@@ -1,12 +1,13 @@
 """Tests for the game controller module."""
 
+import queue
 import time
 from threading import Event
-from typing import Any
+from typing import Any, cast
 
 import pytest
-from blessed import Terminal
 from blessed.formatters import ParameterizingString
+from blessed.keyboard import Keystroke
 
 from gol.actor import CellActor
 from gol.controller import (
@@ -16,7 +17,12 @@ from gol.controller import (
     process_generation,
 )
 from gol.grid import GridConfig
-from gol.renderer import RendererConfig, TerminalProtocol, calculate_grid_position
+from gol.renderer import (
+    RendererConfig,
+    RendererState,
+    TerminalProtocol,
+    calculate_grid_position,
+)
 
 
 class MockTerminal(TerminalProtocol):
@@ -26,6 +32,21 @@ class MockTerminal(TerminalProtocol):
         """Initialize mock terminal."""
         self._width = 80
         self._height = 24
+        self._input_queue: queue.Queue[Keystroke] = queue.Queue()
+        self._in_cbreak = False
+        self._color_attrs = {
+            "dim": "",
+            "normal": "",
+            "reverse": "",
+            "black": "",
+            "blue": "",
+            "green": "",
+            "yellow": "",
+            "magenta": "",
+            "on_blue": "",
+            "white": "",
+            "red": "",
+        }
 
     @property
     def width(self) -> int:
@@ -40,47 +61,57 @@ class MockTerminal(TerminalProtocol):
     @property
     def dim(self) -> str:
         """Get dim text style."""
-        return ""
+        return self._color_attrs["dim"]
 
     @property
     def normal(self) -> str:
         """Get normal text style."""
-        return ""
+        return self._color_attrs["normal"]
 
     @property
     def reverse(self) -> str:
         """Get reverse text style."""
-        return ""
+        return self._color_attrs["reverse"]
 
     @property
     def black(self) -> str:
         """Get black color."""
-        return ""
+        return self._color_attrs["black"]
 
     @property
     def blue(self) -> str:
         """Get blue color."""
-        return ""
+        return self._color_attrs["blue"]
 
     @property
     def green(self) -> str:
         """Get green color."""
-        return ""
+        return self._color_attrs["green"]
 
     @property
     def yellow(self) -> str:
         """Get yellow color."""
-        return ""
+        return self._color_attrs["yellow"]
 
     @property
     def magenta(self) -> str:
         """Get magenta color."""
-        return ""
+        return self._color_attrs["magenta"]
 
     @property
     def on_blue(self) -> str:
         """Get blue background color."""
-        return ""
+        return self._color_attrs["on_blue"]
+
+    @property
+    def white(self) -> str:
+        """Get white color."""
+        return self._color_attrs["white"]
+
+    @property
+    def red(self) -> str:
+        """Get red color."""
+        return self._color_attrs["red"]
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
         """Move cursor to position."""
@@ -114,13 +145,27 @@ class MockTerminal(TerminalProtocol):
         """Clear screen."""
         return ""
 
-    def inkey(self, timeout: float = 0) -> Any:
-        """Get key press."""
-        return None
-
     def cbreak(self) -> Any:
         """Enter cbreak mode."""
-        return None
+
+        class CBreakContext:
+            def __init__(self, terminal: "MockTerminal") -> None:
+                self.terminal = terminal
+
+            def __enter__(self) -> None:
+                self.terminal._in_cbreak = True
+
+            def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                self.terminal._in_cbreak = False
+
+        return CBreakContext(self)
+
+    def inkey(self, timeout: float = 0) -> Keystroke:
+        """Get key press with timeout."""
+        try:
+            return self._input_queue.get(timeout=timeout)
+        except queue.Empty:
+            return Keystroke("")
 
 
 @pytest.fixture
@@ -149,7 +194,9 @@ def config() -> ControllerConfig:
     )
 
 
-def test_game_initialization(config: ControllerConfig, mock_terminal: Terminal) -> None:
+def test_game_initialization(
+    config: ControllerConfig, mock_terminal: TerminalProtocol
+) -> None:
     """
     Given: Controller configuration
     When: Initializing game
@@ -157,18 +204,24 @@ def test_game_initialization(config: ControllerConfig, mock_terminal: Terminal) 
     And: Should set up terminal
     """
     # When
-    result = initialize_game(config)
+    from unittest.mock import patch
 
-    # Then
-    assert isinstance(result, tuple)
-    terminal, actors = result
-    assert isinstance(terminal, Terminal)
-    assert isinstance(actors, list)
-    assert len(actors) > 0
-    assert all(isinstance(actor, CellActor) for actor in actors)
+    with patch(
+        "gol.controller.initialize_terminal",
+        return_value=(mock_terminal, RendererState()),
+    ):
+        result = initialize_game(config)
+
+        # Then
+        assert isinstance(result, tuple)
+        terminal, actors = result
+        assert isinstance(terminal, TerminalProtocol)
+        assert isinstance(actors, list)
+        assert len(actors) > 0
+        assert all(isinstance(actor, CellActor) for actor in actors)
 
 
-def test_actor_setup(config: ControllerConfig, mock_terminal: Terminal) -> None:
+def test_actor_setup(config: ControllerConfig, mock_terminal: TerminalProtocol) -> None:
     """
     Given: Game initialization
     When: Setting up actors
@@ -188,7 +241,9 @@ def test_actor_setup(config: ControllerConfig, mock_terminal: Terminal) -> None:
         assert len(actor.subscribers) > 0
 
 
-def test_process_generation(config: ControllerConfig, mock_terminal: Terminal) -> None:
+def test_process_generation(
+    config: ControllerConfig, mock_terminal: TerminalProtocol
+) -> None:
     """
     Given: A set of actors
     When: Processing a generation
@@ -207,7 +262,7 @@ def test_process_generation(config: ControllerConfig, mock_terminal: Terminal) -
 
 
 def test_process_generation_timing(
-    config: ControllerConfig, mock_terminal: Terminal
+    config: ControllerConfig, mock_terminal: TerminalProtocol
 ) -> None:
     """
     Given: A set of actors
@@ -231,7 +286,7 @@ def test_process_generation_timing(
 
 
 def test_process_generation_state_changes(
-    config: ControllerConfig, mock_terminal: Terminal
+    config: ControllerConfig, mock_terminal: TerminalProtocol
 ) -> None:
     """
     Given: A set of actors with known initial states
@@ -254,7 +309,7 @@ def test_process_generation_state_changes(
 
 
 def test_process_generation_error_handling(
-    config: ControllerConfig, mock_terminal: Terminal
+    config: ControllerConfig, mock_terminal: TerminalProtocol
 ) -> None:
     """
     Given: A set of actors
@@ -276,7 +331,7 @@ def test_process_generation_error_handling(
         assert "'NoneType' object has no attribute 'put_nowait'" in str(e)
 
 
-def test_handle_terminal_resize(mock_terminal: Terminal) -> None:
+def test_handle_terminal_resize(mock_terminal: TerminalProtocol) -> None:
     """Test that the grid position is recalculated when terminal window is resized."""
     grid_width = 20  # Use a larger grid to make position changes more noticeable
     grid_height = 15
@@ -330,7 +385,9 @@ def test_handle_terminal_resize(mock_terminal: Terminal) -> None:
     assert abs(new_y - expected_y) <= 1, "Grid should be vertically centered"
 
 
-def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None:
+def test_cleanup_game(
+    config: ControllerConfig, mock_terminal: TerminalProtocol
+) -> None:
     """
     Given: Running game state
     When: Cleaning up resources
@@ -347,3 +404,57 @@ def test_cleanup_game(config: ControllerConfig, mock_terminal: Terminal) -> None
     for actor in actors:
         assert len(actor.subscribers) == 0
         assert actor.queue.empty()
+
+
+def test_game_quit_and_cleanup(
+    config: ControllerConfig, mock_terminal: TerminalProtocol
+) -> None:
+    """
+    Given: A running game with active actors
+    When: Quitting the game
+    Then: Should clean up all resources
+    And: Should terminate all actor threads
+    And: Should restore terminal state
+    """
+    import time
+    from threading import Thread
+
+    from gol.grid import create_grid
+    from gol.main import run_game_loop
+    from gol.renderer import RendererState
+
+    # Given
+    mock_term = cast(MockTerminal, mock_terminal)  # Cast to access internal attributes
+    mock_term._width = 80  # Ensure reasonable size
+    mock_term._height = 24
+    terminal = mock_terminal  # Use mock terminal directly
+
+    # Patch initialize_terminal to return our mock
+    from unittest.mock import patch
+
+    with patch(
+        "gol.controller.initialize_terminal",
+        return_value=(mock_terminal, RendererState()),
+    ):
+        _, actors = initialize_game(config)
+        grid = create_grid(config.grid)
+        state = RendererState()
+
+        # Run game in separate thread
+        game_thread = Thread(target=run_game_loop, args=(terminal, grid, config, state))
+        game_thread.start()
+
+        # Let the game run for a short time
+        time.sleep(0.1)
+
+        # When - Simulate quit command with proper keystroke
+        mock_term._input_queue.put(Keystroke("q", code=ord("q"), name="q"))
+
+        # Then
+        # Wait for game thread to end with timeout
+        game_thread.join(timeout=1.0)
+        assert not game_thread.is_alive(), "Game thread should have terminated"
+
+        # Verify all actor queues are empty
+        for actor in actors:
+            assert actor.queue.empty(), "Actor queues should be empty"

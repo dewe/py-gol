@@ -1,14 +1,15 @@
 """Grid management for Game of Life."""
 
 from dataclasses import dataclass
-from typing import NewType, cast
+from typing import NewType, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 
 # Type definitions
 Position = NewType("Position", tuple[int, int])
-Grid = NewType("Grid", list[list[bool]])
+# Grid now stores tuples of (is_alive: bool, age: int)
+Grid = NewType("Grid", list[list[Tuple[bool, int]]])
 
 
 @dataclass(frozen=True)
@@ -31,12 +32,15 @@ def create_grid(config: GridConfig) -> Grid:
         A new Grid with random live cells based on density
     """
     # Use numpy's optimized random generation
-    rng = np.random.default_rng()  # Use the newer Generator for better performance
+    rng = np.random.default_rng()
     random_grid: NDArray[np.bool_] = (
         rng.random((config.height, config.width)) < config.density
     )
     # Convert numpy array to list[list[bool]] with explicit casting
-    grid_list = cast(list[list[bool]], random_grid.tolist())
+    grid_list = [
+        [(bool(cell), 1 if bool(cell) else 0) for cell in row.tolist()]
+        for row in random_grid
+    ]
     return Grid(grid_list)
 
 
@@ -94,6 +98,6 @@ def count_live_neighbors(grid: Grid, positions: list[Position]) -> int:
     x_coords = pos_array[:, 0]
     y_coords = pos_array[:, 1]
 
-    # Convert grid to numpy array for faster access
-    grid_array = np.array(grid)
+    # Convert grid to numpy array for faster access - extract just alive status
+    grid_array = np.array([[cell[0] for cell in row] for row in grid])
     return int(np.sum(grid_array[y_coords, x_coords]))

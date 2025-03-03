@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from queue import Empty, Queue
 from threading import Event
-from typing import Any
+from typing import Any, Tuple
 from uuid import uuid4
 
 from gol.grid import Position
@@ -18,16 +18,20 @@ class CellActor:
     id: str
     position: Position
     state: bool
+    age: int
     queue: Queue[Any]
     subscribers: list[ActorProtocol]
 
 
-def create_cell_actor(position: Position, initial_state: bool) -> CellActor:
+def create_cell_actor(
+    position: Position, initial_state: bool, initial_age: int = 0
+) -> CellActor:
     """Creates a cell actor with message queue.
 
     Args:
         position: The x,y coordinates of the cell
         initial_state: True for live cell, False for dead cell
+        initial_age: Initial age of the cell (default 0)
 
     Returns:
         A new cell actor instance with empty message queue and subscribers
@@ -36,25 +40,35 @@ def create_cell_actor(position: Position, initial_state: bool) -> CellActor:
         id=str(uuid4()),
         position=position,
         state=initial_state,
+        age=initial_age,
         queue=Queue(),
         subscribers=[],
     )
 
 
-def calculate_next_state(is_alive: bool, live_neighbors: int) -> bool:
-    """Pure function implementing Conway's Game of Life rules.
+def calculate_next_state(
+    is_alive: bool, age: int, live_neighbors: int
+) -> Tuple[bool, int]:
+    """Pure function implementing Conway's Game of Life rules with aging.
 
     Args:
         is_alive: Current state of the cell (True for live, False for dead)
+        age: Current age of the cell
         live_neighbors: Number of live neighboring cells (0-8)
 
     Returns:
-        bool: Next state of the cell based on Game of Life rules
+        Tuple[bool, int]: Next state and age of the cell based on Game of Life rules
     """
     if is_alive:
-        return live_neighbors in (2, 3)  # Survives with 2-3 neighbors, dies otherwise
+        if live_neighbors in (2, 3):  # Survives
+            return True, age + 1
+        else:  # Dies
+            return False, 0
     else:
-        return live_neighbors == 3  # Becomes alive with exactly 3 neighbors
+        if live_neighbors == 3:  # Becomes alive
+            return True, 1
+        else:  # Stays dead
+            return False, 0
 
 
 def process_messages(actor: CellActor, completion_event: Event) -> None:
@@ -83,10 +97,14 @@ def process_messages(actor: CellActor, completion_event: Event) -> None:
 
     # Only update state if we received any messages
     if has_messages:
-        new_state = calculate_next_state(actor.state, live_neighbors)
-        if new_state != actor.state:
+        new_state, new_age = calculate_next_state(
+            actor.state, actor.age, live_neighbors
+        )
+        # Update state and age if either changes
+        if new_state != actor.state or new_age != actor.age:
             actor.state = new_state
-            broadcast_state(actor, new_state)
+            actor.age = new_age
+            broadcast_state(actor, new_state)  # Broadcast state to neighbors
 
 
 def broadcast_state(actor: CellActor, state: bool) -> None:
@@ -96,4 +114,6 @@ def broadcast_state(actor: CellActor, state: bool) -> None:
         actor: The cell actor whose state to broadcast
         state: The state to broadcast
     """
+    # We only broadcast the alive/dead state to neighbors
+    # Age is only used for rendering and doesn't affect neighbor calculations
     broadcast_message(actor, state)

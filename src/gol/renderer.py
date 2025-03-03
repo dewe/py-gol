@@ -21,12 +21,12 @@ _process = psutil.Process()
 
 # Age color thresholds and their meanings
 AGE_COLORS = [
-    (1, "white"),  # New cells
-    (3, "yellow"),  # Young cells
-    (5, "green"),  # Adult cells
-    (10, "blue"),  # Mature cells
-    (20, "magenta"),  # Elder cells
-    (float("inf"), "red"),  # Ancient cells
+    (1, 154),  # Bright green - youngest
+    (3, 148),  # Light green
+    (5, 142),  # Yellow-green
+    (10, 136),  # Yellow
+    (20, 130),  # Orange
+    (float("inf"), 124),  # Red - oldest
 ]
 
 
@@ -350,16 +350,16 @@ def render_cell(
             terminal.dim + config.cell_dead + terminal.normal + config.cell_spacing
         )
 
-    # Get color based on age
-    color = "white"  # Default color
-    for threshold, col in AGE_COLORS:
+    # Get color code based on age
+    color_code = AGE_COLORS[0][1]  # Default to youngest color
+    for threshold, code in AGE_COLORS:
         if age <= threshold:
-            color = col
+            color_code = code
             break
 
-    # Apply color using terminal attributes
-    color_attr = getattr(terminal, color)
-    return str(color_attr + config.cell_alive + terminal.normal + config.cell_spacing)
+    # Apply ANSI color code without dimming
+    colored_cell = f"\x1b[38;5;{color_code}m{config.cell_alive}"
+    return f"{colored_cell}{terminal.normal}{config.cell_spacing}"
 
 
 def render_status_line(

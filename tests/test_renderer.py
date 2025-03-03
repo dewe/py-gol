@@ -112,17 +112,19 @@ def test_grid_rendering() -> None:
     grid_config = GridConfig(width=3, height=3, density=0.0)  # Start with empty grid
     grid = create_grid(grid_config)
     # Set specific cells to create a simple pattern
-    grid[0][1] = True  # Top middle
-    grid[1][1] = True  # Center
-    grid[2][1] = True  # Bottom middle
+    grid[0][1] = (True, 1)  # Top middle
+    grid[1][1] = (True, 1)  # Center
+    grid[2][1] = (True, 1)  # Bottom middle
 
     try:
         # Act
         render_grid(term, grid, renderer_config, state)
 
-        # We can't directly test terminal output in unit tests,
-        # but we can verify the function runs without errors
-        # Integration tests would verify actual terminal output
+        # Assert - since we can't check terminal output directly,
+        # we at least verify that rendering completes without error
+        # and updates state correctly
+        assert state.total_cells == 9
+        assert state.active_cells == 3
     finally:
         cleanup_terminal(term)
 
@@ -320,6 +322,11 @@ class MockTerminal(MockTerminalProtocol):
         return ""
 
     @property
+    def white(self) -> str:
+        """Get white color."""
+        return ""
+
+    @property
     def blue(self) -> str:
         """Get blue color."""
         return ""
@@ -340,13 +347,18 @@ class MockTerminal(MockTerminalProtocol):
         return ""
 
     @property
+    def red(self) -> str:
+        """Get red color."""
+        return ""
+
+    @property
     def on_blue(self) -> str:
         """Get blue background color."""
         return ""
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
-        """Mock move cursor that raises error."""
-        raise IOError("Mock error")  # Simulate error for testing
+        """Move cursor to position."""
+        raise ValueError("Mock error")  # Raise error for testing
 
     def exit_fullscreen(self) -> str:
         """Mock exit fullscreen."""

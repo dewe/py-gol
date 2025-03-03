@@ -14,7 +14,7 @@ from gol.controller import (
     resize_game,
 )
 from gol.grid import BoundaryCondition, Grid, GridConfig, create_grid
-from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage
+from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, get_pattern_cells
 from gol.renderer import (
     RendererConfig,
     RendererState,
@@ -67,14 +67,14 @@ def parse_arguments() -> ControllerConfig:
     parser.add_argument(
         "--width",
         type=int,
-        default=0,  # Will be calculated later based on terminal
-        help="Width of the grid (auto-sized to terminal width if not specified)",
+        default=30,  # Default to minimum width
+        help="Width of the grid (default: 30, auto-sized to terminal width if 0)",
     )
     parser.add_argument(
         "--height",
         type=int,
-        default=0,  # Will be calculated later based on terminal
-        help="Height of the grid (auto-sized to terminal height if not specified)",
+        default=20,  # Default to minimum height
+        help="Height of the grid (default: 20, auto-sized to terminal height if 0)",
     )
 
     parser.add_argument(
@@ -127,22 +127,34 @@ def adjust_grid_dimensions(
     Returns:
         Updated configuration with proper dimensions
     """
-    print(f"Terminal dimensions: {terminal.width}x{terminal.height}")
-
     # Minimum grid dimensions
     MIN_WIDTH = 30
     MIN_HEIGHT = 20
 
-    # Calculate default grid size based on terminal dimensions
-    # Each cell takes 2 characters width due to spacing
-    width = config.grid.width or max(
-        MIN_WIDTH, (terminal.width - 4) // 2
-    )  # Leave some margin
-    height = config.grid.height or max(
-        MIN_HEIGHT, terminal.height - 4
-    )  # Leave some margin
+    # If dimensions are already set and above minimums, use them
+    if config.grid.width >= MIN_WIDTH and config.grid.height >= MIN_HEIGHT:
+        return config
 
-    print(f"Calculated grid dimensions: {width}x{height}")
+    try:
+        # Calculate default grid size based on terminal dimensions
+        # Each cell takes 2 characters width due to spacing
+        # Leave more margin around the grid (6 chars on each side, 4 lines top/bottom)
+        width = max(
+            MIN_WIDTH,
+            config.grid.width if config.grid.width > 0 else (terminal.width - 12) // 2,
+        )
+        height = max(
+            MIN_HEIGHT,
+            config.grid.height if config.grid.height > 0 else terminal.height - 8,
+        )
+    except (AttributeError, TypeError):
+        # If terminal dimensions are not available, use minimum dimensions
+        width = max(
+            MIN_WIDTH, config.grid.width if config.grid.width > 0 else MIN_WIDTH
+        )
+        height = max(
+            MIN_HEIGHT, config.grid.height if config.grid.height > 0 else MIN_HEIGHT
+        )
 
     # Create new config with adjusted dimensions
     return ControllerConfig(
@@ -189,9 +201,6 @@ def run_game_loop(
         config: Controller configuration
         state: Current renderer state
     """
-    # Initialize pattern storage
-    pattern_storage = FilePatternStorage()
-
     # Track timing
     last_frame = time.time()
     last_update = time.time()
@@ -209,40 +218,94 @@ def run_game_loop(
         return new_grid, config, False
 
     def handle_pattern_mode() -> tuple[Grid, ControllerConfig, bool]:
+        """Handle entering/exiting pattern mode."""
         # Toggle pattern mode and pause state
         state.pattern_mode = not state.pattern_mode
         nonlocal is_paused
-        is_paused = state.pattern_mode  # Pause when entering pattern mode
-
-        # Create new config with current settings
-        new_config = ControllerConfig(
-            grid=config.grid,
-            renderer=config.renderer,
-            selected_pattern=config.selected_pattern,
-            pattern_rotation=config.pattern_rotation,
-        )
 
         if state.pattern_mode:
+            # Entering pattern mode - pause and keep current pattern if set
+            is_paused = True
+            new_config = ControllerConfig(
+                grid=config.grid,
+                renderer=config.renderer,
+                selected_pattern=config.renderer.selected_pattern
+                or "glider",  # Use existing pattern or default to glider
+                pattern_rotation=config.renderer.pattern_rotation,
+            )
             # Initialize cursor position to center of grid
             state.cursor_x = config.grid.width // 2
             state.cursor_y = config.grid.height // 2
-
-            # Get available patterns
-            patterns = list(BUILTIN_PATTERNS.keys()) + pattern_storage.list_patterns()
-
-            # Display pattern list in status area
-            y = terminal.height - 2  # Use second-to-last line
-            x = 2  # Leave some margin
-            pattern_list = ", ".join(f"{i+1}:{name}" for i, name in enumerate(patterns))
-            print(
-                terminal.move_xy(x, y)
-                + " " * (terminal.width - x)
-                + terminal.move_xy(x, y)
-                + "Patterns: "
-                + pattern_list
+        else:
+            # Exiting pattern mode via ESC - unpause and clear pattern
+            is_paused = False
+            new_config = ControllerConfig(
+                grid=config.grid,
+                renderer=config.renderer,
+                selected_pattern=None,
+                pattern_rotation=0,
             )
 
         return grid, new_config, False
+
+    def handle_cursor_movement(direction: str) -> tuple[Grid, ControllerConfig, bool]:
+        """Handle cursor movement in pattern mode.
+
+        Args:
+            direction: Direction to move cursor ('left', 'right', 'up', 'down')
+
+        Returns:
+            Tuple of (grid, config, should_quit)
+        """
+        if state.pattern_mode:
+            if direction == "left":
+                state.cursor_x = (state.cursor_x - 1) % config.grid.width
+            elif direction == "right":
+                state.cursor_x = (state.cursor_x + 1) % config.grid.width
+            elif direction == "up":
+                state.cursor_y = (state.cursor_y - 1) % config.grid.height
+            elif direction == "down":
+                state.cursor_y = (state.cursor_y + 1) % config.grid.height
+
+        return grid, config, False
+
+    def handle_place_pattern() -> tuple[Grid, ControllerConfig, bool]:
+        """Handle pattern placement in pattern mode.
+
+        Returns:
+            Tuple of (grid, config, should_quit)
+        """
+        if state.pattern_mode and config.renderer.selected_pattern:
+            pattern = BUILTIN_PATTERNS.get(
+                config.renderer.selected_pattern
+            ) or FilePatternStorage().load_pattern(config.renderer.selected_pattern)
+
+            if pattern:
+                cells = get_pattern_cells(pattern, config.renderer.pattern_rotation)
+                # Add pattern cells to grid
+                for dx, dy in cells:
+                    x = (state.cursor_x + dx) % config.grid.width
+                    y = (state.cursor_y + dy) % config.grid.height
+                    grid[y][x] = (True, 0)  # Set cell alive with age 0
+                # Keep pattern mode active and clear selected pattern
+                config.renderer.set_pattern(None)
+                return grid, config, False
+
+        return grid, config, False
+
+    def handle_rotate_pattern() -> tuple[Grid, ControllerConfig, bool]:
+        """Handle pattern rotation in pattern mode.
+
+        Returns:
+            Tuple of (grid, config, should_quit)
+        """
+        if state.pattern_mode:
+            # Update renderer config's pattern rotation
+            config.renderer.set_pattern(
+                config.renderer.selected_pattern,
+                (config.renderer.pattern_rotation + 90) % 360,
+            )
+        return grid, config, False
 
     def handle_resize(larger: bool) -> tuple[Grid, ControllerConfig, bool]:
         # Calculate new dimensions
@@ -270,8 +333,15 @@ def run_game_loop(
         "quit": handle_quit,
         "restart": handle_restart,
         "pattern": handle_pattern_mode,
+        "move_cursor_left": lambda: handle_cursor_movement("left"),
+        "move_cursor_right": lambda: handle_cursor_movement("right"),
+        "move_cursor_up": lambda: handle_cursor_movement("up"),
+        "move_cursor_down": lambda: handle_cursor_movement("down"),
+        "place_pattern": handle_place_pattern,
+        "rotate_pattern": handle_rotate_pattern,
         "resize_larger": lambda: handle_resize(True),
         "resize_smaller": lambda: handle_resize(False),
+        "exit_pattern": handle_pattern_mode,  # Reuse pattern mode handler to exit
     }
 
     # Main loop with terminal in raw mode
@@ -283,7 +353,7 @@ def run_game_loop(
             # Handle user input
             key = terminal.inkey(timeout=0.001)
             if key:
-                command = handle_user_input(terminal, key, config.renderer)
+                command = handle_user_input(terminal, key, config.renderer, state)
                 if command:
                     handler = command_map.get(command)
                     if handler:
@@ -329,7 +399,10 @@ def main() -> None:
         run_game_loop(terminal, grid, config, state)
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
     finally:

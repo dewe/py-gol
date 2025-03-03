@@ -58,6 +58,8 @@ def test_terminal_initialization() -> None:
     config = RendererConfig()
     term, state = initialize_terminal(config)
 
+    assert term is not None
+    assert state is not None
     assert isinstance(term, Terminal)
     assert isinstance(state, RendererState)
 
@@ -70,6 +72,7 @@ def test_terminal_cleanup() -> None:
     """
     config = RendererConfig()
     term, state = initialize_terminal(config)
+    assert term is not None
 
     try:
         # Verify terminal is initialized
@@ -92,6 +95,7 @@ def test_terminal_initialization_and_cleanup_cycle() -> None:
 
     for _ in range(3):  # Test multiple cycles
         term, state = initialize_terminal(config)
+        assert term is not None
         assert isinstance(term, Terminal)
         cleanup_terminal(term)
 
@@ -107,6 +111,8 @@ def test_grid_rendering() -> None:
     # Setup
     renderer_config = RendererConfig()
     term, state = initialize_terminal(renderer_config)
+    assert term is not None
+    assert state is not None
 
     # Create a small test grid with known state
     grid_config = GridConfig(width=3, height=3, density=0.0)  # Start with empty grid
@@ -137,6 +143,8 @@ def test_grid_rendering_empty() -> None:
     """
     renderer_config = RendererConfig()
     term, state = initialize_terminal(renderer_config)
+    assert term is not None
+    assert state is not None
     grid = create_grid(GridConfig(width=3, height=3, density=0.0))
 
     try:
@@ -154,34 +162,43 @@ def term() -> TerminalProtocol:
 def test_handle_user_input_quit_commands(term: TerminalProtocol) -> None:
     """Test that quit commands are handled correctly."""
     config = RendererConfig()
+    state = RendererState()
     quit_keys = [
         Keystroke("q"),
         Keystroke("Q"),
         Keystroke("\x03"),  # Ctrl-C
     ]
     for key in quit_keys:
-        result = handle_user_input(term, key, config)
+        result = handle_user_input(term, key, config, state)
         assert result == "quit"
 
-    # Escape key should exit pattern mode
-    result = handle_user_input(term, Keystroke("\x1b"), config)
+    # Test ESC key in pattern mode
+    state.pattern_mode = True
+    result = handle_user_input(term, Keystroke("\x1b"), config, state)
     assert result == "exit_pattern"
+
+    # Test ESC key in normal mode
+    state.pattern_mode = False
+    result = handle_user_input(term, Keystroke("\x1b"), config, state)
+    assert result == "quit"
 
 
 def test_handle_user_input_restart_command(term: TerminalProtocol) -> None:
     """Test that restart command is handled correctly."""
     config = RendererConfig()
+    state = RendererState()
     restart_keys = [Keystroke("r"), Keystroke("R")]
     for key in restart_keys:
-        result = handle_user_input(term, key, config)
+        result = handle_user_input(term, key, config, state)
         assert result == "restart"
 
 
 def test_handle_user_input_continue_command(term: TerminalProtocol) -> None:
     """Test that other keys return appropriate commands."""
     config = RendererConfig()
+    state = RendererState()
     # Space key should place pattern
-    result = handle_user_input(term, Keystroke(" "), config)
+    result = handle_user_input(term, Keystroke(" "), config, state)
     assert result == "place_pattern"
 
     # Other keys should continue
@@ -191,46 +208,49 @@ def test_handle_user_input_continue_command(term: TerminalProtocol) -> None:
         Keystroke("\t"),
     ]
     for key in other_keys:
-        result = handle_user_input(term, key, config)
+        result = handle_user_input(term, key, config, state)
         assert result == "continue"
 
 
 def test_handle_user_input_interval_adjustment(term: TerminalProtocol) -> None:
     """Test that arrow keys adjust the update interval."""
     config = RendererConfig()
+    state = RendererState()
+
+    # Set initial interval to something in the middle of the range
+    config.update_interval = 500  # Start with a higher value to test both directions
     initial_interval = config.update_interval
 
     # Test increasing interval
     key = Keystroke(name="KEY_UP")
-    result = handle_user_input(term, key, config)
-    assert result == "move_cursor_up"
+    result = handle_user_input(term, key, config, state)
+    assert result == "continue"
     assert config.update_interval > initial_interval
 
     # Test decreasing interval
     key = Keystroke(name="KEY_DOWN")
-    result = handle_user_input(term, key, config)
-    assert result == "move_cursor_down"
-    assert (
-        config.update_interval < initial_interval + config.min_interval_step * 2
-    )  # Account for rounding
+    result = handle_user_input(term, key, config, state)
+    assert result == "continue"
+    assert config.update_interval < initial_interval
 
 
 def test_handle_user_input_interval_limits(term: TerminalProtocol) -> None:
     """Test that interval adjustments respect min/max limits."""
     config = RendererConfig()
+    state = RendererState()
 
     # Test maximum limit
     config.update_interval = config.max_interval
     key = Keystroke(name="KEY_UP")
-    result = handle_user_input(term, key, config)
-    assert result == "move_cursor_up"
+    result = handle_user_input(term, key, config, state)
+    assert result == "continue"
     assert config.update_interval == config.max_interval
 
     # Test minimum limit
     config.update_interval = config.min_interval
     key = Keystroke(name="KEY_DOWN")
-    result = handle_user_input(term, key, config)
-    assert result == "move_cursor_down"
+    result = handle_user_input(term, key, config, state)
+    assert result == "continue"
     assert config.update_interval == config.min_interval
 
 
@@ -242,6 +262,8 @@ def test_handle_resize_event() -> None:
     """
     config = RendererConfig()
     term, state = initialize_terminal(config)
+    assert term is not None
+    assert state is not None
 
     try:
         # Test resize handling

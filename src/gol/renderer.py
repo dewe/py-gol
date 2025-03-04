@@ -20,20 +20,9 @@ from .patterns import (
 
 # Type alias for cell positions and states
 CellPos = Tuple[int, int]
-CellState = Tuple[bool, int]  # (is_alive, age)
 
 # Get current process for metrics
 _process = psutil.Process()
-
-# Age color thresholds and their meanings
-AGE_COLORS = [
-    (1, 15),  # white - youngest
-    (3, 250),  # light gray
-    (5, 247),  # gray
-    (10, 133),  # faded pink
-    (20, 89),  # dark pink
-    (float("inf"), 52),  # dark red - oldest
-]
 
 
 @runtime_checkable
@@ -147,7 +136,7 @@ class RendererConfig:
 class RendererState:
     """Maintains renderer state between frames."""
 
-    previous_grid: Optional[Dict[CellPos, CellState]] = None
+    previous_grid: Optional[Dict[CellPos, bool]] = None
     start_x: int = 0
     start_y: int = 0
     terminal_width: int = 0
@@ -405,14 +394,14 @@ def calculate_grid_position(
     return start_x, start_y
 
 
-def grid_to_dict(grid: Grid) -> Dict[CellPos, CellState]:
-    """Converts grid to dictionary format for comparison.
+def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
+    """Convert grid to dictionary for efficient lookup.
 
     Args:
-        grid: Current grid state
+        grid: Grid to convert
 
     Returns:
-        Dictionary mapping positions to cell states (is_alive, age)
+        Dictionary mapping cell positions to states
     """
     return {(x, y): grid[y][x] for y in range(len(grid)) for x in range(len(grid[0]))}
 
@@ -421,37 +410,28 @@ def render_cell(
     terminal: TerminalProtocol,
     x: int,
     y: int,
-    cell_state: CellState,
+    is_alive: bool,
     config: RendererConfig,
 ) -> str:
-    """Renders a single cell.
+    """Render a single cell.
 
     Args:
         terminal: Terminal instance
         x: X coordinate
         y: Y coordinate
-        cell_state: Tuple of (is_alive, age)
+        is_alive: Whether cell is alive
         config: Renderer configuration
 
     Returns:
         String to render cell
     """
-    is_alive, age = cell_state
-    if not is_alive:
-        return str(
-            terminal.dim + config.cell_dead + terminal.normal + config.cell_spacing
+    if is_alive:
+        # Use bright white for maximum visibility
+        return (
+            terminal.white + config.cell_alive + terminal.normal + config.cell_spacing
         )
-
-    # Get color code based on age
-    color_code = AGE_COLORS[0][1]  # Default to youngest color
-    for threshold, code in AGE_COLORS:
-        if age <= threshold:
-            color_code = code
-            break
-
-    # Apply ANSI color code without dimming
-    colored_cell = f"\x1b[38;5;{color_code}m{config.cell_alive}"
-    return f"{colored_cell}{terminal.normal}{config.cell_spacing}"
+    # Make dead cells very dim
+    return terminal.dim + config.cell_dead + terminal.normal + config.cell_spacing
 
 
 def render_status_line(
@@ -595,16 +575,16 @@ def render_grid(
 
     # Update statistics
     state.total_cells = grid_width * grid_height
-    state.active_cells = sum(1 for cell in current_grid.values() if cell[0])
+    state.active_cells = sum(1 for cell in current_grid.values() if cell)
 
     # Track births and deaths if we have a previous grid
     if state.previous_grid is not None:
         for pos, current_state in current_grid.items():
             previous_state = state.previous_grid.get(pos)
             if previous_state is not None:
-                if not previous_state[0] and current_state[0]:
+                if not previous_state and current_state:
                     state.births_this_second += 1
-                elif previous_state[0] and not current_state[0]:
+                elif previous_state and not current_state:
                     state.deaths_this_second += 1
 
     # Get pattern preview cells if in pattern mode

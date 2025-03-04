@@ -71,7 +71,7 @@ def test_terminal_cleanup() -> None:
     Then: Should restore terminal to original state
     """
     config = RendererConfig()
-    term, state = initialize_terminal(config)
+    term, _ = initialize_terminal(config)
     assert term is not None
 
     try:
@@ -94,7 +94,7 @@ def test_terminal_initialization_and_cleanup_cycle() -> None:
     config = RendererConfig()
 
     for _ in range(3):  # Test multiple cycles
-        term, state = initialize_terminal(config)
+        term, _ = initialize_terminal(config)
         assert term is not None
         assert isinstance(term, Terminal)
         cleanup_terminal(term)

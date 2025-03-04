@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from gol.grid import BoundaryCondition, Grid, GridConfig, create_grid, resize_grid
+from gol.grid import BoundaryCondition, GridConfig, create_grid, resize_grid
 from gol.life import next_generation
 from gol.renderer import (
     RendererConfig,
@@ -11,6 +11,7 @@ from gol.renderer import (
     cleanup_terminal,
     initialize_terminal,
 )
+from gol.types import Grid
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,9 @@ class ControllerConfig:
     pattern_rotation: int = 0
 
 
-def initialize_game(config: ControllerConfig) -> Tuple[TerminalProtocol, Grid]:
+def initialize_game(
+    config: ControllerConfig,
+) -> Tuple[TerminalProtocol, Grid]:
     """Initialize game components.
 
     Args:

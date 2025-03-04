@@ -3,23 +3,26 @@
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional, Protocol, Tuple, runtime_checkable
+from typing import Any, Literal, Optional, Protocol, Set, Tuple, cast, runtime_checkable
 
+import numpy as np
 import psutil
 from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
-from .grid import Grid, Position
 from .patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
     get_centered_position,
     get_pattern_cells,
 )
+from .types import Grid, PatternTransform, RenderGrid, ScreenPosition
 
-# Type alias for cell positions and states
-CellPos = Tuple[int, int]
+# Update type alias to use types from types.py
+CellPos = (
+    ScreenPosition  # Using ScreenPosition since it matches the tuple[int, int] type
+)
 
 # Get current process for metrics
 _process = psutil.Process()
@@ -75,7 +78,7 @@ class RendererConfig:
     cell_dead: str = "□"
     cell_spacing: str = " "  # Space between cells
     update_interval: int = 200  # milliseconds
-    refresh_per_second: int = None  # type: ignore # Calculated from interval
+    refresh_per_second: Optional[int] = None  # Calculated from interval
     min_interval: int = 10  # Minimum interval in milliseconds
     max_interval: int = 1000  # Maximum interval in milliseconds
     min_interval_step: int = 10  # Minimum step size for interval adjustments
@@ -136,7 +139,7 @@ class RendererConfig:
 class RendererState:
     """Maintains renderer state between frames."""
 
-    previous_grid: Optional[Dict[CellPos, bool]] = None
+    previous_grid: Optional[RenderGrid] = None
     start_x: int = 0
     start_y: int = 0
     terminal_width: int = 0
@@ -163,7 +166,7 @@ class RendererState:
     pattern_mode: bool = False
     cursor_x: int = 0
     cursor_y: int = 0
-    previous_pattern_cells: set[CellPos] = None  # type: ignore
+    previous_pattern_cells: Optional[Set[CellPos]] = None
     was_in_pattern_mode: bool = False
     pattern_menu: str = ""
 
@@ -355,19 +358,21 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
 
 
 def calculate_grid_position(
-    terminal: TerminalProtocol, grid_width: int, grid_height: int
+    terminal: TerminalProtocol,
+    grid: Grid,
 ) -> tuple[int, int]:
     """Calculates centered position for grid.
 
     Args:
         terminal: Terminal instance
-        grid_width: Width of the grid
-        grid_height: Height of the grid
+        grid: Grid to calculate position for
 
     Returns:
-        Tuple of (start_x, start_y) coordinates for centered grid.
-        If terminal is too small, returns (0, 0) to align grid to top-left corner.
+        Tuple of (start_x, start_y) coordinates for centered grid
     """
+    # Get grid dimensions from NumPy array shape
+    grid_height, grid_width = grid.shape
+
     # Calculate total grid dimensions including spacing
     total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
     total_height = grid_height  # Each cell is 1 char high
@@ -398,16 +403,20 @@ def calculate_grid_position(
     return start_x, start_y
 
 
-def grid_to_dict(grid: Grid) -> Dict[CellPos, bool]:
-    """Convert grid to dictionary for efficient lookup.
+def grid_to_dict(grid: Grid) -> RenderGrid:
+    """Convert grid to dictionary for efficient lookup using NumPy operations.
 
     Args:
-        grid: Grid to convert
+        grid: NumPy array grid to convert
 
     Returns:
-        Dictionary mapping cell positions to states
+        Dictionary mapping screen positions to cell states
     """
-    return {(x, y): grid[y][x] for y in range(len(grid)) for x in range(len(grid[0]))}
+    # Use NumPy's nonzero to get coordinates of True values
+    rows, cols = grid.shape
+
+    # Create dictionary with all positions
+    return {(x, y): grid[y, x] for y in range(rows) for x in range(cols)}
 
 
 def render_cell(
@@ -554,22 +563,21 @@ def render_grid(
     config: RendererConfig,
     state: RendererState,
 ) -> None:
-    """Renders current grid state.
+    """Renders current grid state using NumPy operations.
 
     Args:
         terminal: Terminal instance
-        grid: Grid to render
+        grid: NumPy array grid to render
         config: Renderer configuration
         state: Current renderer state
     """
-    # Grid dimensions - grid is stored as [rows][columns]
-    grid_height = len(grid)  # Number of rows
-    grid_width = len(grid[0])  # Number of columns in first row
+    # Grid dimensions from NumPy array shape
+    grid_height, grid_width = grid.shape
 
     # Reserve bottom two lines for menu and status
     usable_height = terminal.height - 2
 
-    start_x, start_y = calculate_grid_position(terminal, grid_width, grid_height)
+    start_x, start_y = calculate_grid_position(terminal, grid)
 
     # Update stored position if changed
     if start_x != state.start_x or start_y != state.start_y:
@@ -577,22 +585,25 @@ def render_grid(
         state.start_y = start_y
         state.previous_grid = None  # Force full redraw on position change
 
-    # Convert current grid to dictionary
+    # Convert current grid to dictionary using optimized NumPy operations
     current_grid = grid_to_dict(grid)
 
-    # Update statistics
-    state.total_cells = grid_width * grid_height
-    state.active_cells = sum(1 for cell in current_grid.values() if cell)
+    # Update statistics using NumPy operations
+    state.total_cells = grid.size
+    state.active_cells = np.count_nonzero(grid)
 
     # Track births and deaths if we have a previous grid
     if state.previous_grid is not None:
-        for pos, current_state in current_grid.items():
-            previous_state = state.previous_grid.get(pos)
-            if previous_state is not None:
-                if not previous_state and current_state:
-                    state.births_this_second += 1
-                elif previous_state and not current_state:
-                    state.deaths_this_second += 1
+        # Convert previous grid to NumPy array for comparison
+        prev_grid = np.zeros_like(grid)
+        for (x, y), val in state.previous_grid.items():
+            prev_grid[y, x] = val
+
+        # Calculate births and deaths using NumPy operations
+        births = np.logical_and(~prev_grid, grid)
+        deaths = np.logical_and(prev_grid, ~grid)
+        state.births_this_second += np.count_nonzero(births)
+        state.deaths_this_second += np.count_nonzero(deaths)
 
     # Get pattern preview cells if in pattern mode
     pattern_cells = set()
@@ -606,10 +617,13 @@ def render_grid(
             turns = (config.pattern_rotation // 90) % 4
             # Get centered position for pattern preview
             preview_pos = get_centered_position(
-                pattern, Position((state.cursor_x, state.cursor_y)), turns
+                pattern,
+                (state.cursor_x, state.cursor_y),
+                rotation=cast(PatternTransform, (turns * 90)),
             )
             cells = get_pattern_cells(pattern, turns)
-            # Add all pattern cells to the set, adjusting for centered position
+
+            # Add all pattern cells to the set, using NumPy's modulo for wrapping
             for dx, dy in cells:
                 x = (preview_pos[0] + dx) % grid_width
                 y = (preview_pos[1] + dy) % grid_height
@@ -740,3 +754,15 @@ def safe_render_grid(
         # Handle any other unexpected errors
         cleanup_terminal(terminal)
         raise RuntimeError(f"Unexpected error during rendering: {e}") from e
+
+
+def count_active_cells(grid: Grid) -> int:
+    """Returns the number of active cells in the grid."""
+    return np.count_nonzero(grid)
+
+
+def calculate_cell_changes(old_grid: Grid, new_grid: Grid) -> tuple[int, int]:
+    """Calculate number of births and deaths between grid states."""
+    births = np.logical_and(~old_grid, new_grid)
+    deaths = np.logical_and(old_grid, ~new_grid)
+    return np.count_nonzero(births), np.count_nonzero(deaths)

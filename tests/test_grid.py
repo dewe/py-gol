@@ -1,257 +1,265 @@
 """Tests for grid management."""
 
-from typing import Callable
+from typing import Callable, Final, TypeAlias
 
+import numpy as np
 import pytest
 
 from gol.grid import (
     BoundaryCondition,
-    Grid,
     GridConfig,
-    Position,
     count_live_neighbors,
     create_grid,
     get_grid_section,
     get_neighbors,
     resize_grid,
 )
+from gol.types import Grid, GridPosition, GridView, IntArray
 
+# Type Aliases
+NeighborValidator: TypeAlias = Callable[[IntArray], bool]
+GridPattern: TypeAlias = list[list[bool]]
 
-def test_grid_creation() -> None:
-    """
-    Given: A grid of 10x8 and density of 0.3
-    When: Creating a new grid
-    Then: Grid should be 10x8
-    And: Approximately 30% of cells should be alive (with 20% margin)
-    """
-    config = GridConfig(width=10, height=8, density=0.3)
-    grid = create_grid(config)
-
-    # Check grid dimensions
-    assert len(grid) == 8  # height
-    assert all(len(row) == 10 for row in grid)  # width
-
-    # Check approximate density (with 20% margin to reduce flakiness)
-    live_cells = sum(sum(1 for cell in row if cell) for row in grid)
-    total_cells = 80  # 10x8
-    actual_density = live_cells / total_cells
-    assert (
-        0.1 <= actual_density <= 0.5
-    ), f"Expected density between 10% and 50%, got {actual_density * 100:.1f}%"
-
-
-def test_grid_resizing_smaller() -> None:
-    """
-    Given: A grid with known pattern
-    When: Resizing to smaller dimensions
-    Then: Should preserve pattern within new bounds
-    """
-    grid = Grid(
-        [
-            [True, True, True],
-            [False, False, False],
-            [False, False, False],
-        ]
-    )
-
-    new_grid = resize_grid(grid, new_width=2, new_height=2)
-
-    assert len(new_grid) == 2
-    assert len(new_grid[0]) == 2
-    assert new_grid[0][0] and new_grid[0][1]  # Top row preserved
-    assert not new_grid[1][0] and not new_grid[1][1]  # Bottom row preserved
-
-
-def test_grid_resizing_larger() -> None:
-    """
-    Given: A grid with known pattern
-    When: Resizing to larger dimensions
-    Then: Should preserve original pattern and fill new cells with dead state
-    """
-    grid = Grid([[True, True], [False, False]])
-
-    new_grid = resize_grid(grid, new_width=3, new_height=3)
-
-    assert len(new_grid) == 3
-    assert len(new_grid[0]) == 3
-    assert new_grid[0][0] and new_grid[0][1]  # Original pattern preserved
-    assert not new_grid[0][2]  # New cells dead
-    assert not any(cell for cell in new_grid[2])  # New row dead
-
-
-@pytest.mark.parametrize(
-    "boundary,grid,pos,expected_neighbors,expected_conditions",
+# Test Constants
+STANDARD_GRID: Final[Grid] = np.array(
     [
-        # Test finite boundary
-        (
-            BoundaryCondition.FINITE,
-            Grid(
-                [
-                    [True, True, True],
-                    [False, False, False],
-                    [False, False, False],
-                ]
-            ),
-            Position((0, 0)),  # Corner position
-            3,  # Expected number of neighbors
-            lambda neighbors: all(  # All positions within grid
-                [
-                    Position((0, 1)) in neighbors,
-                    Position((1, 0)) in neighbors,
-                    Position((0, 1)) in neighbors,
-                ]
-            ),
-        ),
-        # Test toroidal boundary
-        (
-            BoundaryCondition.TOROIDAL,
-            Grid([[True, True], [False, False]]),
-            Position((0, 0)),  # Corner position
-            8,  # Expected number of neighbors
-            lambda neighbors: all(
-                [  # Check wrapping positions
-                    Position((1, 1)) in neighbors,  # Bottom-right
-                    Position((1, 0)) in neighbors,  # Right
-                    Position((0, 1)) in neighbors,  # Bottom
-                ]
-            ),
-        ),
-        (
-            BoundaryCondition.TOROIDAL,
-            Grid(
-                [
-                    [True, True, True],
-                    [False, False, False],
-                    [False, False, False],
-                ]
-            ),
-            Position((0, 0)),  # Corner position
-            8,  # Expected number of neighbors
-            lambda neighbors: all(  # All positions within grid
-                [
-                    Position((0, 1)) in neighbors,
-                    Position((1, 1)) in neighbors,
-                    Position((1, 0)) in neighbors,
-                    Position((2, 0)) in neighbors,
-                    Position((0, 2)) in neighbors,
-                    Position((2, 2)) in neighbors,
-                    Position((2, 1)) in neighbors,
-                    Position((1, 2)) in neighbors,
-                ]
-            ),
-        ),
-        # Test infinite boundary
-        (
-            BoundaryCondition.INFINITE,
-            Grid([[True, True], [False, False]]),
-            Position((0, 0)),  # Corner position
-            8,  # Expected number of neighbors
-            # Check positions outside grid boundaries
-            lambda n: all(
-                [
-                    Position((-1, -1)) in n,
-                    Position((-1, 0)) in n,
-                    Position((-1, 1)) in n,
-                ]
-            ),
-        ),
+        [True, True, True],
+        [False, False, False],
+        [False, False, False],
     ],
+    dtype=np.bool_,
 )
-def test_boundary_conditions(
-    boundary: BoundaryCondition,
-    grid: Grid,
-    pos: Position,
-    expected_neighbors: int,
-    expected_conditions: Callable[
-        [list[Position]],  # Input type: list of positions
-        bool,  # Return type: boolean
-    ],
-) -> None:
-    """Test neighbor calculation for different boundary conditions.
 
-    Args:
-        boundary: The boundary condition to test
-        grid: Test grid configuration
-        pos: Position to get neighbors for
-        expected_neighbors: Expected number of neighbors
-        expected_conditions: Function to verify specific conditions for each
-            boundary type
-    """
-    neighbors = get_neighbors(grid, pos, boundary)
+SMALL_GRID: Final[Grid] = np.array(
+    [[True, True], [False, False]],
+    dtype=np.bool_,
+)
 
-    # Print debug info
-    print(f"\nTesting {boundary} boundary:")
-    print(f"Position: {pos}")
-    print("Neighbors:")
-    for n in neighbors:
-        print(f"  {n}")
-
-    # Verify number of neighbors
-    assert len(neighbors) == expected_neighbors
-
-    # Verify boundary-specific conditions
-    assert expected_conditions(neighbors)
+CORNER_POSITION: Final[GridPosition] = (0, 0)
 
 
-def test_grid_section_finite() -> None:
-    """
-    Given: A grid with finite boundary
-    When: Getting a section partially outside grid
-    Then: Should return section with dead cells for outside positions
-    """
-    grid = Grid([[True, True], [False, False]])
+# Helper Functions
+def create_test_grid(pattern: GridPattern) -> Grid:
+    """Creates a test grid from a pattern."""
+    return np.array(pattern, dtype=np.bool_)
 
-    section = get_grid_section(
-        grid,
-        Position((1, 1)),  # Start inside
-        Position((2, 2)),  # End outside
-        BoundaryCondition.FINITE,
+
+def count_live_cells(grid: Grid) -> int:
+    """Counts number of live cells in grid."""
+    return int(np.sum(grid))
+
+
+def assert_grid_matches_pattern(grid: Grid, pattern: GridPattern) -> None:
+    """Asserts that grid matches expected pattern."""
+    expected: Grid = create_test_grid(pattern)
+    np.testing.assert_array_equal(grid, expected)
+
+
+class TestGridCreation:
+    """Tests for grid creation and resizing operations."""
+
+    def test_grid_creation(self) -> None:
+        """
+        Given: A grid of 10x8 and density of 0.3
+        When: Creating a new grid
+        Then: Grid should be 10x8
+        And: Approximately 30% of cells should be alive (with 20% margin)
+        """
+        config = GridConfig(width=10, height=8, density=0.3)
+        grid: Grid = create_grid(config)
+
+        # Check grid dimensions
+        assert grid.shape == (8, 10)  # height, width
+
+        # Check approximate density (with 20% margin to reduce flakiness)
+        live_cells = count_live_cells(grid)
+        total_cells = 80  # 10x8
+        actual_density = live_cells / total_cells
+        assert (
+            0.1 <= actual_density <= 0.5
+        ), f"Expected density between 10% and 50%, got {actual_density * 100:.1f}%"
+
+    def test_grid_resizing_smaller(self) -> None:
+        """
+        Given: A grid with known pattern
+        When: Resizing to smaller dimensions
+        Then: Should preserve pattern within new bounds
+        """
+        # Arrange
+        grid: Grid = STANDARD_GRID.copy()
+
+        # Act
+        new_grid: Grid = resize_grid(grid, new_width=2, new_height=2)
+
+        # Assert
+        assert new_grid.shape == (2, 2)
+        assert new_grid[0][0] and new_grid[0][1]  # Top row preserved
+        assert not new_grid[1][0] and not new_grid[1][1]  # Bottom row preserved
+
+    def test_grid_resizing_larger(self) -> None:
+        """
+        Given: A grid with known pattern
+        When: Resizing to larger dimensions
+        Then: Should preserve original pattern and fill new cells with dead state
+        """
+        # Arrange
+        grid: Grid = SMALL_GRID.copy()
+
+        # Act
+        new_grid: Grid = resize_grid(grid, new_width=3, new_height=3)
+
+        # Assert
+        assert new_grid.shape == (3, 3)
+        assert new_grid[0][0] and new_grid[0][1]  # Original pattern preserved
+        assert not new_grid[0][2]  # New cells dead
+        assert not any(cell for cell in new_grid[2])  # New row dead
+
+
+class TestBoundaryConditions:
+    """Tests for different boundary condition behaviors."""
+
+    @pytest.mark.parametrize(
+        "boundary,grid,pos,expected_neighbors,expected_conditions",
+        [
+            # Test finite boundary
+            (
+                BoundaryCondition.FINITE,
+                STANDARD_GRID,
+                CORNER_POSITION,
+                3,  # Expected number of neighbors
+                lambda neighbors: all(  # All positions within grid
+                    [
+                        (0, 1) in zip(neighbors[0], neighbors[1]),
+                        (1, 0) in zip(neighbors[0], neighbors[1]),
+                        (1, 1) in zip(neighbors[0], neighbors[1]),
+                    ]
+                ),
+            ),
+            # Test toroidal boundary
+            (
+                BoundaryCondition.TOROIDAL,
+                SMALL_GRID,
+                CORNER_POSITION,
+                8,  # Expected number of neighbors
+                lambda neighbors: all(
+                    [  # Check wrapping positions
+                        (1, 1) in zip(neighbors[0], neighbors[1]),  # Bottom-right
+                        (1, 0) in zip(neighbors[0], neighbors[1]),  # Right
+                        (0, 1) in zip(neighbors[0], neighbors[1]),  # Bottom
+                    ]
+                ),
+            ),
+            # Test infinite boundary
+            (
+                BoundaryCondition.INFINITE,
+                SMALL_GRID,
+                CORNER_POSITION,
+                8,  # Expected number of neighbors
+                # Check positions outside grid boundaries
+                lambda n: all(
+                    [
+                        (-1, -1) in zip(n[0], n[1]),
+                        (-1, 0) in zip(n[0], n[1]),
+                        (-1, 1) in zip(n[0], n[1]),
+                    ]
+                ),
+            ),
+        ],
     )
+    def test_boundary_conditions(
+        self,
+        boundary: BoundaryCondition,
+        grid: Grid,
+        pos: GridPosition,
+        expected_neighbors: int,
+        expected_conditions: NeighborValidator,
+    ) -> None:
+        """Test neighbor calculation for different boundary conditions."""
+        # Act
+        neighbors: IntArray = get_neighbors(grid, pos, boundary)
 
-    assert len(section) == 2  # Requested height
-    assert len(section[0]) == 2  # Requested width
-    assert not section[0][1]  # Outside position is dead
-    assert not section[1][0]  # Outside position is dead
-    assert not section[1][1]  # Outside position is dead
+        # Debug info
+        print(f"\nTesting {boundary} boundary:")
+        print(f"Position: {pos}")
+        print("Neighbors:")
+        for x, y in zip(neighbors[0], neighbors[1]):
+            print(f"  ({x}, {y})")
 
-
-def test_grid_section_toroidal() -> None:
-    """
-    Given: A grid with toroidal boundary
-    When: Getting a section across grid edge
-    Then: Should wrap around to opposite edge
-    """
-    grid = Grid([[True, False], [False, True]])
-
-    section = get_grid_section(
-        grid,
-        Position((1, 1)),  # Bottom-right
-        Position((2, 2)),  # Wraps around
-        BoundaryCondition.TOROIDAL,
-    )
-
-    assert len(section) == 2
-    assert len(section[0]) == 2
-    assert section[0][0]  # Bottom-right cell is alive
-    assert not section[0][1]  # Wrapped top-right is dead
-    assert not section[1][0]  # Wrapped bottom-left is dead
-    assert section[1][1]  # Wrapped top-left is alive
+        # Assert
+        assert neighbors.shape[1] == expected_neighbors
+        assert expected_conditions(neighbors)
 
 
-def test_count_neighbors_infinite() -> None:
-    """
-    Given: A grid with infinite boundary
-    When: Counting neighbors including positions outside grid
-    Then: Should only count live cells within actual grid
-    """
-    grid = Grid([[True, True], [False, False]])
+class TestGridSections:
+    """Tests for grid section operations."""
 
-    # Include positions outside grid
-    positions = [
-        Position((-1, -1)),  # Outside
-        Position((0, 0)),  # Inside, alive
-        Position((1, 0)),  # Inside, alive
-    ]
+    SECTION_GRID: Final[Grid] = create_test_grid([[True, True], [False, False]])
 
-    count = count_live_neighbors(grid, positions, BoundaryCondition.INFINITE)
-    assert count == 2  # Only cells within grid boundaries
+    WRAP_GRID: Final[Grid] = create_test_grid([[True, False], [False, True]])
+
+    def test_finite_section_handles_out_of_bounds(self) -> None:
+        """
+        Given: A grid with finite boundary
+        When: Getting a section partially outside grid bounds
+        Then: Should return section with dead cells for out-of-bounds positions
+        """
+        # Act
+        section: GridView = get_grid_section(
+            self.SECTION_GRID,
+            (1, 1),  # Start inside
+            (2, 2),  # End outside
+            BoundaryCondition.FINITE,
+        )
+
+        # Assert
+        assert section.shape == (2, 2)  # Requested height, width
+        assert not section[0][1]  # Outside position is dead
+        assert not section[1][0]  # Outside position is dead
+        assert not section[1][1]  # Outside position is dead
+
+    def test_toroidal_section_wraps_around_edges(self) -> None:
+        """
+        Given: A grid with toroidal boundary
+        When: Getting a section across grid edge
+        Then: Should wrap around to opposite edge
+        """
+        # Act
+        section: GridView = get_grid_section(
+            self.WRAP_GRID,
+            (1, 1),  # Bottom-right
+            (2, 2),  # Wraps around
+            BoundaryCondition.TOROIDAL,
+        )
+
+        # Assert
+        assert section.shape == (2, 2)
+        assert section[0][0]  # Bottom-right cell is alive
+        assert not section[0][1]  # Wrapped top-right is dead
+        assert not section[1][0]  # Wrapped bottom-left is dead
+        assert section[1][1]  # Wrapped top-left is alive
+
+
+class TestNeighborCounting:
+    """Tests for neighbor counting operations."""
+
+    def test_count_neighbors_infinite_boundary(self) -> None:
+        """
+        Given: A grid with infinite boundary
+        When: Counting neighbors including positions outside grid
+        Then: Should only count live cells within actual grid
+        """
+        # Arrange
+        grid: Grid = SMALL_GRID.copy()
+        positions: IntArray = np.array(
+            [
+                [-1, 0, 1],  # x coordinates
+                [-1, 0, 0],  # y coordinates
+            ],
+            dtype=np.int_,
+        )
+
+        # Act
+        count = count_live_neighbors(grid, positions, BoundaryCondition.INFINITE)
+
+        # Assert
+        assert count == 2  # Only cells within grid boundaries

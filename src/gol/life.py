@@ -1,52 +1,33 @@
 """Pure functional implementation of Conway's Game of Life."""
 
-from typing import List
+import numpy as np
+from numpy.typing import NDArray
 
-from gol.grid import BoundaryCondition, Grid, Position, get_neighbors
+from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
+from gol.types import Grid
 
 
-def count_live_neighbors(grid: Grid, pos: Position, boundary: BoundaryCondition) -> int:
-    """Count live neighbors for a cell.
+def calculate_next_state(current_state: Grid, live_neighbors: NDArray[np.int_]) -> Grid:
+    """Calculate next state of cells using vectorized operations.
 
     Args:
-        grid: Current grid state
-        pos: Position to count neighbors for
-        boundary: Boundary condition to apply
+        current_state: Current state of cells as boolean array
+        live_neighbors: Number of live neighboring cells for each cell
 
     Returns:
-        Number of live neighbors
+        Next state of cells as boolean array
     """
-    neighbors = get_neighbors(grid, pos, boundary)
-    height = len(grid)
-    width = len(grid[0])
-
-    # For all boundary conditions, count cells within grid
-    return sum(
-        1
-        for neighbor_pos in neighbors
-        if 0 <= neighbor_pos[1] < height
-        and 0 <= neighbor_pos[0] < width
-        and grid[neighbor_pos[1]][neighbor_pos[0]]
+    # Vectorized implementation of Conway's rules
+    survival = np.logical_and(
+        current_state, np.logical_or(live_neighbors == 2, live_neighbors == 3)
     )
-
-
-def calculate_next_state(current_state: bool, live_neighbors: int) -> bool:
-    """Calculate next state of a cell.
-
-    Args:
-        current_state: Current state of the cell
-        live_neighbors: Number of live neighboring cells
-
-    Returns:
-        Next state of the cell
-    """
-    if current_state:
-        return live_neighbors in (2, 3)  # Survives
-    return live_neighbors == 3  # Becomes alive
+    birth = np.logical_and(~current_state, live_neighbors == 3)
+    result: Grid = np.logical_or(survival, birth)
+    return result
 
 
 def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
-    """Calculate the next generation of the grid.
+    """Calculate the next generation of the grid using vectorized operations.
 
     Args:
         grid: Current grid state
@@ -55,21 +36,15 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
     Returns:
         New grid representing the next generation
     """
-    height = len(grid)
-    width = len(grid[0])
+    height, width = grid.shape
+    live_counts = np.zeros((height, width), dtype=np.int_)
 
-    # Create new grid with same dimensions
-    new_grid: List[List[bool]] = []
-
-    # Calculate next state for each cell
+    # Calculate live neighbors for all cells
     for y in range(height):
-        row: List[bool] = []
         for x in range(width):
-            pos = Position((x, y))
-            live_count = count_live_neighbors(grid, pos, boundary)
-            current_state = grid[y][x]
-            next_state = calculate_next_state(current_state, live_count)
-            row.append(next_state)
-        new_grid.append(row)
+            pos = (x, y)  # type: tuple[int, int]
+            neighbors = get_neighbors(grid, pos, boundary)
+            live_counts[y, x] = count_live_neighbors(grid, neighbors, boundary)
 
-    return Grid(new_grid)
+    # Calculate next state for all cells at once
+    return calculate_next_state(grid, live_counts)

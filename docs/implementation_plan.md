@@ -330,7 +330,7 @@ Each component follows this test-driven development cycle:
 
 ## Project Structure
 
-```
+```text
 src/gol/
 ├── main.py           # Application entry point
 ├── controller.py     # Game controller

@@ -28,7 +28,7 @@ import argparse
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, Literal, Tuple
+from typing import Any, Callable, Dict, Literal, Tuple, cast
 
 from gol.controller import (
     ControllerConfig,
@@ -36,7 +36,7 @@ from gol.controller import (
     process_generation,
     resize_game,
 )
-from gol.grid import BoundaryCondition, Grid, GridConfig, Position, create_grid
+from gol.grid import BoundaryCondition, GridConfig, create_grid
 from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
     RendererConfig,
@@ -46,6 +46,7 @@ from gol.renderer import (
     handle_user_input,
     safe_render_grid,
 )
+from gol.types import Grid, GridPosition, PatternTransform
 
 CommandType = Literal[
     "continue",
@@ -305,11 +306,15 @@ def run_game_loop(
 
             if pattern:
                 # Use place_pattern with centering enabled
+                cursor_pos: GridPosition = (
+                    state.cursor_x,
+                    state.cursor_y,
+                )  # Create tuple first
                 new_grid = place_pattern(
                     grid,
                     pattern,
-                    Position((state.cursor_x, state.cursor_y)),
-                    config.renderer.pattern_rotation,
+                    cursor_pos,  # GridPosition is a type alias for tuple[int, int]
+                    cast(PatternTransform, config.renderer.pattern_rotation),
                     centered=True,
                 )
                 # Keep pattern mode active and clear selected pattern

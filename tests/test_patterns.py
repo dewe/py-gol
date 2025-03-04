@@ -4,9 +4,9 @@ import shutil
 from pathlib import Path
 from typing import Generator
 
+import numpy as np
 import pytest
 
-from gol.grid import Grid, Position
 from gol.patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
@@ -16,8 +16,10 @@ from gol.patterns import (
     extract_pattern,
     find_pattern,
     get_centered_position,
+    get_pattern_cells,
     place_pattern,
 )
+from gol.types import Grid, GridPosition
 
 
 @pytest.fixture
@@ -35,6 +37,25 @@ def pattern_storage(temp_pattern_dir: Path) -> FilePatternStorage:
     return FilePatternStorage(storage_dir=temp_pattern_dir)
 
 
+@pytest.fixture
+def simple_pattern() -> Pattern:
+    """Provides a simple 2x2 test pattern."""
+    return Pattern(
+        metadata=PatternMetadata(
+            name="test", description="test pattern", category=PatternCategory.CUSTOM
+        ),
+        cells=np.array([[True, False], [False, True]], dtype=np.bool_),
+    )
+
+
+@pytest.fixture
+def test_grid() -> Grid:
+    """Provides a 3x3 test grid with a known pattern."""
+    return np.array(
+        [[False, True, False], [False, False, True], [True, True, True]], dtype=np.bool_
+    )
+
+
 def test_pattern_creation() -> None:
     """
     Given: Pattern metadata and cells
@@ -44,29 +65,38 @@ def test_pattern_creation() -> None:
     metadata = PatternMetadata(
         name="test", description="Test pattern", category=PatternCategory.CUSTOM
     )
-    cells = [[True, True], [True, True]]
+    cells = np.array([[True, True], [True, True]], dtype=np.bool_)
 
-    pattern = Pattern(metadata=metadata, cells=cells, width=2, height=2)
-
-    assert pattern.metadata.name == "test"
+    pattern = Pattern(metadata=metadata, cells=cells)
     assert pattern.width == 2
     assert pattern.height == 2
-    assert pattern.cells == cells
+    assert np.array_equal(pattern.cells, cells)
 
 
 def test_pattern_validation() -> None:
-    """
-    Given: Invalid pattern dimensions
-    When: Creating a pattern
-    Then: Should raise ValueError
-    """
-    metadata = PatternMetadata(
-        name="invalid", description="Invalid pattern", category=PatternCategory.CUSTOM
+    """Test pattern dimension validation and type conversion."""
+    # Test list conversion
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="test", description="test pattern", category=PatternCategory.CUSTOM
+        ),
+        cells=np.array([[True, False], [False, True]], dtype=np.bool_),
     )
-    cells = [[True]]  # 1x1 cells
+    assert isinstance(pattern.cells, np.ndarray)
+    assert pattern.cells.dtype == np.bool_
 
-    with pytest.raises(ValueError):
-        Pattern(metadata=metadata, cells=cells, width=2, height=2)  # Wrong dimensions
+    # Test non-boolean array conversion
+    pattern2 = Pattern(
+        metadata=PatternMetadata(
+            name="test2", description="test pattern", category=PatternCategory.CUSTOM
+        ),
+        cells=np.array([[1, 0], [0, 1]], dtype=np.int32),  # Integer array input
+    )
+    assert isinstance(pattern2.cells, np.ndarray)
+    assert pattern2.cells.dtype == np.bool_
+    assert np.array_equal(
+        pattern2.cells, np.array([[True, False], [False, True]], dtype=np.bool_)
+    )
 
 
 def test_pattern_storage_save_load(temp_pattern_dir: Path) -> None:
@@ -86,7 +116,7 @@ def test_pattern_storage_save_load(temp_pattern_dir: Path) -> None:
 
     assert loaded is not None
     assert loaded.metadata.name == pattern.metadata.name
-    assert loaded.cells == pattern.cells
+    assert np.array_equal(loaded.cells, pattern.cells)
     assert loaded.width == pattern.width
     assert loaded.height == pattern.height
 
@@ -98,30 +128,27 @@ def test_pattern_extraction() -> None:
     Then: Should create correct pattern
     """
     # Create grid with a block pattern
-    grid = Grid(
+    grid = np.array(
         [
             [True, True, False],
             [True, True, False],
             [False, False, False],
-        ]
+        ],
+        dtype=np.bool_,
     )
 
     metadata = PatternMetadata(
-        name="extracted_block",
-        description="Extracted block pattern",
-        category=PatternCategory.STILL_LIFE,
+        name="extracted",
+        description="Extracted pattern",
+        category=PatternCategory.CUSTOM,
     )
 
-    pattern = extract_pattern(
-        grid,
-        top_left=Position((0, 0)),
-        bottom_right=Position((1, 1)),
-        metadata=metadata,
-    )
-
+    pattern = extract_pattern(grid, (0, 0), (1, 1), metadata)
     assert pattern.width == 2
     assert pattern.height == 2
-    assert all(all(cell for cell in row) for row in pattern.cells)
+    assert np.array_equal(
+        pattern.cells, np.array([[True, True], [True, True]], dtype=np.bool_)
+    )
 
 
 def test_pattern_placement() -> None:
@@ -131,17 +158,20 @@ def test_pattern_placement() -> None:
     Then: Should correctly place pattern at specified position
     """
     # Create empty grid
-    grid = Grid([[False] * 5 for _ in range(5)])
-    pattern = BUILTIN_PATTERNS["block"]
+    grid = np.zeros((5, 5), dtype=np.bool_)
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="test",
+            description="Test pattern",
+            category=PatternCategory.CUSTOM,
+        ),
+        cells=np.array([[True, True], [True, True]], dtype=np.bool_),
+    )
 
-    # Place pattern with centering disabled to test exact position
-    new_grid = place_pattern(grid, pattern, Position((1, 1)), centered=False)
-
-    # Check block placement
-    assert new_grid[1][1]  # Top-left
-    assert new_grid[1][2]  # Top-right
-    assert new_grid[2][1]  # Bottom-left
-    assert new_grid[2][2]  # Bottom-right
+    new_grid = place_pattern(grid, pattern, (1, 1), centered=False)
+    assert np.array_equal(
+        new_grid[1:3, 1:3], np.array([[True, True], [True, True]], dtype=np.bool_)
+    )
 
 
 def test_centered_pattern_placement() -> None:
@@ -151,32 +181,26 @@ def test_centered_pattern_placement() -> None:
     Then: Should correctly center the pattern at the specified position
     """
     # Create empty 7x7 grid
-    grid = Grid([[False] * 7 for _ in range(7)])
-    pattern = BUILTIN_PATTERNS["block"]
+    grid = np.zeros((7, 7), dtype=np.bool_)
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="test",
+            description="Test pattern",
+            category=PatternCategory.CUSTOM,
+        ),
+        cells=np.array([[True, True], [True, True]], dtype=np.bool_),
+    )
 
-    # Place pattern at (3, 3) with centering enabled (default)
-    # For a 2x2 block pattern:
-    # - Geometric center is at (1, 1) in pattern coordinates
-    # - When centered at (3, 3), top-left should be at (2, 2)
-    new_grid = place_pattern(grid, pattern, Position((3, 3)))
-
-    # Check block placement - should be centered around (3, 3)
-    assert new_grid[2][2]  # Top-left
-    assert new_grid[2][3]  # Top-right
-    assert new_grid[3][2]  # Bottom-left
-    assert new_grid[3][3]  # Bottom-right
-
-    # Verify surrounding cells are empty
-    assert not new_grid[1][1]  # Upper-left empty
-    assert not new_grid[1][4]  # Upper-right empty
-    assert not new_grid[4][1]  # Lower-left empty
-    assert not new_grid[4][4]  # Lower-right empty
+    new_grid = place_pattern(grid, pattern, (3, 3), centered=True)
+    assert np.array_equal(
+        new_grid[2:4, 2:4], np.array([[True, True], [True, True]], dtype=np.bool_)
+    )
 
 
 def test_pattern_finding() -> None:
     """Test finding patterns in a grid."""
     # Create a grid with two non-overlapping block patterns
-    grid = Grid(
+    grid = np.array(
         [
             [False, False, False, False, False, False],
             [False, True, True, False, False, False],
@@ -184,15 +208,23 @@ def test_pattern_finding() -> None:
             [False, False, False, True, True, False],
             [False, False, False, True, True, False],
             [False, False, False, False, False, False],
-        ]
+        ],
+        dtype=np.bool_,
     )
 
-    pattern = BUILTIN_PATTERNS["block"]
-    positions = find_pattern(grid, pattern)
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="block",
+            description="2x2 block",
+            category=PatternCategory.STILL_LIFE,
+        ),
+        cells=np.array([[True, True], [True, True]], dtype=np.bool_),
+    )
 
+    positions = find_pattern(grid, pattern)
     assert len(positions) == 2
-    assert Position((1, 1)) in positions
-    assert Position((3, 3)) in positions
+    assert (1, 1) in positions
+    assert (3, 3) in positions
 
 
 def test_builtin_patterns() -> None:
@@ -220,12 +252,17 @@ def test_get_centered_position_block_pattern() -> None:
     When: Calculating centered position at (10, 10)
     Then: Should return position (9, 9) to center the block
     """
-    pattern = BUILTIN_PATTERNS["block"]
-    cursor_pos = Position((10, 10))
-
-    result = get_centered_position(pattern, cursor_pos)
-
-    assert result == Position((9, 9))
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="block",
+            description="2x2 block",
+            category=PatternCategory.STILL_LIFE,
+        ),
+        cells=np.array([[True, True], [True, True]], dtype=np.bool_),
+    )
+    cursor_pos: GridPosition = (10, 10)
+    pos = get_centered_position(pattern, cursor_pos)
+    assert pos == (9, 9)
 
 
 def test_get_centered_position_blinker_pattern() -> None:
@@ -234,12 +271,17 @@ def test_get_centered_position_blinker_pattern() -> None:
     When: Calculating centered position at (10, 10)
     Then: Should return position (9, 10) to center horizontally
     """
-    pattern = BUILTIN_PATTERNS["blinker"]
-    cursor_pos = Position((10, 10))
-
-    result = get_centered_position(pattern, cursor_pos)
-
-    assert result == Position((9, 10))
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="blinker",
+            description="1x3 blinker",
+            category=PatternCategory.OSCILLATOR,
+        ),
+        cells=np.array([[True, True, True]], dtype=np.bool_),
+    )
+    cursor_pos: GridPosition = (10, 10)
+    pos = get_centered_position(pattern, cursor_pos)
+    assert pos == (9, 10)
 
 
 def test_get_centered_position_empty_pattern() -> None:
@@ -253,14 +295,113 @@ def test_get_centered_position_empty_pattern() -> None:
         description="Empty pattern",
         category=PatternCategory.CUSTOM,
     )
-    pattern = Pattern(
-        metadata=metadata,
-        cells=[[False, False], [False, False]],
-        width=2,
-        height=2,
+    pattern = Pattern(metadata=metadata, cells=np.zeros((2, 2), dtype=np.bool_))
+    cursor_pos: GridPosition = (10, 10)
+    pos = get_centered_position(pattern, cursor_pos)
+    assert pos == (9, 9)
+
+
+def test_get_centered_position(simple_pattern: Pattern) -> None:
+    """Test centered position calculation."""
+    pos = get_centered_position(simple_pattern, (5, 5))
+    assert pos == (4, 4)
+
+    # Test with rotation
+    pos = get_centered_position(simple_pattern, (5, 5), rotation=90)
+    assert pos == (4, 4)
+
+
+def test_place_pattern(test_grid: Grid, simple_pattern: Pattern) -> None:
+    """Test pattern placement on grid."""
+    # Create a fresh empty grid to avoid interference from existing patterns
+    grid = np.zeros((5, 5), dtype=np.bool_)
+
+    # Test normal placement
+    new_grid = place_pattern(grid, simple_pattern, (0, 0), centered=False)
+    # The simple_pattern is [[True, False], [False, True]]
+    assert bool(new_grid[0, 0])  # Should be True
+    assert not bool(new_grid[0, 1])  # Should be False
+    assert not bool(new_grid[1, 0])  # Should be False
+    assert bool(new_grid[1, 1])  # Should be True
+
+    # Test centered placement
+    new_grid = place_pattern(grid, simple_pattern, (2, 2), centered=True)
+    assert isinstance(new_grid, np.ndarray)
+    assert new_grid.dtype == np.bool_
+
+
+def test_find_pattern(test_grid: Grid) -> None:
+    """Test pattern finding in grid."""
+    # Create a specific test grid with exactly one occurrence of the pattern
+    grid = np.array(
+        [
+            [False, False, False, False],
+            [False, True, True, False],
+            [False, False, False, False],
+        ],
+        dtype=np.bool_,
     )
-    cursor_pos = Position((10, 10))
 
-    result = get_centered_position(pattern, cursor_pos)
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="test", description="test pattern", category=PatternCategory.CUSTOM
+        ),
+        cells=np.array([[True, True]], dtype=np.bool_),
+    )
 
-    assert result == Position((9, 9))  # Same as block pattern
+    positions = find_pattern(grid, pattern)
+    assert len(positions) == 1
+    assert (1, 1) in positions  # Pattern starts at (1,1)
+
+
+def test_get_pattern_cells(simple_pattern: Pattern) -> None:
+    """Test pattern cell position calculation with rotation"""
+    # Test no rotation
+    cells: list[GridPosition] = get_pattern_cells(simple_pattern)
+    assert (0, 0) in cells
+    assert (1, 1) in cells
+
+    # Test 90 degree rotation
+    cells = get_pattern_cells(simple_pattern, rotation=1)
+    assert len(cells) == 2
+
+    # Test 180 degree rotation
+    cells = get_pattern_cells(simple_pattern, rotation=2)
+    assert len(cells) == 2
+
+    # Test 270 degree rotation
+    cells = get_pattern_cells(simple_pattern, rotation=3)
+    assert len(cells) == 2
+
+
+def test_file_pattern_storage(tmp_path: Path) -> None:
+    """Test pattern storage and retrieval with NumPy arrays."""
+    storage = FilePatternStorage(storage_dir=tmp_path)
+    pattern = Pattern(
+        metadata=PatternMetadata(
+            name="test", description="test pattern", category=PatternCategory.CUSTOM
+        ),
+        cells=np.array([[True]], dtype=np.bool_),
+    )
+
+    storage.save_pattern(pattern)
+    loaded = storage.load_pattern("test")
+    assert loaded is not None
+    assert loaded.metadata.name == pattern.metadata.name
+    assert np.array_equal(loaded.cells, pattern.cells)
+    assert "test" in storage.list_patterns()
+
+
+def test_extract_pattern(test_grid: Grid) -> None:
+    """Test pattern extraction from grid."""
+    metadata = PatternMetadata(
+        name="extracted",
+        description="extracted pattern",
+        category=PatternCategory.CUSTOM,
+    )
+    pattern = extract_pattern(test_grid, (0, 0), (1, 1), metadata)
+    assert pattern.width == 2
+    assert pattern.height == 2
+    assert np.array_equal(
+        pattern.cells, np.array([[False, True], [False, False]], dtype=np.bool_)
+    )

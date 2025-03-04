@@ -1,5 +1,6 @@
 """Tests for game controller."""
 
+import numpy as np
 import pytest
 
 from gol.controller import (
@@ -9,7 +10,7 @@ from gol.controller import (
     process_generation,
     resize_game,
 )
-from gol.grid import BoundaryCondition, Grid
+from gol.grid import BoundaryCondition
 from gol.renderer import RendererConfig
 
 
@@ -36,9 +37,9 @@ def test_initialize_game(config: ControllerConfig) -> None:
     terminal, grid = initialize_game(config)
 
     assert terminal is not None
-    assert isinstance(grid, list)  # Grid is a NewType of list
-    assert len(grid) == config.grid.height
-    assert len(grid[0]) == config.grid.width
+    assert isinstance(grid, np.ndarray)  # Grid is now a NumPy array
+    assert grid.dtype == np.bool_  # Check correct dtype
+    assert grid.shape == (config.grid.height, config.grid.width)  # Check dimensions
 
 
 def test_resize_game(config: ControllerConfig) -> None:
@@ -48,20 +49,19 @@ def test_resize_game(config: ControllerConfig) -> None:
     Then: Should preserve pattern within new bounds
     """
     # Create initial grid with known pattern
-    grid = Grid([[True, True], [False, False]])
+    grid = np.array([[True, True], [False, False]], dtype=np.bool_)
 
     # Resize to larger dimensions
     new_width = 3
     new_height = 3
-    new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)
+    new_grid, _ = resize_game(grid, new_width, new_height, config.grid)
 
     # Check dimensions
-    assert len(new_grid) == new_height
-    assert len(new_grid[0]) == new_width
+    assert new_grid.shape == (new_height, new_width)
 
     # Check pattern preservation
-    assert new_grid[0][0] and new_grid[0][1]  # Original pattern preserved
-    assert not any(cell for cell in new_grid[2])  # New row dead
+    assert new_grid[0, 0] and new_grid[0, 1]  # Original pattern preserved
+    assert not np.any(new_grid[2])  # New row dead
 
 
 def test_process_generation(config: ControllerConfig) -> None:
@@ -71,20 +71,21 @@ def test_process_generation(config: ControllerConfig) -> None:
     Then: Should apply Game of Life rules correctly
     """
     # Create initial grid with blinker pattern
-    grid = Grid(
+    grid = np.array(
         [
             [False, True, False],
             [False, True, False],
             [False, True, False],
-        ]
+        ],
+        dtype=np.bool_,
     )
 
     # Process one generation
     new_grid = process_generation(grid, BoundaryCondition.FINITE)
 
     # Check that blinker oscillates correctly
-    assert not new_grid[0][1]  # Top cell dies
-    assert new_grid[1][0]  # Left cell becomes alive
-    assert new_grid[1][1]  # Center cell survives
-    assert new_grid[1][2]  # Right cell becomes alive
-    assert not new_grid[2][1]  # Bottom cell dies
+    assert not new_grid[0, 1]  # Top cell dies
+    assert new_grid[1, 0]  # Left cell becomes alive
+    assert new_grid[1, 1]  # Center cell survives
+    assert new_grid[1, 2]  # Right cell becomes alive
+    assert not new_grid[2, 1]  # Bottom cell dies

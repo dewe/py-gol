@@ -2,16 +2,12 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import NewType
+from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
 
-# More descriptive type aliases
-Coordinate = tuple[int, int]
-Position = NewType("Position", Coordinate)
-CellGrid = list[list[bool]]
-Grid = NewType("Grid", CellGrid)
+from .types import Grid, GridPosition
 
 
 class BoundaryCondition(Enum):
@@ -31,6 +27,13 @@ class GridConfig:
     density: float = 0.3
     boundary: BoundaryCondition = BoundaryCondition.FINITE
 
+    def __post_init__(self) -> None:
+        """Validate configuration parameters."""
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError("Grid dimensions must be positive")
+        if not 0 <= self.density <= 1:
+            raise ValueError("Density must be between 0 and 1")
+
 
 def create_grid(config: GridConfig) -> Grid:
     """Creates initial grid with random cell distribution.
@@ -41,14 +44,9 @@ def create_grid(config: GridConfig) -> Grid:
     Returns:
         A new Grid with random live cells based on density
     """
-    # Use numpy's optimized random generation
     rng = np.random.default_rng()
-    random_grid: NDArray[np.bool_] = (
-        rng.random((config.height, config.width)) < config.density
-    )
-    # Convert numpy array to list[list[bool]] with explicit casting
-    grid_list = [[bool(cell) for cell in row.tolist()] for row in random_grid]
-    return Grid(grid_list)
+    # Explicitly cast the result to ensure type safety
+    return cast(Grid, rng.random((config.height, config.width)) < config.density)
 
 
 def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
@@ -62,111 +60,105 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
     Returns:
         Resized grid with preserved patterns
     """
-    old_height = len(grid)
-    old_width = len(grid[0])
+    # Create the padding configuration
+    pad_width = (
+        (0, max(0, new_height - grid.shape[0])),
+        (0, max(0, new_width - grid.shape[1])),
+    )
 
-    # Create empty grid of new size
-    new_grid = [[False] * new_width for _ in range(new_height)]
+    # Perform padding and slicing
+    resized: NDArray[np.bool_] = np.pad(
+        grid, pad_width, mode="constant", constant_values=False
+    )[:new_height, :new_width]
 
-    # Calculate dimensions to copy
-    copy_height = min(old_height, new_height)
-    copy_width = min(old_width, new_width)
-
-    # Copy existing cells to new grid
-    for y in range(copy_height):
-        for x in range(copy_width):
-            new_grid[y][x] = grid[y][x]
-
-    return Grid(new_grid)
+    return cast(Grid, resized)
 
 
 def get_neighbors(
-    grid: Grid, pos: Position, boundary: BoundaryCondition
-) -> list[Position]:
-    """Get valid neighbor positions based on boundary condition."""
-    height, width = len(grid), len(grid[0])
+    grid: Grid, pos: GridPosition, boundary: BoundaryCondition
+) -> NDArray[np.int_]:
+    """Get valid neighbor positions as a 2xN array of coordinates."""
+    height, width = grid.shape
     x, y = pos
 
-    # Define neighbor offsets once
-    offsets = [(dx, dy) for dx in [-1, 0, 1] for dy in [-1, 0, 1] if (dx, dy) != (0, 0)]
+    # Create all neighbor offsets as a 2x8 array with explicit dtype
+    offsets = np.array(
+        [[-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1]], dtype=np.int_
+    )
+
+    # Add position to get neighbor coordinates
+    neighbors = np.array([[x], [y]], dtype=np.int_) + offsets
 
     match boundary:
         case BoundaryCondition.FINITE:
-            return [
-                Position((x + dx, y + dy))
-                for dx, dy in offsets
-                if 0 <= x + dx < width and 0 <= y + dy < height
-            ]
+            # Create mask for valid coordinates
+            valid = (
+                (neighbors[0] >= 0)
+                & (neighbors[0] < width)
+                & (neighbors[1] >= 0)
+                & (neighbors[1] < height)
+            )
+            return cast(NDArray[np.int_], neighbors[:, valid])
         case BoundaryCondition.TOROIDAL:
-            return [
-                Position(((x + dx) % width, (y + dy) % height)) for dx, dy in offsets
-            ]
+            # Apply modulo for wrapping
+            neighbors[0] %= width
+            neighbors[1] %= height
+            return cast(NDArray[np.int_], neighbors)
         case _:  # INFINITE
-            return [Position((x + dx, y + dy)) for dx, dy in offsets]
+            return cast(NDArray[np.int_], neighbors)
 
 
 def count_live_neighbors(
-    grid: Grid, positions: list[Position], boundary: BoundaryCondition
+    grid: Grid, positions: NDArray[np.int_], boundary: BoundaryCondition
 ) -> int:
-    """Count live neighbors using numpy for better performance."""
-    if not positions:
+    """Count live neighbors using numpy operations."""
+    if positions.size == 0:
         return 0
 
-    width, height = len(grid[0]), len(grid)
-    pos_array = np.array([(pos[0], pos[1]) for pos in positions])
-    x_coords, y_coords = pos_array[:, 0], pos_array[:, 1]
+    height, width = grid.shape
+    x_coords, y_coords = positions
 
-    def validate_coords(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Filter or wrap coordinates based on boundary condition."""
-        match boundary:
-            case BoundaryCondition.TOROIDAL:
-                return x % width, y % height
-            case _:  # FINITE or INFINITE
-                mask = (x >= 0) & (x < width) & (y >= 0) & (y < height)
-                return x[mask], y[mask]
-
-    x_coords, y_coords = validate_coords(x_coords, y_coords)
-    if len(x_coords) == 0:
-        return 0
-
-    return int(np.sum(np.array(grid)[y_coords, x_coords]))
+    match boundary:
+        case BoundaryCondition.TOROIDAL:
+            x_coords %= width
+            y_coords %= height
+            return int(np.sum(grid[y_coords, x_coords]))
+        case _:  # FINITE or INFINITE
+            mask = (
+                (x_coords >= 0)
+                & (x_coords < width)
+                & (y_coords >= 0)
+                & (y_coords < height)
+            )
+            return int(np.sum(grid[y_coords[mask], x_coords[mask]]))
 
 
 def get_grid_section(
-    grid: Grid, top_left: Position, bottom_right: Position, boundary: BoundaryCondition
+    grid: Grid,
+    top_left: GridPosition,
+    bottom_right: GridPosition,
+    boundary: BoundaryCondition,
 ) -> Grid:
     """Get a section of the grid."""
     x1, y1 = top_left
     x2, y2 = bottom_right
-    width, height = len(grid[0]), len(grid)
 
-    grid_array = np.array(grid)
-
-    def get_indices(start: int, end: int, size: int) -> np.ndarray:
-        """Get valid indices based on boundary condition."""
-        match boundary:
-            case BoundaryCondition.TOROIDAL:
-                return np.arange(start, end + 1) % size
-            case _:  # FINITE or INFINITE
-                return np.arange(start, end + 1)
-
-    y_indices = get_indices(y1, y2, height)
-    x_indices = get_indices(x1, x2, width)
-
-    if boundary in (BoundaryCondition.FINITE, BoundaryCondition.INFINITE):
-        # Create mask for valid coordinates
-        y_mask = (y_indices >= 0) & (y_indices < height)
-        x_mask = (x_indices >= 0) & (x_indices < width)
-
-        # Initialize with dead cells
-        section = np.zeros((y2 - y1 + 1, x2 - x1 + 1), dtype=bool)
-
-        # Fill valid positions
-        valid_y = y_indices[y_mask]
-        valid_x = x_indices[x_mask]
-        if len(valid_y) > 0 and len(valid_x) > 0:
-            section[y_mask][:, x_mask] = grid_array[valid_y][:, valid_x]
+    if boundary == BoundaryCondition.TOROIDAL:
+        height, width = grid.shape
+        y_indices = np.arange(y1, y2 + 1) % height
+        x_indices = np.arange(x1, x2 + 1) % width
+        return cast(Grid, grid[np.ix_(y_indices, x_indices)])
     else:
-        section = grid_array[y_indices][:, x_indices]
+        # For FINITE and INFINITE, pad with False
+        section = np.zeros((y2 - y1 + 1, x2 - x1 + 1), dtype=np.bool_)
 
-    return Grid([[bool(cell) for cell in row] for row in section])
+        # Calculate valid indices
+        valid_y = slice(max(0, y1), min(grid.shape[0], y2 + 1))
+        valid_x = slice(max(0, x1), min(grid.shape[1], x2 + 1))
+
+        # Copy valid section
+        section_y = slice(max(0, -y1), min(section.shape[0], grid.shape[0] - y1))
+        section_x = slice(max(0, -x1), min(section.shape[1], grid.shape[1] - x1))
+
+        section[section_y, section_x] = grid[valid_y, valid_x]
+        return cast(Grid, section)

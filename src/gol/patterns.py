@@ -4,9 +4,16 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol, cast
 
-from .grid import Grid, Position
+import numpy as np
+
+from .types import (  # Add these from types.py
+    Grid,
+    GridPosition,
+    PatternGrid,
+    PatternTransform,
+)
 
 
 class PatternCategory(Enum):
@@ -35,21 +42,26 @@ class PatternMetadata:
 
 @dataclass(frozen=True)
 class Pattern:
-    """Immutable pattern representation."""
+    """Immutable pattern representation using NumPy arrays."""
 
     metadata: PatternMetadata
-    cells: List[List[bool]]  # Simplified to just booleans
-    width: int
-    height: int
+    cells: PatternGrid
 
     def __post_init__(self) -> None:
-        """Validate pattern dimensions."""
-        if len(self.cells) != self.height:
-            raise ValueError(
-                f"Pattern height {len(self.cells)} != declared height {self.height}"
-            )
-        if any(len(row) != self.width for row in self.cells):
-            raise ValueError("Pattern width mismatch with declared width")
+        """Validate pattern dimensions and convert to NumPy array if needed."""
+        if not isinstance(self.cells, np.ndarray) or self.cells.dtype != np.bool_:
+            # Convert to PatternGrid type with correct dtype
+            object.__setattr__(self, "cells", np.array(self.cells, dtype=np.bool_))
+
+    @property
+    def width(self) -> int:
+        """Get pattern width."""
+        return self.cells.shape[1]
+
+    @property
+    def height(self) -> int:
+        """Get pattern height."""
+        return self.cells.shape[0]
 
 
 class PatternStorage(Protocol):
@@ -57,15 +69,15 @@ class PatternStorage(Protocol):
 
     def save_pattern(self, pattern: Pattern) -> None:
         """Save pattern to storage."""
-        ...
+        pass
 
     def load_pattern(self, name: str) -> Optional[Pattern]:
         """Load pattern from storage."""
-        ...
+        pass
 
     def list_patterns(self) -> List[str]:
         """List available pattern names."""
-        ...
+        pass
 
 
 @dataclass
@@ -90,9 +102,7 @@ class FilePatternStorage:
                 "discovery_year": pattern.metadata.discovery_year,
                 "tags": pattern.metadata.tags,
             },
-            "cells": [[bool(cell) for cell in row] for row in pattern.cells],
-            "width": pattern.width,
-            "height": pattern.height,
+            "cells": pattern.cells.tolist(),  # Convert NumPy array to list for JSON
         }
 
         file_path = self.storage_dir / f"{pattern.metadata.name}.json"
@@ -118,15 +128,10 @@ class FilePatternStorage:
             tags=data["metadata"]["tags"],
         )
 
-        # Convert cell data to booleans
-        cells = [[bool(cell) for cell in row] for row in data["cells"]]
+        # Convert list to NumPy array
+        cells = np.array(data["cells"], dtype=np.bool_)
 
-        return Pattern(
-            metadata=metadata,
-            cells=cells,
-            width=data["width"],
-            height=data["height"],
-        )
+        return Pattern(metadata=metadata, cells=cells)
 
     def list_patterns(self) -> List[str]:
         """List available pattern names."""
@@ -143,13 +148,13 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             discovery_year=1970,
             tags=["spaceship", "common"],
         ),
-        cells=[
-            [False, True, False],
-            [False, False, True],
-            [True, True, True],
-        ],
-        width=3,
-        height=3,
+        cells=cast(
+            PatternGrid,
+            np.array(
+                [[False, True, False], [False, False, True], [True, True, True]],
+                dtype=np.bool_,
+            ),
+        ),
     ),
     "blinker": Pattern(
         metadata=PatternMetadata(
@@ -159,9 +164,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             oscillator_period=2,
             tags=["oscillator", "common"],
         ),
-        cells=[[True, True, True]],
-        width=3,
-        height=1,
+        cells=np.array([[True, True, True]], dtype=np.bool_),
     ),
     "block": Pattern(
         metadata=PatternMetadata(
@@ -170,9 +173,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             category=PatternCategory.STILL_LIFE,
             tags=["still life", "common"],
         ),
-        cells=[[True, True], [True, True]],
-        width=2,
-        height=2,
+        cells=np.array([[True, True], [True, True]], dtype=np.bool_),
     ),
     "gosper_glider_gun": Pattern(
         metadata=PatternMetadata(
@@ -187,66 +188,70 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             author="Bill Gosper",
             tags=["gun", "infinite growth", "historic"],
         ),
-        cells=[
-            # Row 1: 36 cells
-            [False] * 24 + [True] + [False] * 11,
-            # Row 2: 36 cells
-            [False] * 22 + [True, False, True] + [False] * 11,
-            # Row 3: 36 cells
-            [False] * 12
-            + [True, True]
-            + [False] * 6
-            + [True, True]
-            + [False] * 12
-            + [True, True],
-            # Row 4: 36 cells
-            [False] * 11
-            + [True]
-            + [False] * 3
-            + [True]
-            + [False] * 4
-            + [True, True]
-            + [False] * 12
-            + [True, True],
-            # Row 5: 36 cells
-            [True, True]
-            + [False] * 8
-            + [True]
-            + [False] * 5
-            + [True]
-            + [False] * 3
-            + [True, True]
-            + [False] * 14,
-            # Row 6: 36 cells
-            [True, True]
-            + [False] * 8
-            + [True]
-            + [False] * 3
-            + [True, False, True, True]
-            + [False] * 4
-            + [True, False, True]
-            + [False] * 11,
-            # Row 7: 36 cells
-            [False] * 10
-            + [True]
-            + [False] * 5
-            + [True]
-            + [False] * 7
-            + [True]
-            + [False] * 11,
-            # Row 8: 36 cells
-            [False] * 11 + [True] + [False] * 3 + [True] + [False] * 20,
-            # Row 9: 36 cells
-            [False] * 12 + [True, True] + [False] * 22,
-        ],
-        width=36,
-        height=9,
+        cells=np.array(
+            [
+                # Row 1: 36 cells
+                [False] * 24 + [True] + [False] * 11,
+                # Row 2: 36 cells
+                [False] * 22 + [True, False, True] + [False] * 11,
+                # Row 3: 36 cells
+                [False] * 12
+                + [True, True]
+                + [False] * 6
+                + [True, True]
+                + [False] * 12
+                + [True, True],
+                # Row 4: 36 cells
+                [False] * 11
+                + [True]
+                + [False] * 3
+                + [True]
+                + [False] * 4
+                + [True, True]
+                + [False] * 12
+                + [True, True],
+                # Row 5: 36 cells
+                [True, True]
+                + [False] * 8
+                + [True]
+                + [False] * 5
+                + [True]
+                + [False] * 3
+                + [True, True]
+                + [False] * 14,
+                # Row 6: 36 cells
+                [True, True]
+                + [False] * 8
+                + [True]
+                + [False] * 3
+                + [True, False, True, True]
+                + [False] * 4
+                + [True, False, True]
+                + [False] * 11,
+                # Row 7: 36 cells
+                [False] * 10
+                + [True]
+                + [False] * 5
+                + [True]
+                + [False] * 7
+                + [True]
+                + [False] * 11,
+                # Row 8: 36 cells
+                [False] * 11 + [True] + [False] * 3 + [True] + [False] * 20,
+                # Row 9: 36 cells
+                [False] * 12 + [True, True] + [False] * 22,
+            ],
+            dtype=np.bool_,
+        ),
     ),
 }
 
 
 def extract_pattern(
-    grid: Grid, top_left: Position, bottom_right: Position, metadata: PatternMetadata
+    grid: Grid,
+    top_left: GridPosition,
+    bottom_right: GridPosition,
+    metadata: PatternMetadata,
 ) -> Pattern:
     """Extract a pattern from a grid section.
 
@@ -261,23 +266,15 @@ def extract_pattern(
     """
     x1, y1 = top_left
     x2, y2 = bottom_right
-    width = x2 - x1 + 1
-    height = y2 - y1 + 1
 
-    # Extract pattern cells
-    cells = []
-    for y in range(y1, y2 + 1):
-        row = []
-        for x in range(x1, x2 + 1):
-            row.append(grid[y][x])
-        cells.append(row)
-
-    return Pattern(metadata=metadata, cells=cells, width=width, height=height)
+    # Cast the extracted cells to PatternGrid
+    cells = cast(PatternGrid, grid[y1 : y2 + 1, x1 : x2 + 1].copy())
+    return Pattern(metadata=metadata, cells=cells)
 
 
 def get_centered_position(
-    pattern: Pattern, cursor_position: Position, rotation: int = 0
-) -> Position:
+    pattern: Pattern, cursor_position: GridPosition, rotation: PatternTransform = 0
+) -> GridPosition:
     """Calculate centered position for pattern placement.
 
     Args:
@@ -290,18 +287,18 @@ def get_centered_position(
     """
     x, y = cursor_position
     # Adjust dimensions based on rotation
-    width = pattern.height if rotation % 2 == 1 else pattern.width
-    height = pattern.width if rotation % 2 == 1 else pattern.height
+    width = pattern.height if rotation in (90, 270) else pattern.width
+    height = pattern.width if rotation in (90, 270) else pattern.height
     x_offset = width // 2
     y_offset = height // 2
-    return Position((x - x_offset, y - y_offset))
+    return (x - x_offset, y - y_offset)
 
 
 def place_pattern(
     grid: Grid,
     pattern: Pattern,
-    position: Position,
-    rotation: int = 0,
+    position: GridPosition,
+    rotation: PatternTransform = 0,
     centered: bool = True,
 ) -> Grid:
     """Place a pattern on the grid.
@@ -316,34 +313,43 @@ def place_pattern(
     Returns:
         New grid with pattern placed
     """
-    if rotation % 90 != 0:
-        raise ValueError("Rotation must be multiple of 90 degrees")
+    if rotation not in (0, 90, 180, 270):
+        raise ValueError("Rotation must be 0, 90, 180, or 270 degrees")
 
-    # Convert rotation to number of 90-degree turns
-    turns = (rotation // 90) % 4
+    # Get rotated pattern cells
+    rotated_cells = cast(PatternGrid, np.rot90(pattern.cells, k=(-rotation // 90) % 4))
 
-    # Get pattern cells with rotation
-    pattern_cells = get_pattern_cells(pattern, turns)
-
-    # Calculate actual position using the same rotation as preview
-    pos = get_centered_position(pattern, position, turns) if centered else position
+    # Calculate placement position
+    pos = get_centered_position(pattern, position, rotation) if centered else position
+    x, y = pos
 
     # Create new grid
-    height = len(grid)
-    width = len(grid[0])
-    new_grid = [[cell for cell in row] for row in grid]
+    new_grid = grid.copy()
 
-    # Place pattern cells
-    for x, y in pattern_cells:
-        grid_x = pos[0] + x
-        grid_y = pos[1] + y
-        if 0 <= grid_x < width and 0 <= grid_y < height:
-            new_grid[grid_y][grid_x] = True
+    # Calculate valid placement region
+    height, width = grid.shape
+    pattern_height, pattern_width = rotated_cells.shape
 
-    return Grid(new_grid)
+    # Calculate valid slice ranges
+    y_start = max(0, y)
+    y_end = min(height, y + pattern_height)
+    x_start = max(0, x)
+    x_end = min(width, x + pattern_width)
+
+    # Calculate pattern slice ranges
+    pattern_y_start = max(0, -y)
+    pattern_x_start = max(0, -x)
+
+    # Place pattern in valid region
+    new_grid[y_start:y_end, x_start:x_end] |= rotated_cells[
+        pattern_y_start : pattern_y_start + (y_end - y_start),
+        pattern_x_start : pattern_x_start + (x_end - x_start),
+    ]
+
+    return cast(Grid, new_grid)
 
 
-def find_pattern(grid: Grid, pattern: Pattern) -> List[Position]:
+def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
     """Find all occurrences of a pattern in the grid.
 
     Args:
@@ -353,30 +359,21 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[Position]:
     Returns:
         List of positions where pattern was found
     """
-    height = len(grid)
-    width = len(grid[0])
-    pattern_height = len(pattern.cells)
-    pattern_width = len(pattern.cells[0])
-    positions = []
+    positions: List[GridPosition] = []
+    pattern_height, pattern_width = pattern.cells.shape
 
-    # Search each possible position
-    for y in range(height - pattern_height + 1):
-        for x in range(width - pattern_width + 1):
-            matches = True
-            for py in range(pattern_height):
-                for px in range(pattern_width):
-                    if pattern.cells[py][px] != grid[y + py][x + px]:
-                        matches = False
-                        break
-                if not matches:
-                    break
-            if matches:
-                positions.append(Position((x, y)))
+    # Use NumPy's sliding window approach
+    for y in range(grid.shape[0] - pattern_height + 1):
+        for x in range(grid.shape[1] - pattern_width + 1):
+            if np.array_equal(
+                grid[y : y + pattern_height, x : x + pattern_width], pattern.cells
+            ):
+                positions.append((x, y))
 
     return positions
 
 
-def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[tuple[int, int]]:
+def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[GridPosition]:
     """Get list of cell positions in a pattern.
 
     Args:
@@ -386,7 +383,7 @@ def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[tuple[int, in
     Returns:
         List of (x, y) positions of live cells, adjusted for rotation
     """
-    cells = []
+    cells: List[GridPosition] = []
     for y in range(pattern.height):
         for x in range(pattern.width):
             if pattern.cells[y][x]:

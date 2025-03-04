@@ -119,6 +119,7 @@ The game automatically saves custom patterns to `~/.gol/patterns/`. Each pattern
 ### Pattern Categories
 
 Patterns are organized into categories:
+
 - Still Life: Stable patterns that don't change
 - Oscillator: Patterns that repeat in a cycle
 - Spaceship: Patterns that move across the grid

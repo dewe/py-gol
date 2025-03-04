@@ -180,6 +180,78 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
         width=2,
         height=2,
     ),
+    "gosper_glider_gun": Pattern(
+        metadata=PatternMetadata(
+            name="gosper_glider_gun",
+            description=(
+                "First known gun pattern, discovered by Bill Gosper. "
+                "Emits a new glider every 30 generations."
+            ),
+            category=PatternCategory.GUN,
+            discovery_year=1970,
+            oscillator_period=30,
+            author="Bill Gosper",
+            tags=["gun", "infinite growth", "historic"],
+        ),
+        cells=[
+            # Row 1: 36 cells
+            [(False, 0)] * 23 + [(True, 1)] + [(False, 0)] * 12,
+            # Row 2: 36 cells
+            [(False, 0)] * 21 + [(True, 1), (False, 0), (True, 1)] + [(False, 0)] * 12,
+            # Row 3: 36 cells
+            [(False, 0)] * 12
+            + [(True, 1), (True, 1)]
+            + [(False, 0)] * 6
+            + [(True, 1), (True, 1)]
+            + [(False, 0)] * 12
+            + [(True, 1), (True, 1)],
+            # Row 4: 36 cells
+            [(False, 0)] * 11
+            + [(True, 1)]
+            + [(False, 0)] * 3
+            + [(True, 1)]
+            + [(False, 0)] * 4
+            + [(True, 1), (True, 1)]
+            + [(False, 0)] * 12
+            + [(True, 1), (True, 1)],
+            # Row 5: 36 cells
+            [(True, 1), (True, 1)]
+            + [(False, 0)] * 8
+            + [(True, 1)]
+            + [(False, 0)] * 5
+            + [(True, 1)]
+            + [(False, 0)] * 3
+            + [(True, 1), (True, 1)]
+            + [(False, 0)] * 14,
+            # Row 6: 36 cells
+            [(True, 1), (True, 1)]
+            + [(False, 0)] * 8
+            + [(True, 1)]
+            + [(False, 0)] * 3
+            + [(True, 1), (False, 0), (True, 1), (True, 1)]
+            + [(False, 0)] * 3
+            + [(True, 1), (False, 0), (True, 1)]
+            + [(False, 0)] * 12,
+            # Row 7: 36 cells
+            [(False, 0)] * 10
+            + [(True, 1)]
+            + [(False, 0)] * 5
+            + [(True, 1)]
+            + [(False, 0)] * 6
+            + [(True, 1)]
+            + [(False, 0)] * 12,
+            # Row 8: 36 cells
+            [(False, 0)] * 11
+            + [(True, 1)]
+            + [(False, 0)] * 3
+            + [(True, 1)]
+            + [(False, 0)] * 20,
+            # Row 9: 36 cells
+            [(False, 0)] * 12 + [(True, 1), (True, 1)] + [(False, 0)] * 22,
+        ],
+        width=36,
+        height=9,
+    ),
 }
 
 
@@ -207,20 +279,47 @@ def extract_pattern(
     return Pattern(metadata=metadata, cells=cells, width=width, height=height)
 
 
+def get_centered_position(pattern: Pattern, cursor_position: Position) -> Position:
+    """Calculate the top-left position for centered pattern placement.
+
+    Args:
+        pattern: Pattern to be placed
+        cursor_position: Position where the center should be
+
+    Returns:
+        Position for the top-left corner of the pattern
+    """
+    # Use geometric center of the pattern grid
+    x_offset = pattern.width // 2
+    y_offset = pattern.height // 2
+
+    x, y = cursor_position
+    return Position((x - x_offset, y - y_offset))
+
+
 def place_pattern(
-    grid: Grid, pattern: Pattern, position: Position, rotation: int = 0
+    grid: Grid,
+    pattern: Pattern,
+    position: Position,
+    rotation: int = 0,
+    centered: bool = True,
 ) -> Grid:
     """Pure function to place a pattern on the grid.
 
     Args:
         grid: Target grid
         pattern: Pattern to place
-        position: Top-left position for placement
+        position: Position for placement (center position if centered=True,
+                 top-left if False)
         rotation: Rotation in degrees (0, 90, 180, 270)
+        centered: Whether to center the pattern at the given position
 
     Returns:
         New grid with pattern placed
     """
+    # Calculate actual placement position
+    placement_pos = get_centered_position(pattern, position) if centered else position
+
     # Create numpy arrays for efficient rotation
     pattern_array = np.array(pattern.cells)
     if rotation:
@@ -228,7 +327,7 @@ def place_pattern(
 
     # Create new grid copy
     new_grid = [row[:] for row in grid]
-    x, y = position
+    x, y = placement_pos
     height = len(grid)
     width = len(grid[0])
 

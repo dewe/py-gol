@@ -10,8 +10,13 @@ from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
-from .grid import Grid
-from .patterns import BUILTIN_PATTERNS, FilePatternStorage, get_pattern_cells
+from .grid import Grid, Position
+from .patterns import (
+    BUILTIN_PATTERNS,
+    FilePatternStorage,
+    get_centered_position,
+    get_pattern_cells,
+)
 
 # Type alias for cell positions and states
 CellPos = Tuple[int, int]
@@ -566,7 +571,7 @@ def render_grid(
 
     Args:
         terminal: Terminal instance
-        grid: Current game grid
+        grid: Grid to render
         config: Renderer configuration
         state: Current renderer state
     """
@@ -611,11 +616,15 @@ def render_grid(
             ) or FilePatternStorage().load_pattern(config.selected_pattern)
 
             if pattern:
+                # Get centered position for pattern preview
+                preview_pos = get_centered_position(
+                    pattern, Position((state.cursor_x, state.cursor_y))
+                )
                 cells = get_pattern_cells(pattern, config.pattern_rotation)
-                # Add all pattern cells to the set, adjusting for cursor position
+                # Add all pattern cells to the set, adjusting for centered position
                 for dx, dy in cells:
-                    x = (state.cursor_x + dx) % grid_width
-                    y = (state.cursor_y + dy) % grid_height
+                    x = (preview_pos[0] + dx) % grid_width
+                    y = (preview_pos[1] + dy) % grid_height
                     pattern_cells.add((x, y))
 
     # Track previous pattern cells to detect changes

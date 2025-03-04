@@ -13,8 +13,8 @@ from gol.controller import (
     process_generation,
     resize_game,
 )
-from gol.grid import BoundaryCondition, Grid, GridConfig, create_grid
-from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, get_pattern_cells
+from gol.grid import BoundaryCondition, Grid, GridConfig, Position, create_grid
+from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
     RendererConfig,
     RendererState,
@@ -281,15 +281,17 @@ def run_game_loop(
             ) or FilePatternStorage().load_pattern(config.renderer.selected_pattern)
 
             if pattern:
-                cells = get_pattern_cells(pattern, config.renderer.pattern_rotation)
-                # Add pattern cells to grid
-                for dx, dy in cells:
-                    x = (state.cursor_x + dx) % config.grid.width
-                    y = (state.cursor_y + dy) % config.grid.height
-                    grid[y][x] = (True, 0)  # Set cell alive with age 0
+                # Use place_pattern with centering enabled
+                new_grid = place_pattern(
+                    grid,
+                    pattern,
+                    Position((state.cursor_x, state.cursor_y)),
+                    config.renderer.pattern_rotation,
+                    centered=True,
+                )
                 # Keep pattern mode active and clear selected pattern
                 config.renderer.set_pattern(None)
-                return grid, config, False
+                return new_grid, config, False
 
         return grid, config, False
 

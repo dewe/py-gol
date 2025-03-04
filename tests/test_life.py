@@ -10,31 +10,31 @@ from gol.life import calculate_next_state, count_live_neighbors, next_generation
     "current_state,live_neighbors,expected",
     [
         # Live cell cases
-        ((True, 1), 0, (False, 0)),  # Dies from underpopulation
-        ((True, 1), 1, (False, 0)),  # Dies from underpopulation
-        ((True, 1), 2, (True, 2)),  # Survives with 2 neighbors
-        ((True, 2), 3, (True, 3)),  # Survives with 3 neighbors
-        ((True, 3), 4, (False, 0)),  # Dies from overpopulation
-        ((True, 4), 8, (False, 0)),  # Dies from overpopulation
+        (True, 0, False),  # Dies from underpopulation
+        (True, 1, False),  # Dies from underpopulation
+        (True, 2, True),  # Survives with 2 neighbors
+        (True, 3, True),  # Survives with 3 neighbors
+        (True, 4, False),  # Dies from overpopulation
+        (True, 8, False),  # Dies from overpopulation
         # Dead cell cases
-        ((False, 0), 0, (False, 0)),  # Stays dead with no neighbors
-        ((False, 0), 2, (False, 0)),  # Stays dead with 2 neighbors
-        ((False, 0), 3, (True, 1)),  # Becomes alive with 3 neighbors
-        ((False, 0), 4, (False, 0)),  # Stays dead with 4 neighbors
-        ((False, 0), 8, (False, 0)),  # Stays dead with 8 neighbors
+        (False, 0, False),  # Stays dead with no neighbors
+        (False, 2, False),  # Stays dead with 2 neighbors
+        (False, 3, True),  # Becomes alive with 3 neighbors
+        (False, 4, False),  # Stays dead with 4 neighbors
+        (False, 8, False),  # Stays dead with 8 neighbors
     ],
 )
 def test_calculate_next_state(
-    current_state: tuple[bool, int],
+    current_state: bool,
     live_neighbors: int,
-    expected: tuple[bool, int],
+    expected: bool,
 ) -> None:
     """Test cell state transitions based on Game of Life rules.
 
     Args:
-        current_state: (is_alive, age) tuple
+        current_state: Whether cell is alive
         live_neighbors: Number of live neighbors
-        expected: Expected (is_alive, age) tuple after transition
+        expected: Expected state after transition
     """
     result = calculate_next_state(current_state, live_neighbors)
     assert result == expected
@@ -47,9 +47,9 @@ def test_calculate_next_state(
         (
             Grid(
                 [
-                    [(False, 0), (True, 1), (False, 0)],
-                    [(True, 1), (True, 1), (True, 1)],
-                    [(False, 0), (True, 1), (False, 0)],
+                    [False, True, False],
+                    [True, True, True],
+                    [False, True, False],
                 ]
             ),
             Position((1, 1)),  # Center cell
@@ -57,28 +57,28 @@ def test_calculate_next_state(
             4,  # Should count 4 live neighbors
         ),
         (
-            Grid([[(True, 1), (True, 1)], [(True, 1), (False, 0)]]),
+            Grid([[True, True], [True, False]]),
             Position((0, 0)),  # Corner cell
             BoundaryCondition.FINITE,
             2,  # Should count 2 live neighbors
         ),
         # Test with toroidal boundary - simple case
         (
-            Grid([[(True, 1), (False, 0)], [(False, 0), (True, 1)]]),
+            Grid([[True, False], [False, True]]),
             Position((0, 0)),  # Corner wraps around
             BoundaryCondition.TOROIDAL,
             4,  # Each live neighbor is counted for each path to it
         ),
         # Test with toroidal boundary - comprehensive case
         (
-            Grid([[(True, 1), (True, 1)], [(True, 1), (True, 1)]]),
+            Grid([[True, True], [True, True]]),
             Position((0, 0)),  # Corner position in fully alive 2x2 grid
             BoundaryCondition.TOROIDAL,
             8,  # Should count all 8 neighbors due to wrapping
         ),
         # Test with infinite boundary
         (
-            Grid([[(True, 1), (True, 1)], [(True, 1), (True, 1)]]),
+            Grid([[True, True], [True, True]]),
             Position((0, 0)),  # Corner extends infinitely
             BoundaryCondition.INFINITE,
             3,  # Should only count neighbors within grid
@@ -102,7 +102,7 @@ def test_count_live_neighbors(
     neighbors = get_neighbors(grid, pos, boundary)
     print(f"\nNeighbors for {pos} with {boundary}:")
     for n in neighbors:
-        print(f"  {n}: {grid[n[1]][n[0]][0]}")
+        print(f"  {n}: {grid[n[1]][n[0]]}")
     count = count_live_neighbors(grid, pos, boundary)
     assert count == expected_count
 
@@ -112,66 +112,66 @@ def test_count_live_neighbors(
     [
         # Test still life (block)
         (
-            Grid([[(True, 1), (True, 1)], [(True, 1), (True, 1)]]),
+            Grid([[True, True], [True, True]]),
             BoundaryCondition.FINITE,
-            Grid([[(True, 2), (True, 2)], [(True, 2), (True, 2)]]),
+            Grid([[True, True], [True, True]]),
         ),
         # Test oscillator (blinker)
         (
             Grid(
                 [
-                    [(False, 0), (True, 1), (False, 0)],
-                    [(False, 0), (True, 1), (False, 0)],
-                    [(False, 0), (True, 1), (False, 0)],
+                    [False, True, False],
+                    [False, True, False],
+                    [False, True, False],
                 ]
             ),
             BoundaryCondition.FINITE,
             Grid(
                 [
-                    [(False, 0), (False, 0), (False, 0)],
-                    [(True, 1), (True, 2), (True, 1)],
-                    [(False, 0), (False, 0), (False, 0)],
+                    [False, False, False],
+                    [True, True, True],
+                    [False, False, False],
                 ]
             ),
         ),
         # Test death by underpopulation
         (
-            Grid([[(True, 1), (False, 0)], [(False, 0), (False, 0)]]),
+            Grid([[True, False], [False, False]]),
             BoundaryCondition.FINITE,
-            Grid([[(False, 0), (False, 0)], [(False, 0), (False, 0)]]),
+            Grid([[False, False], [False, False]]),
         ),
         # Test death by overpopulation
         (
             Grid(
                 [
-                    [(True, 1), (True, 1), (True, 1)],
-                    [(True, 1), (True, 1), (True, 1)],
-                    [(True, 1), (True, 1), (True, 1)],
+                    [True, True, True],
+                    [True, True, True],
+                    [True, True, True],
                 ]
             ),
             BoundaryCondition.FINITE,
             Grid(
                 [
-                    [(True, 2), (False, 0), (True, 2)],
-                    [(False, 0), (False, 0), (False, 0)],
-                    [(True, 2), (False, 0), (True, 2)],
+                    [True, False, True],
+                    [False, False, False],
+                    [True, False, True],
                 ]
             ),
         ),
         # Test toroidal boundary with full grid
         (
-            Grid([[(True, 1), (True, 1)], [(True, 1), (True, 1)]]),
+            Grid([[True, True], [True, True]]),
             BoundaryCondition.TOROIDAL,
             Grid(
-                [[(False, 0), (False, 0)], [(False, 0), (False, 0)]]
+                [[False, False], [False, False]]
             ),  # All cells die from overpopulation due to wrapping
         ),
         # Test toroidal boundary with oscillator
         (
-            Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]]),
+            Grid([[True, True], [False, False]]),
             BoundaryCondition.TOROIDAL,
             Grid(
-                [[(True, 2), (True, 2)], [(False, 0), (False, 0)]]
+                [[True, True], [False, False]]
             ),  # Live cells survive (2 neighbors), dead cells stay dead (2 neighbors)
         ),
     ],
@@ -194,7 +194,7 @@ def test_next_generation(
     assert len(result) == len(expected_grid)
     assert len(result[0]) == len(expected_grid[0])
 
-    # Compare cell states and ages
+    # Compare cell states
     for y in range(len(result)):
         for x in range(len(result[0])):
             assert result[y][x] == expected_grid[y][x], (
@@ -205,13 +205,13 @@ def test_next_generation(
 
 def test_analyze_2x2_toroidal() -> None:
     """Analyze neighbor counts for each position in a 2x2 toroidal grid."""
-    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+    grid = Grid([[True, True], [False, False]])
     boundary = BoundaryCondition.TOROIDAL
 
     print("\nAnalyzing 2x2 grid with toroidal boundaries:")
     print("Initial grid:")
-    print("[(True, 1), (True, 1)]")
-    print("[(False, 0), (False, 0)]")
+    print("[[True, True]]")
+    print("[[False, False]]")
     print("\nNeighbor analysis:")
 
     # Check each position
@@ -226,8 +226,8 @@ def test_analyze_2x2_toroidal() -> None:
         neighbors = get_neighbors(grid, pos, boundary)
         count = count_live_neighbors(grid, pos, boundary)
         print(f"\nPosition {pos}:")
-        print(f"Current state: {'ALIVE' if grid[pos[1]][pos[0]][0] else 'DEAD'}")
+        print(f"Current state: {'ALIVE' if grid[pos[1]][pos[0]] else 'DEAD'}")
         print("Neighbors (with wrapping):")
         for n in neighbors:
-            print(f"  {n}: {'ALIVE' if grid[n[1]][n[0]][0] else 'DEAD'}")
+            print(f"  {n}: {'ALIVE' if grid[n[1]][n[0]] else 'DEAD'}")
         print(f"Total live neighbors: {count}")

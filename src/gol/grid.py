@@ -2,15 +2,14 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import NewType, Tuple
+from typing import NewType
 
 import numpy as np
 from numpy.typing import NDArray
 
 # Type definitions
 Position = NewType("Position", tuple[int, int])
-# Grid now stores tuples of (is_alive: bool, age: int)
-Grid = NewType("Grid", list[list[Tuple[bool, int]]])
+Grid = NewType("Grid", list[list[bool]])  # Simplified to just booleans
 
 
 class BoundaryCondition(Enum):
@@ -46,10 +45,7 @@ def create_grid(config: GridConfig) -> Grid:
         rng.random((config.height, config.width)) < config.density
     )
     # Convert numpy array to list[list[bool]] with explicit casting
-    grid_list = [
-        [(bool(cell), 1 if bool(cell) else 0) for cell in row.tolist()]
-        for row in random_grid
-    ]
+    grid_list = [[bool(cell) for cell in row.tolist()] for row in random_grid]
     return Grid(grid_list)
 
 
@@ -68,7 +64,7 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
     old_width = len(grid[0])
 
     # Create empty grid of new size
-    new_grid = [[(False, 0)] * new_width for _ in range(new_height)]
+    new_grid = [[False] * new_width for _ in range(new_height)]
 
     # Calculate dimensions to copy
     copy_height = min(old_height, new_height)
@@ -185,8 +181,8 @@ def count_live_neighbors(
     if len(x_coords) == 0:
         return 0
 
-    # Convert grid to numpy array for faster access - extract just alive status
-    grid_array = np.array([[cell[0] for cell in row] for row in grid])
+    # Convert grid to numpy array for faster access
+    grid_array = np.array(grid)
     return int(np.sum(grid_array[y_coords, x_coords]))
 
 
@@ -224,13 +220,13 @@ def get_grid_section(
                     if 0 <= y < height and 0 <= x < width:
                         row.append(grid[y][x])
                     else:
-                        row.append((False, 0))
+                        row.append(False)
                 case _:  # FINITE
                     # Return dead cells for positions outside grid
                     if 0 <= y < height and 0 <= x < width:
                         row.append(grid[y][x])
                     else:
-                        row.append((False, 0))
+                        row.append(False)
         section.append(row)
 
     return Grid(section)

@@ -6,7 +6,6 @@ A functional implementation of Conway's Game of Life using Python and curses.
 Features include:
 - Pattern management with built-in and custom patterns
 - Multiple boundary conditions (wrap, dead, reflect)
-- Cell age visualization
 - Pattern preview and rotation
 - Configurable grid size and speed
 
@@ -21,7 +20,6 @@ Controls:
   Arrow keys: Move cursor
   Q: Quit game
   W: Toggle wrap mode
-  A: Toggle cell age display
   +/-: Adjust speed
   Mouse: Click to toggle cells
 """

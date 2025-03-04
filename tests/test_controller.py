@@ -48,7 +48,7 @@ def test_resize_game(config: ControllerConfig) -> None:
     Then: Should preserve pattern within new bounds
     """
     # Create initial grid with known pattern
-    grid = Grid([[(True, 1), (True, 1)], [(False, 0), (False, 0)]])
+    grid = Grid([[True, True], [False, False]])
 
     # Resize to larger dimensions
     new_width = 3
@@ -60,8 +60,8 @@ def test_resize_game(config: ControllerConfig) -> None:
     assert len(new_grid[0]) == new_width
 
     # Check pattern preservation
-    assert new_grid[0][0][0] and new_grid[0][1][0]  # Original pattern preserved
-    assert not any(cell[0] for cell in new_grid[2])  # New row dead
+    assert new_grid[0][0] and new_grid[0][1]  # Original pattern preserved
+    assert not any(cell for cell in new_grid[2])  # New row dead
 
 
 def test_process_generation(config: ControllerConfig) -> None:
@@ -73,9 +73,9 @@ def test_process_generation(config: ControllerConfig) -> None:
     # Create initial grid with blinker pattern
     grid = Grid(
         [
-            [(False, 0), (True, 1), (False, 0)],
-            [(False, 0), (True, 1), (False, 0)],
-            [(False, 0), (True, 1), (False, 0)],
+            [False, True, False],
+            [False, True, False],
+            [False, True, False],
         ]
     )
 
@@ -83,8 +83,8 @@ def test_process_generation(config: ControllerConfig) -> None:
     new_grid = process_generation(grid, BoundaryCondition.FINITE)
 
     # Check that blinker oscillates correctly
-    assert not new_grid[0][1][0]  # Top cell dies
-    assert new_grid[1][0][0]  # Left cell becomes alive
-    assert new_grid[1][1][0]  # Center cell survives
-    assert new_grid[1][2][0]  # Right cell becomes alive
-    assert not new_grid[2][1][0]  # Bottom cell dies
+    assert not new_grid[0][1]  # Top cell dies
+    assert new_grid[1][0]  # Left cell becomes alive
+    assert new_grid[1][1]  # Center cell survives
+    assert new_grid[1][2]  # Right cell becomes alive
+    assert not new_grid[2][1]  # Bottom cell dies

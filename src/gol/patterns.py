@@ -4,9 +4,7 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Tuple
-
-import numpy as np
+from typing import Dict, List, Optional, Protocol
 
 from .grid import Grid, Position
 
@@ -40,7 +38,7 @@ class Pattern:
     """Immutable pattern representation."""
 
     metadata: PatternMetadata
-    cells: List[List[Tuple[bool, int]]]  # [(is_alive, age)]
+    cells: List[List[bool]]  # Simplified to just booleans
     width: int
     height: int
 
@@ -92,9 +90,7 @@ class FilePatternStorage:
                 "discovery_year": pattern.metadata.discovery_year,
                 "tags": pattern.metadata.tags,
             },
-            "cells": [
-                [(bool(cell[0]), int(cell[1])) for cell in row] for row in pattern.cells
-            ],
+            "cells": [[bool(cell) for cell in row] for row in pattern.cells],
             "width": pattern.width,
             "height": pattern.height,
         }
@@ -122,10 +118,8 @@ class FilePatternStorage:
             tags=data["metadata"]["tags"],
         )
 
-        # Convert cell data back to tuples
-        cells = [
-            [(bool(cell[0]), int(cell[1])) for cell in row] for row in data["cells"]
-        ]
+        # Convert cell data to booleans
+        cells = [[bool(cell) for cell in row] for row in data["cells"]]
 
         return Pattern(
             metadata=metadata,
@@ -150,9 +144,9 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             tags=["spaceship", "common"],
         ),
         cells=[
-            [(False, 0), (True, 1), (False, 0)],
-            [(False, 0), (False, 0), (True, 1)],
-            [(True, 1), (True, 1), (True, 1)],
+            [False, True, False],
+            [False, False, True],
+            [True, True, True],
         ],
         width=3,
         height=3,
@@ -165,7 +159,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             oscillator_period=2,
             tags=["oscillator", "common"],
         ),
-        cells=[[(True, 1), (True, 1), (True, 1)]],
+        cells=[[True, True, True]],
         width=3,
         height=1,
     ),
@@ -176,7 +170,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             category=PatternCategory.STILL_LIFE,
             tags=["still life", "common"],
         ),
-        cells=[[(True, 1), (True, 1)], [(True, 1), (True, 1)]],
+        cells=[[True, True], [True, True]],
         width=2,
         height=2,
     ),
@@ -195,59 +189,55 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
         ),
         cells=[
             # Row 1: 36 cells
-            [(False, 0)] * 24 + [(True, 1)] + [(False, 0)] * 11,
+            [False] * 24 + [True] + [False] * 11,
             # Row 2: 36 cells
-            [(False, 0)] * 22 + [(True, 1), (False, 0), (True, 1)] + [(False, 0)] * 11,
+            [False] * 22 + [True, False, True] + [False] * 11,
             # Row 3: 36 cells
-            [(False, 0)] * 12
-            + [(True, 1), (True, 1)]
-            + [(False, 0)] * 6
-            + [(True, 1), (True, 1)]
-            + [(False, 0)] * 12
-            + [(True, 1), (True, 1)],
+            [False] * 12
+            + [True, True]
+            + [False] * 6
+            + [True, True]
+            + [False] * 12
+            + [True, True],
             # Row 4: 36 cells
-            [(False, 0)] * 11
-            + [(True, 1)]
-            + [(False, 0)] * 3
-            + [(True, 1)]
-            + [(False, 0)] * 4
-            + [(True, 1), (True, 1)]
-            + [(False, 0)] * 12
-            + [(True, 1), (True, 1)],
+            [False] * 11
+            + [True]
+            + [False] * 3
+            + [True]
+            + [False] * 4
+            + [True, True]
+            + [False] * 12
+            + [True, True],
             # Row 5: 36 cells
-            [(True, 1), (True, 1)]
-            + [(False, 0)] * 8
-            + [(True, 1)]
-            + [(False, 0)] * 5
-            + [(True, 1)]
-            + [(False, 0)] * 3
-            + [(True, 1), (True, 1)]
-            + [(False, 0)] * 14,
+            [True, True]
+            + [False] * 8
+            + [True]
+            + [False] * 5
+            + [True]
+            + [False] * 3
+            + [True, True]
+            + [False] * 14,
             # Row 6: 36 cells
-            [(True, 1), (True, 1)]
-            + [(False, 0)] * 8
-            + [(True, 1)]
-            + [(False, 0)] * 3
-            + [(True, 1), (False, 0), (True, 1), (True, 1)]
-            + [(False, 0)] * 4
-            + [(True, 1), (False, 0), (True, 1)]
-            + [(False, 0)] * 11,
+            [True, True]
+            + [False] * 8
+            + [True]
+            + [False] * 3
+            + [True, False, True, True]
+            + [False] * 4
+            + [True, False, True]
+            + [False] * 11,
             # Row 7: 36 cells
-            [(False, 0)] * 10
-            + [(True, 1)]
-            + [(False, 0)] * 5
-            + [(True, 1)]
-            + [(False, 0)] * 7
-            + [(True, 1)]
-            + [(False, 0)] * 11,
+            [False] * 10
+            + [True]
+            + [False] * 5
+            + [True]
+            + [False] * 7
+            + [True]
+            + [False] * 11,
             # Row 8: 36 cells
-            [(False, 0)] * 11
-            + [(True, 1)]
-            + [(False, 0)] * 3
-            + [(True, 1)]
-            + [(False, 0)] * 20,
+            [False] * 11 + [True] + [False] * 3 + [True] + [False] * 20,
             # Row 9: 36 cells
-            [(False, 0)] * 12 + [(True, 1), (True, 1)] + [(False, 0)] * 22,
+            [False] * 12 + [True, True] + [False] * 22,
         ],
         width=36,
         height=9,
@@ -258,12 +248,12 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
 def extract_pattern(
     grid: Grid, top_left: Position, bottom_right: Position, metadata: PatternMetadata
 ) -> Pattern:
-    """Pure function to extract a pattern from a grid region.
+    """Extract a pattern from a grid section.
 
     Args:
         grid: Source grid
-        top_left: Top-left position of region
-        bottom_right: Bottom-right position of region
+        top_left: Top-left position of pattern
+        bottom_right: Bottom-right position of pattern
         metadata: Pattern metadata
 
     Returns:
@@ -274,26 +264,30 @@ def extract_pattern(
     width = x2 - x1 + 1
     height = y2 - y1 + 1
 
-    cells = [[grid[y][x] for x in range(x1, x2 + 1)] for y in range(y1, y2 + 1)]
+    # Extract pattern cells
+    cells = []
+    for y in range(y1, y2 + 1):
+        row = []
+        for x in range(x1, x2 + 1):
+            row.append(grid[y][x])
+        cells.append(row)
 
     return Pattern(metadata=metadata, cells=cells, width=width, height=height)
 
 
 def get_centered_position(pattern: Pattern, cursor_position: Position) -> Position:
-    """Calculate the top-left position for centered pattern placement.
+    """Calculate centered position for pattern placement.
 
     Args:
-        pattern: Pattern to be placed
-        cursor_position: Position where the center should be
+        pattern: Pattern to place
+        cursor_position: Cursor position
 
     Returns:
-        Position for the top-left corner of the pattern
+        Top-left position for centered pattern placement
     """
-    # Use geometric center of the pattern grid
+    x, y = cursor_position
     x_offset = pattern.width // 2
     y_offset = pattern.height // 2
-
-    x, y = cursor_position
     return Position((x - x_offset, y - y_offset))
 
 
@@ -304,45 +298,47 @@ def place_pattern(
     rotation: int = 0,
     centered: bool = True,
 ) -> Grid:
-    """Pure function to place a pattern on the grid.
+    """Place a pattern on the grid.
 
     Args:
         grid: Target grid
         pattern: Pattern to place
-        position: Position for placement (center position if centered=True,
-                 top-left if False)
-        rotation: Rotation in degrees (0, 90, 180, 270)
-        centered: Whether to center the pattern at the given position
+        position: Position to place pattern at
+        rotation: Rotation in degrees (must be multiple of 90)
+        centered: Whether to center pattern on position
 
     Returns:
         New grid with pattern placed
     """
-    # Calculate actual placement position
-    placement_pos = get_centered_position(pattern, position) if centered else position
+    if rotation % 90 != 0:
+        raise ValueError("Rotation must be multiple of 90 degrees")
 
-    # Create numpy arrays for efficient rotation
-    pattern_array = np.array(pattern.cells)
-    if rotation:
-        pattern_array = np.rot90(pattern_array, k=rotation // 90)
+    # Convert rotation to number of 90-degree turns
+    turns = (rotation // 90) % 4
 
-    # Create new grid copy
-    new_grid = [row[:] for row in grid]
-    x, y = placement_pos
+    # Get pattern cells with rotation
+    pattern_cells = get_pattern_cells(pattern, turns)
+
+    # Calculate actual position
+    pos = get_centered_position(pattern, position) if centered else position
+
+    # Create new grid
     height = len(grid)
     width = len(grid[0])
+    new_grid = [[cell for cell in row] for row in grid]
 
-    # Place pattern with wrapping
-    for py in range(pattern_array.shape[0]):
-        for px in range(pattern_array.shape[1]):
-            grid_y = (y + py) % height
-            grid_x = (x + px) % width
-            new_grid[grid_y][grid_x] = tuple(pattern_array[py, px].tolist())
+    # Place pattern cells
+    for x, y in pattern_cells:
+        grid_x = pos[0] + x
+        grid_y = pos[1] + y
+        if 0 <= grid_x < width and 0 <= grid_y < height:
+            new_grid[grid_y][grid_x] = True
 
     return Grid(new_grid)
 
 
 def find_pattern(grid: Grid, pattern: Pattern) -> List[Position]:
-    """Pure function to find all occurrences of a pattern.
+    """Find all occurrences of a pattern in the grid.
 
     Args:
         grid: Grid to search in
@@ -351,47 +347,52 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[Position]:
     Returns:
         List of positions where pattern was found
     """
-    # Convert to numpy arrays for efficient comparison
-    grid_array = np.array([[cell[0] for cell in row] for row in grid])
-    pattern_array = np.array([[cell[0] for cell in row] for row in pattern.cells])
-
     height = len(grid)
     width = len(grid[0])
-    matches = []
+    pattern_height = len(pattern.cells)
+    pattern_width = len(pattern.cells[0])
+    positions = []
 
-    # Slide pattern over grid
-    for y in range(height - pattern.height + 1):
-        for x in range(width - pattern.width + 1):
-            window = grid_array[y : y + pattern.height, x : x + pattern.width]
-            if np.array_equal(window, pattern_array):
-                matches.append(Position((x, y)))
+    # Search each possible position
+    for y in range(height - pattern_height + 1):
+        for x in range(width - pattern_width + 1):
+            matches = True
+            for py in range(pattern_height):
+                for px in range(pattern_width):
+                    if pattern.cells[py][px] != grid[y + py][x + px]:
+                        matches = False
+                        break
+                if not matches:
+                    break
+            if matches:
+                positions.append(Position((x, y)))
 
-    return matches
+    return positions
 
 
-def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[Tuple[int, int]]:
-    """Extract cell positions from a pattern with rotation support.
+def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[tuple[int, int]]:
+    """Get list of cell positions in a pattern.
 
     Args:
-        pattern: Pattern to extract cells from
-        rotation: Rotation in degrees (0, 90, 180, 270)
+        pattern: Source pattern
+        rotation: Number of 90-degree clockwise rotations
 
     Returns:
-        List of (x, y) coordinates for live cells in the pattern
+        List of (x, y) positions of live cells
     """
-    # Create numpy array for efficient rotation
-    pattern_array = np.array(
-        [[(cell[0], cell[1]) for cell in row] for row in pattern.cells]
-    )
-    if rotation:
-        pattern_array = np.rot90(pattern_array, k=rotation // 90)
-
-    # Extract live cell positions
-    height, width = pattern_array.shape[:2]  # Get dimensions from first two axes
     cells = []
-    for y in range(height):
-        for x in range(width):
-            if pattern_array[y, x][0]:  # Check is_alive from the tuple
-                cells.append((x, y))
+    for y in range(pattern.height):
+        for x in range(pattern.width):
+            if pattern.cells[y][x]:
+                # Apply rotation
+                match rotation:
+                    case 0:  # 0 degrees
+                        cells.append((x, y))
+                    case 1:  # 90 degrees
+                        cells.append((pattern.height - 1 - y, x))
+                    case 2:  # 180 degrees
+                        cells.append((pattern.width - 1 - x, pattern.height - 1 - y))
+                    case 3:  # 270 degrees
+                        cells.append((y, pattern.width - 1 - x))
 
     return cells

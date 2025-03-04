@@ -118,9 +118,9 @@ def test_grid_rendering() -> None:
     grid_config = GridConfig(width=3, height=3, density=0.0)  # Start with empty grid
     grid = create_grid(grid_config)
     # Set specific cells to create a simple pattern
-    grid[0][1] = (True, 1)  # Top middle
-    grid[1][1] = (True, 1)  # Center
-    grid[2][1] = (True, 1)  # Bottom middle
+    grid[0][1] = True  # Top middle
+    grid[1][1] = True  # Center
+    grid[2][1] = True  # Bottom middle
 
     try:
         # Act

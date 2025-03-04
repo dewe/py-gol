@@ -1,12 +1,11 @@
 # py-gol
 
-A terminal-based implementation of Conway's Game of Life using an actor-based concurrent model where each cell operates independently.
+A terminal-based implementation of Conway's Game of Life with a focus on functional programming and pattern management.
 
 ## Features
 
-- **Actor-Based Concurrency**: Each cell is implemented as an independent actor
-- **Thread-Safe Communication**: Actors communicate via thread-safe message queues
-- **Functional Approach**: Pure functional approach for state transitions
+- **Functional Core**: Pure functions for state transitions and pattern management
+- **Pattern System**: Built-in patterns and custom pattern support
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
 - **Cell Age Visualization**: Cells change color based on their age:
   - White (youngest, age 1)
@@ -16,9 +15,10 @@ A terminal-based implementation of Conway's Game of Life using an actor-based co
   - Dark pink (age 11-20)
   - Dark red (oldest, age 21+)
   - Dimmed cells for dead state
-- **Configurable**: Adjustable grid size, update interval, and initial cell density
-- **Adaptive Refresh Rate**: Screen refresh rate automatically optimized based on update interval
-- **Toroidal Grid**: Optional wrapping of edges to create a continuous surface
+- **Pattern Management**: Support for loading, saving, and manipulating patterns
+- **Configurable**: Adjustable grid size, update interval, initial density, and boundary conditions
+- **Adaptive Refresh**: Screen refresh rate automatically optimized based on update interval
+- **Multiple Boundary Types**: Support for finite, toroidal, and infinite boundaries
 
 ![demo](./docs/demo.gif)
 
@@ -87,13 +87,15 @@ Run with terminal-sized grid, fast updates, and toroidal boundaries:
 - Press `q` or `Q` to quit the game
 - Press `Ctrl-C` to exit gracefully
 - Press `Escape` to exit
-- Press `r` to restart the game with a new grid
-- Press `↑` to slow down the simulation (increase interval)
-- Press `↓` to speed up the simulation (decrease interval)
+- Press `r` to restart with a new grid
+- Press `↑` to slow down the simulation
+- Press `↓` to speed up the simulation
 - Press `p` to enter pattern mode
-- Press `[` or `]` to rotate pattern in pattern mode
-- Press `Space` to place pattern in pattern mode
+- Press `r` to rotate pattern (in pattern mode)
+- Press `Space` to place pattern
 - Press `Escape` to exit pattern mode
+- Press `1-9` to select patterns
+- Press `b` to cycle boundary conditions
 
 ## Pattern System
 
@@ -223,16 +225,17 @@ pytest tests/test_grid.py     # Test grid management only
 
 The implementation follows these architectural principles:
 
-- **Actor Model**: Each cell runs in its own thread and communicates via messages
-- **No Shared State**: Cells don't share mutable state, preventing race conditions
-- **Pure Functions**: State transitions are implemented as pure functions
-- **Thread Safety**: All inter-actor communication is thread-safe
-- **Adaptive Rendering**: Screen refresh rate automatically adjusts to update interval
+- **Functional Core**: State transitions and pattern operations are pure functions
+- **Immutable State**: Grid and pattern states are immutable
+- **Type Safety**: Strong typing with Protocol classes and type hints
+- **Pattern Management**: Extensible pattern system with metadata
+- **Efficient Updates**: Differential rendering for performance
+- **Boundary Handling**: Multiple boundary condition support
 
 ### Components
 
-- **Grid Management**: Handles the game's state representation
-- **Cell Actor System**: Implements individual cell behavior
-- **Message Queue System**: Provides thread-safe communication
-- **Renderer**: Visualizes the game state in the terminal with adaptive refresh rate
-- **Main Controller**: Orchestrates the game lifecycle
+- **Grid Management**: Handles the game grid with boundary conditions
+- **Pattern System**: Manages pattern storage, placement, and manipulation
+- **State Management**: Pure functions for game state transitions
+- **Renderer**: Terminal-based visualization with adaptive refresh
+- **Controller**: Game lifecycle and user input management

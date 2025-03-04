@@ -1,5 +1,30 @@
 #!/usr/bin/env python3
-"""Game of Life main application."""
+"""
+Conway's Game of Life - Terminal Implementation
+
+A functional implementation of Conway's Game of Life using Python and curses.
+Features include:
+- Pattern management with built-in and custom patterns
+- Multiple boundary conditions (wrap, dead, reflect)
+- Cell age visualization
+- Pattern preview and rotation
+- Configurable grid size and speed
+
+Controls:
+  Space: Start/Stop simulation
+  P: Enter pattern mode
+    - Number keys (1-9): Select pattern
+    - R: Rotate pattern
+    - Space: Place pattern
+    - Esc: Exit pattern mode
+  C: Clear grid
+  Arrow keys: Move cursor
+  Q: Quit game
+  W: Toggle wrap mode
+  A: Toggle cell age display
+  +/-: Adjust speed
+  Mouse: Click to toggle cells
+"""
 
 import argparse
 import signal

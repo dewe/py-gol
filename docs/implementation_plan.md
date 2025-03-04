@@ -273,3 +273,104 @@ Each component follows this test-driven development cycle:
 - Ensure clean shutdown
 
 > 🚨 **Warning:** Always implement proper resource cleanup in tests. 
+
+## Core Components
+
+1. **Grid Management**
+   - Pure functions for grid operations
+   - Immutable grid state
+   - Multiple boundary conditions
+   - Efficient cell state tracking
+
+2. **Pattern System**
+   - Built-in pattern library
+   - Custom pattern loading
+   - Pattern preview and rotation
+   - Centered pattern placement
+   - Pattern metadata handling
+
+3. **Game Controller**
+   - Game loop management
+   - User input handling
+   - State transitions
+   - Configuration management
+
+4. **Renderer**
+   - Terminal-based UI
+   - Cell age visualization
+   - Pattern preview display
+   - Status line updates
+   - Differential rendering
+
+## Implementation Principles
+
+1. **Functional Core**
+   - Pure functions for state transitions
+   - Immutable data structures
+   - No shared mutable state
+   - Type-safe operations
+
+2. **Pattern Management**
+   - Centralized pattern system
+   - Pattern metadata
+   - File-based storage
+   - Pattern validation
+
+3. **User Interface**
+   - Clear visual feedback
+   - Intuitive controls
+   - Responsive updates
+   - Mouse support
+
+4. **Testing Strategy**
+   - Unit tests for pure functions
+   - Integration tests for components
+   - Property-based testing
+   - Test-driven development
+
+## Project Structure
+
+```
+src/gol/
+├── main.py           # Application entry point
+├── controller.py     # Game controller
+├── grid.py          # Grid operations
+├── patterns.py      # Pattern management
+├── renderer.py      # Terminal UI
+└── storage.py       # Pattern storage
+
+tests/
+├── test_controller.py
+├── test_grid.py
+├── test_patterns.py
+└── test_renderer.py
+
+patterns/            # Pattern files
+└── custom/         # User patterns
+```
+
+## Development Workflow
+
+1. **Feature Implementation**
+   - Write tests first
+   - Implement pure functions
+   - Add UI components
+   - Integrate with existing code
+
+2. **Testing**
+   - Unit tests for functions
+   - Integration tests for features
+   - Manual testing for UI
+   - Performance testing
+
+3. **Documentation**
+   - Code documentation
+   - User documentation
+   - Architecture diagrams
+   - Pattern documentation
+
+4. **Maintenance**
+   - Code review
+   - Performance optimization
+   - Bug fixes
+   - Feature updates

@@ -275,19 +275,25 @@ def extract_pattern(
     return Pattern(metadata=metadata, cells=cells, width=width, height=height)
 
 
-def get_centered_position(pattern: Pattern, cursor_position: Position) -> Position:
+def get_centered_position(
+    pattern: Pattern, cursor_position: Position, rotation: int = 0
+) -> Position:
     """Calculate centered position for pattern placement.
 
     Args:
         pattern: Pattern to place
         cursor_position: Cursor position
+        rotation: Number of 90-degree clockwise rotations
 
     Returns:
         Top-left position for centered pattern placement
     """
     x, y = cursor_position
-    x_offset = pattern.width // 2
-    y_offset = pattern.height // 2
+    # Adjust dimensions based on rotation
+    width = pattern.height if rotation % 2 == 1 else pattern.width
+    height = pattern.width if rotation % 2 == 1 else pattern.height
+    x_offset = width // 2
+    y_offset = height // 2
     return Position((x - x_offset, y - y_offset))
 
 
@@ -319,8 +325,8 @@ def place_pattern(
     # Get pattern cells with rotation
     pattern_cells = get_pattern_cells(pattern, turns)
 
-    # Calculate actual position
-    pos = get_centered_position(pattern, position) if centered else position
+    # Calculate actual position using the same rotation as preview
+    pos = get_centered_position(pattern, position, turns) if centered else position
 
     # Create new grid
     height = len(grid)
@@ -378,7 +384,7 @@ def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[tuple[int, in
         rotation: Number of 90-degree clockwise rotations
 
     Returns:
-        List of (x, y) positions of live cells
+        List of (x, y) positions of live cells, adjusted for rotation
     """
     cells = []
     for y in range(pattern.height):
@@ -388,11 +394,11 @@ def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[tuple[int, in
                 match rotation:
                     case 0:  # 0 degrees
                         cells.append((x, y))
-                    case 1:  # 90 degrees
+                    case 1:  # 90 degrees clockwise
                         cells.append((pattern.height - 1 - y, x))
                     case 2:  # 180 degrees
                         cells.append((pattern.width - 1 - x, pattern.height - 1 - y))
-                    case 3:  # 270 degrees
+                    case 3:  # 270 degrees clockwise
                         cells.append((y, pattern.width - 1 - x))
 
     return cells

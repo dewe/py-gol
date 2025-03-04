@@ -324,12 +324,7 @@ def run_game_loop(
         Returns:
             Tuple of (grid, config, should_quit)
         """
-        if state.pattern_mode:
-            # Update renderer config's pattern rotation
-            config.renderer.set_pattern(
-                config.renderer.selected_pattern,
-                (config.renderer.pattern_rotation + 90) % 360,
-            )
+        # No need to update rotation here since it's already handled in renderer
         return grid, config, False
 
     def handle_resize(larger: bool) -> tuple[Grid, ControllerConfig, bool]:

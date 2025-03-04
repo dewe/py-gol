@@ -261,6 +261,10 @@ def handle_user_input(
     # Check for restart/rotate command
     if key.name in ("r", "R") or key in ("r", "R"):
         if state.pattern_mode:  # In pattern mode
+            # Update pattern rotation while maintaining selected pattern
+            config.set_pattern(
+                config.selected_pattern, (config.pattern_rotation + 90) % 360
+            )
             return "rotate_pattern"
         return "restart"
 
@@ -545,7 +549,10 @@ def render_pattern_menu(
 
 
 def render_grid(
-    terminal: TerminalProtocol, grid: Grid, config: RendererConfig, state: RendererState
+    terminal: TerminalProtocol,
+    grid: Grid,
+    config: RendererConfig,
+    state: RendererState,
 ) -> None:
     """Renders current grid state.
 
@@ -589,28 +596,31 @@ def render_grid(
 
     # Get pattern preview cells if in pattern mode
     pattern_cells = set()
-    if state.pattern_mode:
-        if config.selected_pattern:
-            pattern = BUILTIN_PATTERNS.get(
-                config.selected_pattern
-            ) or FilePatternStorage().load_pattern(config.selected_pattern)
+    if state.pattern_mode and config.selected_pattern:
+        pattern = BUILTIN_PATTERNS.get(
+            config.selected_pattern
+        ) or FilePatternStorage().load_pattern(config.selected_pattern)
 
-            if pattern:
-                # Get centered position for pattern preview
-                preview_pos = get_centered_position(
-                    pattern, Position((state.cursor_x, state.cursor_y))
-                )
-                cells = get_pattern_cells(pattern, config.pattern_rotation)
-                # Add all pattern cells to the set, adjusting for centered position
-                for dx, dy in cells:
-                    x = (preview_pos[0] + dx) % grid_width
-                    y = (preview_pos[1] + dy) % grid_height
-                    pattern_cells.add((x, y))
+        if pattern:
+            # Convert rotation to number of 90-degree turns
+            turns = (config.pattern_rotation // 90) % 4
+            # Get centered position for pattern preview
+            preview_pos = get_centered_position(
+                pattern, Position((state.cursor_x, state.cursor_y)), turns
+            )
+            cells = get_pattern_cells(pattern, turns)
+            # Add all pattern cells to the set, adjusting for centered position
+            for dx, dy in cells:
+                x = (preview_pos[0] + dx) % grid_width
+                y = (preview_pos[1] + dy) % grid_height
+                pattern_cells.add((x, y))
 
     # Track previous pattern cells to detect changes
     previous_pattern_cells = state.previous_pattern_cells or set()
     force_redraw = (
-        state.previous_grid is None or state.pattern_mode != state.was_in_pattern_mode
+        state.previous_grid is None
+        or state.pattern_mode != state.was_in_pattern_mode
+        or state.previous_pattern_cells != pattern_cells
     )
 
     # If no previous state, position changed, or pattern mode changed, do full redraw

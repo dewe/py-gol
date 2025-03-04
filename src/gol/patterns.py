@@ -195,9 +195,9 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
         ),
         cells=[
             # Row 1: 36 cells
-            [(False, 0)] * 23 + [(True, 1)] + [(False, 0)] * 12,
+            [(False, 0)] * 24 + [(True, 1)] + [(False, 0)] * 11,
             # Row 2: 36 cells
-            [(False, 0)] * 21 + [(True, 1), (False, 0), (True, 1)] + [(False, 0)] * 12,
+            [(False, 0)] * 22 + [(True, 1), (False, 0), (True, 1)] + [(False, 0)] * 11,
             # Row 3: 36 cells
             [(False, 0)] * 12
             + [(True, 1), (True, 1)]
@@ -229,17 +229,17 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
             + [(True, 1)]
             + [(False, 0)] * 3
             + [(True, 1), (False, 0), (True, 1), (True, 1)]
-            + [(False, 0)] * 3
+            + [(False, 0)] * 4
             + [(True, 1), (False, 0), (True, 1)]
-            + [(False, 0)] * 12,
+            + [(False, 0)] * 11,
             # Row 7: 36 cells
             [(False, 0)] * 10
             + [(True, 1)]
             + [(False, 0)] * 5
             + [(True, 1)]
-            + [(False, 0)] * 6
+            + [(False, 0)] * 7
             + [(True, 1)]
-            + [(False, 0)] * 12,
+            + [(False, 0)] * 11,
             # Row 8: 36 cells
             [(False, 0)] * 11
             + [(True, 1)]

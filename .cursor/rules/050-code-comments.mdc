@@ -1,0 +1,72 @@
+---
+description: ENFORCE comment standards WHEN writing or modifying code TO maintain clear and meaningful documentation
+globs: src/**/*.{py,js,ts,cpp,c,h,hpp,java}
+alwaysApply: false
+---
+<!-- markdownlint-disable MD033 -->
+
+# Code Comment Standards
+
+## Context
+
+- When writing new code
+- When reviewing existing code
+- When refactoring or modifying code
+- When documenting functions, classes, or modules
+
+## Requirements
+
+- Keep all docstrings that provide API documentation
+- Keep comments that explain:
+  - Complex algorithms
+  - Non-obvious behavior
+  - Design decisions and rationale
+  - Performance implications
+  - Security considerations
+- Remove comments that:
+  - Simply restate what the code does
+  - Label obvious code sections
+  - Describe trivial type casting
+  - State the obvious
+- Use type hints instead of type-related comments
+- Place comments on their own line above the code they describe
+- Keep comments up to date with code changes
+
+## Examples
+
+<example>
+
+```python
+# Good: Explains complex algorithm
+def calculate_neighbors(grid: Grid, pos: Position) -> int:
+    # Use sliding window approach for better performance
+    # than individual cell access
+    return np.sum(grid[pos.y-1:pos.y+2, pos.x-1:pos.x+2]) - grid[pos.y, pos.x]
+```
+
+</example>
+
+<example type="invalid">
+
+```python
+# Bad: Restates the obvious
+def add_numbers(a: int, b: int) -> int:
+    # Add a and b together
+    return a + b
+
+class User:
+    def __init__(self):
+        # Initialize user properties
+        self.name = ""  # The user's name
+        self.age = 0   # The user's age
+```
+
+</example>
+
+<critical>
+
+- NEVER keep comments that only restate the code
+- ALWAYS explain why, not what, when commenting
+- ALWAYS keep docstrings for public APIs
+
+</critical>

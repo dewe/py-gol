@@ -9,6 +9,7 @@ from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
+from .grid import BoundaryCondition
 from .metrics import Metrics, update_frame_metrics, update_game_metrics
 from .patterns import (
     BUILTIN_PATTERNS,
@@ -75,6 +76,7 @@ class RendererConfig:
     interval_change_factor: float = 0.2
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
+    boundary_condition: Optional[BoundaryCondition] = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -181,6 +183,9 @@ def handle_user_input(
 
     if key.name in ("p", "P") or key in ("p", "P"):
         return "pattern", config
+
+    if key.name in ("b", "B") or key in ("b", "B"):
+        return "cycle_boundary", config
 
     if key in ("+", "="):
         return "resize_larger", config
@@ -305,12 +310,25 @@ def render_status_line(
     plain_deaths = f"Deaths/s: {metrics.game.death_rate:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
 
+    # Add boundary condition if available
+    boundary_text = ""
+    if config.boundary_condition:
+        plain_boundary = f"Boundary: {config.boundary_condition.name}"
+        boundary_text = (
+            f" | {terminal.green}Boundary: {terminal.normal}"
+            f"{config.boundary_condition.name}"
+        )
+        plain_boundary_len = len(plain_boundary) + len(" | ")
+    else:
+        plain_boundary_len = 0
+
     true_length = (
         len(plain_pop)
         + len(plain_gen)
         + len(plain_births)
         + len(plain_deaths)
         + len(plain_interval)
+        + plain_boundary_len
         + len(" | ") * 4
         + len(" ")
     )
@@ -327,7 +345,7 @@ def render_status_line(
     )
     interval = f"{terminal.white}Interval: {terminal.normal}{config.update_interval}ms"
 
-    status = f"{pop} | {gen} | {births} | {deaths} | {interval}"
+    status = f"{pop} | {gen} | {births} | {deaths} | {interval}{boundary_text}"
 
     y = terminal.height - 1
     x = max(0, (terminal.width - true_length) // 2)

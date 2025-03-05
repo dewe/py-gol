@@ -34,6 +34,7 @@ Controls:
 """
 
 import argparse
+import dataclasses
 import signal
 import sys
 import time
@@ -392,6 +393,26 @@ def run_game_loop(
 
         return grid, config, False
 
+    def handle_cycle_boundary() -> tuple[Grid, ControllerConfig, bool]:
+        """Cycle through available boundary conditions."""
+        current = config.grid.boundary
+        new_boundary = {
+            BoundaryCondition.FINITE: BoundaryCondition.TOROIDAL,
+            BoundaryCondition.TOROIDAL: BoundaryCondition.INFINITE,
+            BoundaryCondition.INFINITE: BoundaryCondition.FINITE,
+        }[current]
+
+        new_grid_config = config.grid.with_boundary(new_boundary)
+        # Update renderer config with new boundary condition
+        new_renderer_config = dataclasses.replace(
+            config.renderer, boundary_condition=new_boundary
+        )
+        new_config = ControllerConfig(
+            grid=new_grid_config,
+            renderer=new_renderer_config,
+        )
+        return grid, new_config, False
+
     # Command map
     command_map: Dict[
         CommandType, Callable[[], Tuple[Grid, ControllerConfig, bool]]
@@ -405,6 +426,7 @@ def run_game_loop(
         "move_cursor_down": lambda: handle_cursor_movement("down"),
         "place_pattern": handle_place_pattern,
         "rotate_pattern": handle_rotate_pattern,
+        "cycle_boundary": handle_cycle_boundary,
         "resize_larger": lambda: handle_resize(True),
         "resize_smaller": lambda: handle_resize(False),
         "exit_pattern": handle_pattern_mode,  # Reuse pattern mode handler to exit
@@ -448,8 +470,15 @@ def run_game_loop(
 
             # Render frame if enough time has passed
             if current_time - last_frame >= 1 / 60:  # Cap at 60 FPS
+                # Update renderer config with current boundary condition
+                renderer_config = config.renderer
+                if renderer_config.boundary_condition != config.grid.boundary:
+                    renderer_config = dataclasses.replace(
+                        renderer_config, boundary_condition=config.grid.boundary
+                    )
+
                 state, metrics = safe_render_grid(
-                    terminal, grid, config.renderer, state, metrics
+                    terminal, grid, renderer_config, state, metrics
                 )
                 last_frame = current_time
 
@@ -492,7 +521,10 @@ def main() -> None:
                 density=args.density,
                 boundary=BoundaryCondition[args.boundary.upper()],
             ),
-            renderer=RendererConfig(update_interval=args.interval),
+            renderer=RendererConfig(
+                update_interval=args.interval,
+                boundary_condition=BoundaryCondition[args.boundary.upper()],
+            ),
         )
 
         # Initialize game with proper dimensions

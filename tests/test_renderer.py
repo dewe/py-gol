@@ -9,14 +9,19 @@ from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
 from gol.renderer import (
+    BUILTIN_PATTERNS,
     RendererConfig,
     RendererState,
     TerminalProtocol,
+    calculate_grid_position,
     cleanup_terminal,
     handle_resize_event,
     handle_user_input,
     initialize_terminal,
+    render_cell,
     render_grid,
+    render_pattern_menu,
+    render_status_line,
     safe_render_grid,
 )
 
@@ -319,6 +324,7 @@ class MockTerminal(MockTerminalProtocol):
         self._height = 24
         self._dim = ""
         self._normal = ""
+        self._should_error = False
 
     @property
     def width(self) -> int:
@@ -353,6 +359,8 @@ class MockTerminal(MockTerminalProtocol):
     @property
     def white(self) -> str:
         """Get white color."""
+        if self._should_error:
+            raise ValueError("Mock error")
         return ""
 
     @property
@@ -387,7 +395,9 @@ class MockTerminal(MockTerminalProtocol):
 
     def move_xy(self, x: int, y: int) -> ParameterizingString:
         """Move cursor to position."""
-        raise ValueError("Mock error")  # Raise error for testing
+        return ParameterizingString(
+            f"\x1b[{y+1};{x+1}H"
+        )  # Return ANSI escape sequence for cursor movement
 
     def exit_fullscreen(self) -> str:
         """Mock exit fullscreen."""
@@ -425,6 +435,10 @@ class MockTerminal(MockTerminalProtocol):
         """Mock cbreak."""
         return None
 
+    def trigger_error(self) -> None:
+        """Method to trigger error for testing."""
+        self._should_error = True
+
 
 def test_safe_render_grid_handles_errors() -> None:
     """Test that safe_render_grid properly handles rendering errors."""
@@ -433,9 +447,145 @@ def test_safe_render_grid_handles_errors() -> None:
     term = MockTerminal()
     state = RendererState()
 
-    # Force a render that should trigger the error
+    # Set up the error to trigger during rendering
+    term.trigger_error()
     with pytest.raises(RuntimeError) as exc_info:
         safe_render_grid(term, grid, config, state)
 
     assert "Failed to render grid" in str(exc_info.value)
     assert "Mock error" in str(exc_info.value)
+
+
+def test_calculate_grid_position(term: TerminalProtocol) -> None:
+    """Test grid position calculation with various scenarios.
+
+    Given: Different grid and terminal sizes
+    When: Calculating grid position
+    Then: Should return correct centered coordinates with margins
+    """
+    grid = create_grid(GridConfig(width=10, height=10))
+    start_x, start_y = calculate_grid_position(term, grid)
+
+    # Basic position check
+    assert isinstance(start_x, int)
+    assert isinstance(start_y, int)
+    assert start_x >= 1  # Should respect margin
+    assert start_y >= 1  # Should respect top margin
+
+    # Check with larger grid
+    large_grid = create_grid(GridConfig(width=30, height=20))
+    large_x, large_y = calculate_grid_position(term, large_grid)
+    assert large_x >= 1
+    assert large_y >= 1
+
+
+def test_render_cell(term: TerminalProtocol) -> None:
+    """Test cell rendering for different states.
+
+    Given: Different cell states
+    When: Rendering individual cells
+    Then: Should return correct character and color combinations
+    """
+    config = RendererConfig()
+
+    # Test live cell
+    live_output = render_cell(term, 0, 0, True, config)
+    assert config.cell_alive in live_output
+    assert term.white in live_output
+
+    # Test dead cell
+    dead_output = render_cell(term, 0, 0, False, config)
+    assert config.cell_dead in dead_output
+    assert term.dim in dead_output
+
+
+def test_render_status_line(term: TerminalProtocol) -> None:
+    """Test status line rendering.
+
+    Given: Various game states
+    When: Rendering status line
+    Then: Should show correct statistics and formatting
+    """
+    config = RendererConfig()
+    state = RendererState()
+
+    # Set state values before rendering
+    state.active_cells = 42
+    state.generation_count = 100
+    state.birth_rate = 5.0
+    state.death_rate = 3.0
+
+    # Get the rendered output
+    output = render_status_line(term, config, state)
+
+    # Extract just the status line text without ANSI codes
+    status_text = output.split("\x1b")[-1].split("H")[-1].strip()
+
+    # Verify each part of the status line
+    assert f"Population: {state.active_cells}" in status_text
+    assert f"Generation: {state.generation_count}" in status_text
+    assert f"Births/s: {state.birth_rate}" in status_text
+    assert f"Deaths/s: {state.death_rate}" in status_text
+    assert f"Interval: {config.update_interval}ms" in status_text
+
+
+def test_render_pattern_menu(term: TerminalProtocol) -> None:
+    """Test pattern menu rendering.
+
+    Given: Pattern mode active
+    When: Rendering pattern menu
+    Then: Should show available patterns and controls
+    """
+    config = RendererConfig()
+    state = RendererState()
+    state.pattern_mode = True
+
+    output = render_pattern_menu(term, config, state)
+
+    assert "Pattern Mode" in output
+    assert "rotate" in output
+    assert "place" in output
+    assert "exit" in output
+
+
+def test_grid_rendering_with_patterns(term: TerminalProtocol) -> None:
+    """Test grid rendering with pattern preview.
+
+    Given: Pattern mode with selected pattern
+    When: Rendering grid
+    Then: Should show pattern preview and cursor
+    """
+    config = RendererConfig()
+    state = RendererState()
+    state.pattern_mode = True
+    state.cursor_x = 5
+    state.cursor_y = 5
+    config.selected_pattern = list(BUILTIN_PATTERNS.keys())[0]  # Select first pattern
+
+    grid = create_grid(GridConfig(width=20, height=20))
+
+    try:
+        render_grid(term, grid, config, state)
+        assert state.previous_pattern_cells is not None
+    finally:
+        cleanup_terminal(term)
+
+
+def test_grid_resize_handling(term: TerminalProtocol) -> None:
+    """Test grid handling during resize events.
+
+    Given: Different terminal dimensions
+    When: Handling resize events
+    Then: Should maintain margins and clear screen properly
+    """
+    state = RendererState()
+    state.terminal_width = 80
+    state.terminal_height = 24
+
+    # Simulate resize event
+    handle_resize_event(term, state)
+
+    assert state.previous_grid is None  # Should force redraw
+    assert state.previous_pattern_cells is None  # Should clear pattern preview
+    assert state.terminal_width == term.width
+    assert state.terminal_height == term.height

@@ -342,26 +342,51 @@ def run_game_loop(
         # Calculate max dimensions based on terminal size
         # Each cell takes 2 characters width due to spacing
         # Reserve 2 lines at bottom for status/menu
-        max_width = terminal.width // 2  # Each cell is 2 chars wide with spacing
+        # Add margin of 4 characters on each side for better display
+        margin = 4
+        max_width = (
+            terminal.width - (2 * margin)
+        ) // 2  # Each cell is 2 chars wide with spacing
         max_height = terminal.height - 2  # Reserve bottom lines for status/menu
 
         # Calculate new dimensions
         factor = 1.2 if larger else 0.8
-        new_width = max(10, min(max_width, int(config.grid.width * factor)))
-        new_height = max(10, min(max_height, int(config.grid.height * factor)))
+        requested_width = int(config.grid.width * factor)
+        requested_height = int(config.grid.height * factor)
 
-        # Resize grid and update config
-        new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)
+        # Enforce minimum and maximum dimensions
+        # If requested size exceeds terminal, force it to fit
+        new_width = max(10, min(max_width, requested_width))
+        new_height = max(10, min(max_height, requested_height))
 
-        # Create new controller config
-        new_controller_config = ControllerConfig(
-            grid=new_config,
-            renderer=config.renderer,
-            selected_pattern=config.selected_pattern,
-            pattern_rotation=config.pattern_rotation,
-        )
+        # Only resize if dimensions actually changed
+        if new_width != config.grid.width or new_height != config.grid.height:
+            # Clear screen before resize to prevent artifacts
+            print(terminal.clear(), end="", flush=True)
+            print(terminal.move_xy(0, 0), end="", flush=True)
 
-        return new_grid, new_controller_config, False
+            # Clear any remaining artifacts
+            for y in range(terminal.height):
+                print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
+            sys.stdout.flush()
+
+            # Force full redraw by clearing renderer state
+            state.previous_grid = None
+            state.previous_pattern_cells = None
+
+            # Resize grid and update config
+            new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)
+
+            # Create new controller config
+            new_controller_config = ControllerConfig(
+                grid=new_config,
+                renderer=config.renderer,
+                selected_pattern=config.selected_pattern,
+                pattern_rotation=config.pattern_rotation,
+            )
+            return new_grid, new_controller_config, False
+
+        return grid, config, False
 
     # Command map
     command_map: Dict[

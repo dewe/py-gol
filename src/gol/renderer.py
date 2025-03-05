@@ -339,12 +339,25 @@ def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> Non
     """
     # Force full redraw on next frame
     state.previous_grid = None
+    state.previous_pattern_cells = None
 
-    # Clear screen to prevent artifacts
-    clear_screen(terminal)
+    # Clear screen and reset cursor
+    print(terminal.clear(), end="", flush=True)
+    print(terminal.move_xy(0, 0), end="", flush=True)
 
     # Re-hide cursor as resize can reset terminal state
-    print(terminal.hide_cursor())
+    print(terminal.hide_cursor(), end="", flush=True)
+
+    # Clear any remaining artifacts, respecting margins
+    for y in range(terminal.height):
+        # Clear entire line first
+        print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
+
+    # Update terminal dimensions in state
+    state.terminal_width = terminal.width
+    state.terminal_height = terminal.height
+
+    sys.stdout.flush()
 
 
 def clear_screen(terminal: TerminalProtocol) -> None:
@@ -394,28 +407,22 @@ def calculate_grid_position(
     total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
     total_height = grid_height  # Each cell is 1 char high
 
-    # Account for status line at bottom
-    usable_height = terminal.height - 1
+    # Account for status line at bottom and margins
+    margin = 1  # Reduce side margin to 1 character
+    usable_height = terminal.height - 2  # Reserve 2 lines for status/menu
+    usable_width = terminal.width - (2 * margin)  # Account for side margins
 
-    # If terminal is smaller than grid in either dimension, align to top-left
-    if terminal.width <= total_width or usable_height <= total_height:
-        return 0, 0
+    # Calculate center position first, accounting for margins
+    center_x = (usable_width // 2) + margin  # Center within usable width
+    center_y = ((usable_height - 2) // 2) + margin  # Add top margin of 1
 
-    # Calculate center position
-    center_y = usable_height // 2
-    center_x = terminal.width // 2
-
-    # Calculate top-left corner of grid
-    start_y = center_y - (total_height // 2)
+    # Calculate starting position to center the grid
     start_x = center_x - (total_width // 2)
+    start_y = center_y - (total_height // 2)
 
-    # Ensure we don't start outside the terminal
-    start_y = max(0, start_y)
-    start_x = max(0, start_x)
-
-    # Ensure grid doesn't extend beyond terminal edges
-    start_x = min(start_x, terminal.width - total_width)
-    start_y = min(start_y, usable_height - total_height)
+    # Ensure we stay within margins
+    start_x = max(margin, min(start_x, terminal.width - total_width - margin))
+    start_y = max(margin, min(start_y, usable_height - total_height - margin))
 
     return start_x, start_y
 
@@ -456,12 +463,12 @@ def render_cell(
         String to render cell
     """
     if is_alive:
-        # Use bright white for maximum visibility
+        # Use bright white for maximum visibility of live cells
         return (
             terminal.white + config.cell_alive + terminal.normal + config.cell_spacing
         )
     # Make dead cells very dim
-    return terminal.dim + config.cell_dead + terminal.normal + config.cell_spacing
+    return terminal.dim + config.cell_dead + terminal.dim + config.cell_spacing
 
 
 def render_status_line(
@@ -594,13 +601,28 @@ def render_grid(
     # Reserve bottom two lines for menu and status
     usable_height = terminal.height - 2
 
+    # Calculate grid position
     start_x, start_y = calculate_grid_position(terminal, grid)
 
+    # Check if dimensions or position changed
+    dimensions_changed = (
+        start_x != state.start_x
+        or start_y != state.start_y
+        or state.previous_grid is None
+    )
+
     # Update stored position if changed
-    if start_x != state.start_x or start_y != state.start_y:
+    if dimensions_changed:
         state.start_x = start_x
         state.start_y = start_y
-        state.previous_grid = None  # Force full redraw on position change
+        state.previous_grid = None  # Force full redraw
+
+        # Clear entire screen when dimensions change
+        print(terminal.clear(), end="", flush=True)
+        print(terminal.move_xy(0, 0), end="", flush=True)
+        for y in range(terminal.height):
+            print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
+        sys.stdout.flush()
 
     # Convert current grid to dictionary using optimized NumPy operations
     current_grid = grid_to_dict(grid)
@@ -646,98 +668,69 @@ def render_grid(
                 y = (preview_pos[1] + dy) % grid_height
                 pattern_cells.add((x, y))
 
-    # Track previous pattern cells to detect changes
-    previous_pattern_cells = state.previous_pattern_cells or set()
-    force_redraw = (
-        state.previous_grid is None
-        or state.pattern_mode != state.was_in_pattern_mode
-        or state.previous_pattern_cells != pattern_cells
-    )
+    # Calculate visible grid bounds based on terminal size
+    visible_width = (terminal.width - start_x) // 2  # Each cell takes 2 chars
+    visible_height = usable_height - start_y
 
-    # If no previous state, position changed, or pattern mode changed, do full redraw
-    if force_redraw:
-        # Clear entire terminal area
-        buffer = [terminal.clear()]
-
-        # Clear each line in the grid area to prevent artifacts
-        for y in range(usable_height):
-            buffer.append(str(terminal.move_xy(0, y)))
-            buffer.append(" " * terminal.width)
-
-        # First render the base grid
-        for (x, y), cell_state in current_grid.items():
-            screen_x = start_x + (x * 2)  # Account for spacing
+    # Render only visible cells
+    for y in range(min(grid_height, visible_height)):
+        for x in range(min(grid_width, visible_width)):
+            screen_x = start_x + (x * 2)  # Account for cell spacing
             screen_y = start_y + y
-            if screen_y < usable_height:  # Don't render in status line area
-                buffer.append(str(terminal.move_xy(screen_x, screen_y)))
-                # Only render base grid if not a pattern cell
-                if not state.pattern_mode or (x, y) not in pattern_cells:
-                    buffer.append(
-                        render_cell(terminal, screen_x, screen_y, cell_state, config)
-                    )
 
-        # Then overlay pattern preview if in pattern mode
-        if state.pattern_mode:
-            for x, y in pattern_cells:
-                screen_x = start_x + (x * 2)  # Account for spacing
-                screen_y = start_y + y
-                if screen_y < usable_height:  # Don't render in status line area
-                    buffer.append(str(terminal.move_xy(screen_x, screen_y)))
-                    buffer.append(
-                        terminal.yellow
-                        + config.cell_alive
-                        + terminal.normal
-                        + config.cell_spacing
-                    )
+            # Skip if position would be outside terminal
+            if screen_x >= terminal.width - 1 or screen_y >= usable_height:
+                continue
 
-            # Add pattern menu instead of status line
-            buffer.append(render_pattern_menu(terminal, config, state))
-        else:
-            # Add status line when not in pattern mode
-            buffer.append(render_status_line(terminal, config, state))
+            # Determine cell state and appearance
+            is_alive = current_grid.get((x, y), False)
+            is_pattern = (x, y) in pattern_cells
+            is_cursor = (
+                state.pattern_mode and x == state.cursor_x and y == state.cursor_y
+            )
 
-        print("".join(buffer), end="", flush=True)
-    else:
-        # Only render cells that changed
-        buffer = []
+            # Set cell appearance based on state
+            if is_cursor:
+                cell_char = "+"
+                color = terminal.yellow
+            elif is_pattern:
+                cell_char = "◆"
+                color = terminal.blue
+            else:
+                cell_char = config.cell_alive if is_alive else config.cell_dead
+                if is_alive:
+                    color = terminal.white
+                else:
+                    color = terminal.dim
 
-        # Update cells that changed in the base grid
-        for (x, y), cell_state in current_grid.items():
-            should_update = (state.previous_grid or {}).get((x, y)) != cell_state or (
-                (x, y) in pattern_cells
-            ) != ((x, y) in previous_pattern_cells)
-            if should_update:
-                screen_x = start_x + (x * 2)  # Account for spacing
-                screen_y = start_y + y
-                if screen_y < usable_height:  # Don't render in status line area
-                    buffer.append(str(terminal.move_xy(screen_x, screen_y)))
-                    if not state.pattern_mode or (x, y) not in pattern_cells:
-                        buffer.append(
-                            render_cell(
-                                terminal, screen_x, screen_y, cell_state, config
-                            )
-                        )
-                    elif state.pattern_mode and (x, y) in pattern_cells:
-                        buffer.append(
-                            terminal.yellow
-                            + config.cell_alive
-                            + terminal.normal
-                            + config.cell_spacing
-                        )
+            # Render cell with proper color and ensure dead cells stay dim
+            print(
+                terminal.move_xy(screen_x, screen_y)
+                + color
+                + cell_char
+                + (
+                    terminal.normal
+                    if is_alive or is_cursor or is_pattern
+                    else terminal.dim
+                )
+                + config.cell_spacing
+                + terminal.normal,
+                end="",
+                flush=True,
+            )
 
-        # Update bottom line based on mode
-        if state.pattern_mode:
-            buffer.append(render_pattern_menu(terminal, config, state))
-        else:
-            buffer.append(render_status_line(terminal, config, state))
-
-        if buffer:
-            print("".join(buffer), end="", flush=True)
-
-    # Store current state for next frame
+    # Store current grid state for next frame
     state.previous_grid = current_grid
     state.previous_pattern_cells = pattern_cells
-    state.was_in_pattern_mode = state.pattern_mode
+
+    # Render status line or pattern menu based on mode
+    if state.pattern_mode:
+        print(render_pattern_menu(terminal, config, state), end="", flush=True)
+    else:
+        print(render_status_line(terminal, config, state), end="", flush=True)
+
+    # Ensure output is flushed
+    sys.stdout.flush()
 
 
 def safe_render_grid(

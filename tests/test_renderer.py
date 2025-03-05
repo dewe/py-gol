@@ -287,15 +287,12 @@ def test_render_pattern_menu(term: TerminalProtocol) -> None:
     When: Rendering pattern menu
     Then: Should show available patterns and controls
     """
-    config = RendererConfig()
-    state = RendererState()
-    state.pattern_mode = True
-
     # Get the rendered menu
-    menu_text = render_pattern_menu(term, config, state)
+    menu_text = render_pattern_menu(term)
 
-    # Verify content
+    # Verify menu contains expected elements
     assert "Pattern Mode" in menu_text
+    assert "Select:" in menu_text
     assert "rotate" in menu_text
     assert "place" in menu_text
     assert "exit" in menu_text

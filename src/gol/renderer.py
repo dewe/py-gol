@@ -444,15 +444,11 @@ def render_status_line(
 
 def render_pattern_menu(
     terminal: TerminalProtocol,
-    config: RendererConfig,
-    state: RendererState,
 ) -> str:
     """Renders pattern selection menu.
 
     Args:
         terminal: Terminal instance
-        config: Renderer configuration
-        state: Current renderer state
 
     Returns:
         String containing the rendered pattern menu
@@ -610,7 +606,7 @@ def render_grid(
 
     # Render status line or pattern menu based on mode
     if state.pattern_mode:
-        print(render_pattern_menu(terminal, config, state), end="", flush=True)
+        print(render_pattern_menu(terminal), end="", flush=True)
     else:
         print(render_status_line(terminal, config, state), end="", flush=True)
 

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Literal, Optional, Protocol, Set, Tuple, runtime_checkable
 
 import numpy as np
-import psutil
 from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
@@ -24,9 +23,6 @@ from .types import Grid, RenderGrid, ScreenPosition
 CellPos = (
     ScreenPosition  # Using ScreenPosition since it matches the tuple[int, int] type
 )
-
-# Get current process for metrics
-_process = psutil.Process()
 
 
 @runtime_checkable

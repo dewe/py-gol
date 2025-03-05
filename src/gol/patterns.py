@@ -12,7 +12,7 @@ from .types import Grid, GridPosition, PatternGrid
 
 
 class PatternTransform(Enum):
-    """Manages pattern rotations in 90-degree increments for efficient pattern manipulation."""
+    """Manages pattern rotations in 90-degree increments."""
 
     NONE = 0
     RIGHT = 90

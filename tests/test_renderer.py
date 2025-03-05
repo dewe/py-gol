@@ -705,3 +705,15 @@ def test_renderer_config_interval_limits() -> None:
     config = RendererConfig(update_interval=RendererConfig().min_interval)
     new_config = config.with_decreased_interval()
     assert new_config.update_interval == config.min_interval  # Cannot go below min
+
+
+def test_handle_user_input_cycle_boundary_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test boundary cycle command handling."""
+    key = create_mock_keystroke("b")
+    result = handle_user_input(key, mock_config, mock_state)
+    assert result[0] == "cycle_boundary"
+    assert result[1] is mock_config  # Config remains unchanged

@@ -44,8 +44,8 @@ def create_grid(config: GridConfig) -> Grid:
         A new Grid with random live cells based on density
     """
     rng = np.random.default_rng()
-    # Explicitly cast the result to ensure type safety
-    return cast(Grid, rng.random((config.height, config.width)) < config.density)
+    array: BoolArray = rng.random((config.height, config.width)) < config.density
+    return cast(Grid, array)
 
 
 def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:

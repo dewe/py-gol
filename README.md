@@ -9,7 +9,7 @@ A terminal-based implementation of Conway's Game of Life with a focus on functio
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
 - **Pattern Management**: Support for loading, saving, and manipulating patterns
 - **Configurable**: Adjustable grid size, update interval, initial density, and boundary conditions
-- **Dynamic Resizing**: Grid can be resized during gameplay, automatically fitting terminal dimensions
+- **Dynamic Resizing**: Grid automatically fits terminal dimensions with proper margins (minimum 30×20)
 - **Adaptive Refresh**: Screen refresh rate automatically optimized based on update interval
 - **Multiple Boundary Types**: Support for finite, toroidal, and infinite boundaries
 
@@ -43,33 +43,33 @@ Run the game using the provided entry point script:
 
 ### Parameters
 
-- `--width`: Width of the grid (auto-sized to terminal width if not specified)
-- `--height`: Height of the grid (auto-sized to terminal height if not specified)
-- `--interval`: Update interval in milliseconds (default: 100)
+- `--width`: Width of the grid (auto-sized to terminal width if not specified or set to 0, minimum 30)
+- `--height`: Height of the grid (auto-sized to terminal height if not specified or set to 0, minimum 20)
+- `--interval`: Update interval in milliseconds (default: 200)
 - `--density`: Initial density of live cells (0.0-1.0, default: 0.3)
 - `--boundary`: Boundary condition type: 'finite', 'toroidal', or 'infinite' (default: finite)
 
 ### Examples
 
-Run with default settings (grid sized to terminal dimensions):
+Run with default settings (grid auto-sized to terminal dimensions):
 
 ```bash
 ./game.py
 ```
 
-Run with a custom 20×20 grid:
+Run with a custom 40×30 grid (must be at least 30×20):
 
 ```bash
-./game.py --width 20 --height 20
+./game.py --width 40 --height 30
 ```
 
-Run with a 30×30 grid, slower updates, and higher initial density:
+Run with auto-sized grid, slower updates, and higher initial density:
 
 ```bash
-./game.py --width 30 --height 30 --interval 200 --density 0.5
+./game.py --interval 200 --density 0.5
 ```
 
-Run with terminal-sized grid, fast updates, and toroidal boundaries:
+Run with auto-sized grid, fast updates, and toroidal boundaries:
 
 ```bash
 ./game.py --interval 50 --boundary toroidal
@@ -81,8 +81,8 @@ Run with terminal-sized grid, fast updates, and toroidal boundaries:
 - Press `Ctrl-C` to exit gracefully
 - Press `Escape` to exit
 - Press `r` to restart with a new grid
-- Press `+` to increase grid size (auto-fits to terminal)
-- Press `-` to decrease grid size (auto-fits to terminal)
+- Press `+` to increase grid size (auto-fits to terminal with margins)
+- Press `-` to decrease grid size (auto-fits to terminal with margins)
 - Press `↑` to slow down the simulation
 - Press `↓` to speed up the simulation
 - Press `p` to enter pattern mode
@@ -141,7 +141,7 @@ Conway's Game of Life follows these rules:
 
 ### Cell Visualization
 
-Dead cells are shown in a dimmed state, while live cells are shown in bright white.
+Dead cells are shown in a dimmed state, while live cells are shown in bright white. The grid is automatically centered in the terminal with proper margins for UI elements.
 
 ## Development
 

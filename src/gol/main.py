@@ -85,7 +85,7 @@ def parse_arguments() -> argparse.Namespace:
         "  - Press 'r' to restart with a new grid\n"
         "  - Press 'p' to enter pattern mode\n"
         "  - Press 'b' to cycle boundary conditions\n"
-        "  - Press '+'/'-' to resize grid (automatically fits to terminal size)\n"
+        "  - Press '+'/'-' to resize grid (auto-fits to terminal with margins)\n"
         "  - Press '['/']' to rotate pattern\n"
         "  - Press Space to place pattern\n"
         "  - Press Escape to exit pattern mode\n"
@@ -97,13 +97,19 @@ def parse_arguments() -> argparse.Namespace:
         "--width",
         type=int,
         default=0,  # Default to auto-size
-        help="Width of the grid (default: auto-sized to terminal width)",
+        help=(
+            "Width of the grid (auto-sized to terminal width if not specified "
+            "or set to 0, minimum 30)"
+        ),
     )
     parser.add_argument(
         "--height",
         type=int,
         default=0,  # Default to auto-size
-        help="Height of the grid (default: auto-sized to terminal height)",
+        help=(
+            "Height of the grid (auto-sized to terminal height if not specified "
+            "or set to 0, minimum 20)"
+        ),
     )
 
     parser.add_argument(

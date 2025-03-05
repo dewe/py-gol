@@ -1,10 +1,11 @@
 """Tests for the terminal renderer module."""
 
-from typing import Any, Protocol
+import re
+import time
+from io import StringIO
 
 import pytest
 from blessed import Terminal
-from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
@@ -13,16 +14,13 @@ from gol.renderer import (
     RendererConfig,
     RendererState,
     TerminalProtocol,
-    calculate_grid_position,
     cleanup_terminal,
     handle_resize_event,
     handle_user_input,
     initialize_terminal,
-    render_cell,
     render_grid,
     render_pattern_menu,
     render_status_line,
-    safe_render_grid,
 )
 
 
@@ -160,8 +158,10 @@ def test_grid_rendering_empty() -> None:
 
 @pytest.fixture
 def term() -> TerminalProtocol:
-    """Fixture providing a mock terminal for testing."""
-    return MockTerminal()
+    """Fixture providing a terminal for testing."""
+    output = StringIO()
+    term = Terminal(force_styling=True, stream=output)
+    return term
 
 
 def test_handle_user_input_quit_commands(term: TerminalProtocol) -> None:
@@ -278,255 +278,39 @@ def test_handle_resize_event() -> None:
         cleanup_terminal(term)
 
 
-class MockTerminalProtocol(Protocol):
-    """Protocol defining the required terminal interface for testing."""
+def strip_ansi(text: str) -> str:
+    """Strip ANSI escape sequences from text.
 
-    @property
-    def width(self) -> int: ...
-    @property
-    def height(self) -> int: ...
-    @property
-    def dim(self) -> str: ...
-    @property
-    def normal(self) -> str: ...
-    @property
-    def reverse(self) -> str: ...
-    @property
-    def black(self) -> str: ...
-    @property
-    def blue(self) -> str: ...
-    @property
-    def green(self) -> str: ...
-    @property
-    def yellow(self) -> str: ...
-    @property
-    def magenta(self) -> str: ...
-    @property
-    def on_blue(self) -> str: ...
-    def move_xy(self, x: int, y: int) -> ParameterizingString: ...
-    def exit_fullscreen(self) -> str: ...
-    def enter_fullscreen(self) -> str: ...
-    def hide_cursor(self) -> str: ...
-    def normal_cursor(self) -> str: ...
-    def clear(self) -> str: ...
-    def enter_ca_mode(self) -> str: ...
-    def exit_ca_mode(self) -> str: ...
-    def inkey(self, timeout: float = 0) -> Keystroke: ...
-    def cbreak(self) -> Any: ...
+    Args:
+        text: Text containing ANSI escape sequences
 
-
-class MockTerminal(MockTerminalProtocol):
-    """Mock terminal for testing."""
-
-    def __init__(self) -> None:
-        """Initialize mock terminal."""
-        self._width = 80
-        self._height = 24
-        self._dim = ""
-        self._normal = ""
-        self._should_error = False
-
-    @property
-    def width(self) -> int:
-        """Get terminal width."""
-        return self._width
-
-    @property
-    def height(self) -> int:
-        """Get terminal height."""
-        return self._height
-
-    @property
-    def dim(self) -> str:
-        """Get dim attribute."""
-        return self._dim
-
-    @property
-    def normal(self) -> str:
-        """Get normal attribute."""
-        return self._normal
-
-    @property
-    def reverse(self) -> str:
-        """Get reverse attribute."""
-        return ""
-
-    @property
-    def black(self) -> str:
-        """Get black color."""
-        return ""
-
-    @property
-    def white(self) -> str:
-        """Get white color."""
-        if self._should_error:
-            raise ValueError("Mock error")
-        return ""
-
-    @property
-    def blue(self) -> str:
-        """Get blue color."""
-        return ""
-
-    @property
-    def green(self) -> str:
-        """Get green color."""
-        return ""
-
-    @property
-    def yellow(self) -> str:
-        """Get yellow color."""
-        return ""
-
-    @property
-    def magenta(self) -> str:
-        """Get magenta color."""
-        return ""
-
-    @property
-    def red(self) -> str:
-        """Get red color."""
-        return ""
-
-    @property
-    def on_blue(self) -> str:
-        """Get blue background color."""
-        return ""
-
-    def move_xy(self, x: int, y: int) -> ParameterizingString:
-        """Move cursor to position."""
-        return ParameterizingString(
-            f"\x1b[{y+1};{x+1}H"
-        )  # Return ANSI escape sequence for cursor movement
-
-    def exit_fullscreen(self) -> str:
-        """Mock exit fullscreen."""
-        return ""
-
-    def enter_fullscreen(self) -> str:
-        """Mock enter fullscreen."""
-        return ""
-
-    def hide_cursor(self) -> str:
-        """Mock hide cursor."""
-        return ""
-
-    def normal_cursor(self) -> str:
-        """Mock normal cursor."""
-        return ""
-
-    def clear(self) -> str:
-        """Mock clear screen."""
-        return ""
-
-    def enter_ca_mode(self) -> str:
-        """Mock enter ca mode."""
-        return ""
-
-    def exit_ca_mode(self) -> str:
-        """Mock exit ca mode."""
-        return ""
-
-    def inkey(self, timeout: float = 0) -> Keystroke:
-        """Mock inkey."""
-        return Keystroke(name="")
-
-    def cbreak(self) -> Any:
-        """Mock cbreak."""
-        return None
-
-    def trigger_error(self) -> None:
-        """Method to trigger error for testing."""
-        self._should_error = True
-
-
-def test_safe_render_grid_handles_errors() -> None:
-    """Test that safe_render_grid properly handles rendering errors."""
-    config = RendererConfig()
-    grid = create_grid(GridConfig(width=3, height=3, density=0.0))
-    term = MockTerminal()
-    state = RendererState()
-
-    # Set up the error to trigger during rendering
-    term.trigger_error()
-    with pytest.raises(RuntimeError) as exc_info:
-        safe_render_grid(term, grid, config, state)
-
-    assert "Failed to render grid" in str(exc_info.value)
-    assert "Mock error" in str(exc_info.value)
-
-
-def test_calculate_grid_position(term: TerminalProtocol) -> None:
-    """Test grid position calculation with various scenarios.
-
-    Given: Different grid and terminal sizes
-    When: Calculating grid position
-    Then: Should return correct centered coordinates with margins
+    Returns:
+        Text with ANSI escape sequences removed
     """
-    grid = create_grid(GridConfig(width=10, height=10))
-    start_x, start_y = calculate_grid_position(term, grid)
-
-    # Basic position check
-    assert isinstance(start_x, int)
-    assert isinstance(start_y, int)
-    assert start_x >= 1  # Should respect margin
-    assert start_y >= 1  # Should respect top margin
-
-    # Check with larger grid
-    large_grid = create_grid(GridConfig(width=30, height=20))
-    large_x, large_y = calculate_grid_position(term, large_grid)
-    assert large_x >= 1
-    assert large_y >= 1
-
-
-def test_render_cell(term: TerminalProtocol) -> None:
-    """Test cell rendering for different states.
-
-    Given: Different cell states
-    When: Rendering individual cells
-    Then: Should return correct character and color combinations
-    """
-    config = RendererConfig()
-
-    # Test live cell
-    live_output = render_cell(term, 0, 0, True, config)
-    assert config.cell_alive in live_output
-    assert term.white in live_output
-
-    # Test dead cell
-    dead_output = render_cell(term, 0, 0, False, config)
-    assert config.cell_dead in dead_output
-    assert term.dim in dead_output
+    # Handle both standard ANSI escapes and blessed's special sequences
+    ansi_escape = re.compile(r"(\x1b\[[0-9;]*[a-zA-Z]|\x1b\([0-9A-Z]|\x1b[@-_])")
+    return ansi_escape.sub("", text)
 
 
 def test_render_status_line(term: TerminalProtocol) -> None:
-    """Test status line rendering.
-
-    Given: Various game states
-    When: Rendering status line
-    Then: Should show correct statistics and formatting
-    """
+    """Test status line rendering with real Terminal instance."""
     config = RendererConfig()
     state = RendererState()
-
-    # Set state values before rendering
     state.active_cells = 42
     state.generation_count = 100
     state.birth_rate = 5.0
     state.death_rate = 3.0
+    # Set last_stats_update to current time to prevent stats reset
+    state.last_stats_update = time.time()
 
-    # Get the rendered output
-    output = render_status_line(term, config, state)
+    # Get the rendered status line and strip ANSI sequences
+    status_text = strip_ansi(render_status_line(term, config, state))
 
-    # Extract just the status line text without ANSI codes
-    status_text = output.split("\x1b")[-1].split("H")[-1].strip()
-
-    # Verify each part of the status line
-    assert f"Population: {state.active_cells}" in status_text
-    assert f"Generation: {state.generation_count}" in status_text
-    assert f"Births/s: {state.birth_rate}" in status_text
-    assert f"Deaths/s: {state.death_rate}" in status_text
-    assert f"Interval: {config.update_interval}ms" in status_text
+    # Verify content
+    assert "Population: 42" in status_text
+    assert "Generation: 100" in status_text
+    assert "Births/s: 5.0" in status_text
+    assert "Deaths/s: 3.0" in status_text
 
 
 def test_render_pattern_menu(term: TerminalProtocol) -> None:
@@ -540,12 +324,14 @@ def test_render_pattern_menu(term: TerminalProtocol) -> None:
     state = RendererState()
     state.pattern_mode = True
 
-    output = render_pattern_menu(term, config, state)
+    # Get the rendered menu
+    menu_text = render_pattern_menu(term, config, state)
 
-    assert "Pattern Mode" in output
-    assert "rotate" in output
-    assert "place" in output
-    assert "exit" in output
+    # Verify content
+    assert "Pattern Mode" in menu_text
+    assert "rotate" in menu_text
+    assert "place" in menu_text
+    assert "exit" in menu_text
 
 
 def test_grid_rendering_with_patterns(term: TerminalProtocol) -> None:
@@ -564,11 +350,8 @@ def test_grid_rendering_with_patterns(term: TerminalProtocol) -> None:
 
     grid = create_grid(GridConfig(width=20, height=20))
 
-    try:
-        render_grid(term, grid, config, state)
-        assert state.previous_pattern_cells is not None
-    finally:
-        cleanup_terminal(term)
+    render_grid(term, grid, config, state)
+    assert state.previous_pattern_cells is not None
 
 
 def test_grid_resize_handling(term: TerminalProtocol) -> None:

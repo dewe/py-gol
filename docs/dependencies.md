@@ -175,9 +175,4 @@ graph TD
   - Manages terminal display
   - Handles user input
   - Provides terminal formatting
-
-- **psutil**: System monitoring
-  - Used for process and system monitoring
-  - Helps with performance optimization
-  - Provides system resource information
    

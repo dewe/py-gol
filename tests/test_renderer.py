@@ -52,40 +52,34 @@ def test_renderer_config_defaults() -> None:
 
 def test_terminal_initialization() -> None:
     """
-    Given: A new terminal initialization
-    When: Setting up the terminal
-    Then: Should return configured Terminal instance and RendererState
-    And: Terminal should be in fullscreen mode
-    And: Terminal should have cursor hidden
+    Given: Terminal configuration
+    When: Initializing terminal
+    Then: Should return valid terminal and state
     """
-    config = RendererConfig()
-    term, state = initialize_terminal(config)
-
-    assert term is not None
-    assert state is not None
-    assert isinstance(term, Terminal)
-    assert isinstance(state, RendererState)
+    term, state = initialize_terminal()
+    try:
+        assert term is not None
+        assert state is not None
+        assert isinstance(term, Terminal)
+        assert isinstance(state, RendererState)
+    finally:
+        if term is not None:
+            cleanup_terminal(term)
 
 
 def test_terminal_cleanup() -> None:
     """
-    Given: An initialized terminal
-    When: Cleaning up the terminal
-    Then: Should restore terminal to original state
+    Given: Initialized terminal
+    When: Cleaning up
+    Then: Should restore terminal state without error
     """
-    config = RendererConfig()
-    term, _ = initialize_terminal(config)
-    assert term is not None
-
+    term, _ = initialize_terminal()
     try:
-        # Verify terminal is initialized
-        assert isinstance(term, Terminal)
-
-        # Perform cleanup
+        assert term is not None
         cleanup_terminal(term)
     finally:
-        # Ensure cleanup runs even if test fails
-        cleanup_terminal(term)
+        if term is not None:
+            cleanup_terminal(term)
 
 
 def test_terminal_initialization_and_cleanup_cycle() -> None:
@@ -94,10 +88,8 @@ def test_terminal_initialization_and_cleanup_cycle() -> None:
     When: Running in sequence
     Then: Should handle multiple cycles without errors
     """
-    config = RendererConfig()
-
     for _ in range(3):  # Test multiple cycles
-        term, _ = initialize_terminal(config)
+        term, _ = initialize_terminal()
         assert term is not None
         assert isinstance(term, Terminal)
         cleanup_terminal(term)
@@ -111,9 +103,7 @@ def test_grid_rendering() -> None:
     And: Should position grid centered in terminal
     And: Should use configured cell characters
     """
-    # Setup
-    renderer_config = RendererConfig()
-    term, state = initialize_terminal(renderer_config)
+    term, state = initialize_terminal()
     assert term is not None
     assert state is not None
 
@@ -127,7 +117,7 @@ def test_grid_rendering() -> None:
 
     try:
         # Act
-        render_grid(term, grid, renderer_config, state)
+        render_grid(term, grid, RendererConfig(), state)
 
         # Assert - since we can't check terminal output directly,
         # we at least verify that rendering completes without error
@@ -144,14 +134,13 @@ def test_grid_rendering_empty() -> None:
     When: Rendering the grid
     Then: Should display all dead cells
     """
-    renderer_config = RendererConfig()
-    term, state = initialize_terminal(renderer_config)
+    term, state = initialize_terminal()
     assert term is not None
     assert state is not None
     grid = create_grid(GridConfig(width=3, height=3, density=0.0))
 
     try:
-        render_grid(term, grid, renderer_config, state)
+        render_grid(term, grid, RendererConfig(), state)
     finally:
         cleanup_terminal(term)
 
@@ -244,8 +233,7 @@ def test_handle_resize_event() -> None:
     When: Terminal is resized
     Then: Should clear screen and rehide cursor
     """
-    config = RendererConfig()
-    term, state = initialize_terminal(config)
+    term, state = initialize_terminal()
     assert term is not None
     assert state is not None
 
@@ -351,3 +339,21 @@ def test_grid_resize_handling(term: TerminalProtocol) -> None:
     assert state.previous_pattern_cells is None  # Should clear pattern preview
     assert state.terminal_width == term.width
     assert state.terminal_height == term.height
+
+
+def test_resize_handling() -> None:
+    """
+    Given: Terminal instance
+    When: Handling resize event
+    Then: Should update dimensions and clear screen
+    """
+    term, _ = initialize_terminal()
+    try:
+        assert term is not None
+        state = RendererState()
+        handle_resize_event(term, state)
+        assert state.terminal_width == term.width
+        assert state.terminal_height == term.height
+    finally:
+        if term is not None:
+            cleanup_terminal(term)

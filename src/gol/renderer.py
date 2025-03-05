@@ -190,9 +190,7 @@ CommandType = Literal[
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 
 
-def initialize_terminal(
-    _config: RendererConfig,
-) -> Tuple[Optional[TerminalProtocol], Optional[RendererState]]:
+def initialize_terminal() -> Tuple[Optional[TerminalProtocol], Optional[RendererState]]:
     """Initialize terminal for game display in fullscreen mode.
 
     Sets up alternate screen buffer and hides cursor for clean rendering.

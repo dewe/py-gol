@@ -33,7 +33,7 @@ def initialize_game(
     Manages terminal initialization in raw mode for direct keyboard input,
     ensuring proper cleanup on failure.
     """
-    terminal, state = initialize_terminal(config.renderer)
+    terminal, state = initialize_terminal()
     if terminal is None or state is None:
         raise RuntimeError("Failed to initialize terminal")
 

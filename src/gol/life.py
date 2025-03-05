@@ -1,8 +1,9 @@
 """Pure functional implementation of Conway's Game of Life."""
 
 import numpy as np
+from scipy import signal
 
-from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
+from gol.grid import BoundaryCondition
 from gol.types import Grid, IntArray
 
 
@@ -35,15 +36,23 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
     Returns:
         New grid representing the next generation
     """
-    height, width = grid.shape
-    live_counts = np.zeros((height, width), dtype=np.int_)
+    # Define convolution kernel for counting neighbors
+    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
 
-    # Calculate live neighbors for all cells
-    for y in range(height):
-        for x in range(width):
-            pos = (x, y)  # type: tuple[int, int]
-            neighbors = get_neighbors(grid, pos, boundary)
-            live_counts[y, x] = count_live_neighbors(grid, neighbors, boundary)
+    # Calculate live neighbors based on boundary condition
+    match boundary:
+        case BoundaryCondition.TOROIDAL:
+            # For toroidal, use periodic boundary
+            live_counts = signal.convolve2d(
+                grid.astype(np.int_), kernel, mode="same", boundary="wrap"
+            )
+        case BoundaryCondition.FINITE:
+            # For finite, use zero boundary
+            live_counts = signal.convolve2d(
+                grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
+            )
+        case _:  # INFINITE
+            # For infinite, extend with zeros
+            live_counts = signal.convolve2d(grid.astype(np.int_), kernel, mode="same")
 
-    # Calculate next state for all cells at once
     return calculate_next_state(grid, live_counts)

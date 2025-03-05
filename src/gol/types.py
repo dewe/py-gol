@@ -14,7 +14,6 @@ GridIndex: TypeAlias = Union[int, slice]
 # Pattern types
 PatternGrid: TypeAlias = NDArray[np.bool_]
 
-
 # Rendering types
 ScreenPosition: TypeAlias = tuple[int, int]  # (x, y) coords in terminal space
 RenderGrid: TypeAlias = dict[ScreenPosition, bool]

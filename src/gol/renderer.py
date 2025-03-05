@@ -352,15 +352,6 @@ def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> Non
     sys.stdout.flush()
 
 
-def clear_screen(terminal: TerminalProtocol) -> None:
-    """Clears the terminal screen.
-
-    Args:
-        terminal: Terminal instance
-    """
-    print(terminal.clear())
-
-
 def cleanup_terminal(terminal: TerminalProtocol) -> None:
     """Restores terminal to original state.
 
@@ -756,15 +747,3 @@ def safe_render_grid(
         # Handle any other unexpected errors
         cleanup_terminal(terminal)
         raise RuntimeError(f"Unexpected error during rendering: {e}") from e
-
-
-def count_active_cells(grid: Grid) -> int:
-    """Returns the number of active cells in the grid."""
-    return np.count_nonzero(grid)
-
-
-def calculate_cell_changes(old_grid: Grid, new_grid: Grid) -> tuple[int, int]:
-    """Calculate number of births and deaths between grid states."""
-    births = np.logical_and(~old_grid, new_grid)
-    deaths = np.logical_and(old_grid, ~new_grid)
-    return np.count_nonzero(births), np.count_nonzero(deaths)

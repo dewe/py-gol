@@ -27,8 +27,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=6.0.0",
     "black>=24.0.0",
     "ruff>=0.3.0",
     "mypy>=1.9.0",
@@ -40,8 +38,6 @@ dev = [
 gol = "gol.main:main"
 
 [tool.pytest.ini_options]
-asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "function"
 markers = [
     "rules: tests for Game of Life rules",
     "patterns: tests for pattern evolution",

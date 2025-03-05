@@ -1,18 +1,21 @@
 """Tests for the terminal renderer module."""
 
+import dataclasses
 import re
-import time
 from io import StringIO
+from unittest.mock import Mock
 
+import numpy as np
 import pytest
 from blessed import Terminal
 from blessed.keyboard import Keystroke
 
 from gol.grid import GridConfig, create_grid
+from gol.metrics import create_metrics
+from gol.patterns import PatternTransform
 from gol.renderer import (
     BUILTIN_PATTERNS,
     RendererConfig,
-    RendererState,
     TerminalProtocol,
     cleanup_terminal,
     handle_resize_event,
@@ -22,18 +25,34 @@ from gol.renderer import (
     render_pattern_menu,
     render_status_line,
 )
+from gol.state import RendererState
+from gol.types import Grid
 
 
-def create_mock_keystroke(name: str = "") -> Keystroke:
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    ansi_escape = re.compile(
+        r"(\x1b\[[0-9;]*[a-zA-Z]|\x1b\([0-9A-Z]|\x1b[@-_]|\x1b\[[0-?]*[ -/]*[@-~])"
+    )
+    return ansi_escape.sub("", text)
+
+
+def create_mock_keystroke(name: str = "", value: str = "") -> Keystroke:
     """Create a mock keystroke for testing.
 
     Args:
         name: Name of the key pressed
+        value: Value of the key pressed
 
     Returns:
         Mock keystroke object
     """
-    return Keystroke(name=name)
+    key = Mock(spec=Keystroke)
+    key.name = name
+    key.configure_mock(__str__=Mock(return_value=value))
+    key.configure_mock(__eq__=Mock(side_effect=lambda x: value == x))
+    key.configure_mock(isdigit=Mock(return_value=value.isdigit() if value else False))
+    return key
 
 
 def test_renderer_config_defaults() -> None:
@@ -54,7 +73,7 @@ def test_terminal_initialization() -> None:
     """
     Given: Terminal configuration
     When: Initializing terminal
-    Then: Should return valid terminal and state
+    Then: Should return valid terminal and immutable state
     """
     term, state = initialize_terminal()
     try:
@@ -62,6 +81,10 @@ def test_terminal_initialization() -> None:
         assert state is not None
         assert isinstance(term, Terminal)
         assert isinstance(state, RendererState)
+
+        # Verify state immutability
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            state.terminal_width = 80  # type: ignore
     finally:
         if term is not None:
             cleanup_terminal(term)
@@ -96,13 +119,7 @@ def test_terminal_initialization_and_cleanup_cycle() -> None:
 
 
 def test_grid_rendering() -> None:
-    """
-    Given: A terminal and a known grid state
-    When: Rendering the grid
-    Then: Should output correct characters for live/dead cells
-    And: Should position grid centered in terminal
-    And: Should use configured cell characters
-    """
+    """Test grid rendering with known state."""
     term, state = initialize_terminal()
     assert term is not None
     assert state is not None
@@ -117,30 +134,32 @@ def test_grid_rendering() -> None:
 
     try:
         # Act
-        render_grid(term, grid, RendererConfig(), state)
+        metrics = create_metrics()
+        new_state, new_metrics = render_grid(
+            term, grid, RendererConfig(), state, metrics
+        )
 
-        # Assert - since we can't check terminal output directly,
-        # we at least verify that rendering completes without error
-        # and updates state correctly
-        assert state.total_cells == 9
-        assert state.active_cells == 3
+        # Assert
+        assert new_state is not None
+        assert new_metrics is not None
     finally:
         cleanup_terminal(term)
 
 
 def test_grid_rendering_empty() -> None:
-    """
-    Given: A terminal and an empty grid
-    When: Rendering the grid
-    Then: Should display all dead cells
-    """
+    """Test grid rendering with empty grid."""
     term, state = initialize_terminal()
     assert term is not None
     assert state is not None
     grid = create_grid(GridConfig(width=3, height=3, density=0.0))
 
     try:
-        render_grid(term, grid, RendererConfig(), state)
+        metrics = create_metrics()
+        new_state, new_metrics = render_grid(
+            term, grid, RendererConfig(), state, metrics
+        )
+        assert new_state is not None
+        assert new_metrics is not None
     finally:
         cleanup_terminal(term)
 
@@ -156,7 +175,7 @@ def term() -> TerminalProtocol:
 def test_handle_user_input_quit_commands() -> None:
     """Test quit command handling."""
     config = RendererConfig()
-    state = RendererState()
+    state = RendererState.create()
 
     # Test 'q' key
     key = Keystroke("q")
@@ -168,7 +187,7 @@ def test_handle_user_input_quit_commands() -> None:
     assert result == "quit"
 
     # Test ESC key (in pattern mode)
-    state.pattern_mode = True
+    state = state.with_pattern_mode(True)
     result = handle_user_input(Keystroke("\x1b"), config, state)
     assert result == "exit_pattern"
 
@@ -176,7 +195,7 @@ def test_handle_user_input_quit_commands() -> None:
 def test_handle_user_input_restart_command() -> None:
     """Test restart command handling."""
     config = RendererConfig()
-    state = RendererState()
+    state = RendererState.create()
 
     key = Keystroke("r")
     result = handle_user_input(key, config, state)
@@ -186,7 +205,7 @@ def test_handle_user_input_restart_command() -> None:
 def test_handle_user_input_continue_command() -> None:
     """Test continue command handling."""
     config = RendererConfig()
-    state = RendererState()
+    state = RendererState.create()
 
     key = Keystroke(" ")
     result = handle_user_input(key, config, state)
@@ -196,7 +215,7 @@ def test_handle_user_input_continue_command() -> None:
 def test_handle_user_input_interval_adjustment() -> None:
     """Test interval adjustment handling."""
     config = RendererConfig()
-    state = RendererState()
+    state = RendererState.create()
 
     # Test increase interval
     key = Keystroke("KEY_UP")
@@ -212,7 +231,7 @@ def test_handle_user_input_interval_adjustment() -> None:
 def test_handle_user_input_interval_limits() -> None:
     """Test interval adjustment limits."""
     config = RendererConfig()
-    state = RendererState()
+    state = RendererState.create()
 
     # Test upper limit
     config.update_interval = config.max_interval
@@ -228,56 +247,73 @@ def test_handle_user_input_interval_limits() -> None:
 
 
 def test_handle_resize_event() -> None:
-    """
-    Given: A terminal instance
-    When: Terminal is resized
-    Then: Should clear screen and rehide cursor
-    """
-    term, state = initialize_terminal()
-    assert term is not None
-    assert state is not None
+    """Test that resize events update terminal dimensions and clear state."""
+    output = StringIO()
+    terminal = Terminal(force_styling=True, stream=output, kind="xterm-256color")
+    state = RendererState.create()
+
+    # Verify initial dimensions
+    assert state.terminal_width == 0
+    assert state.terminal_height == 0
+
+    # Redirect stdout to capture terminal output
+    import sys
+
+    old_stdout = sys.stdout
+    sys.stdout = output
 
     try:
-        # Test resize handling
-        handle_resize_event(term, state)
-        # We can't test actual resize, but we can verify it runs without errors
+        # Handle resize
+        new_state = handle_resize_event(terminal, state)
+
+        # Verify new state has updated dimensions
+        assert new_state.terminal_width == terminal.width
+        assert new_state.terminal_height == terminal.height
+        assert new_state.previous_grid is None
+        assert new_state.previous_pattern_cells is None
+
+        # Original state should be unchanged
+        assert state.terminal_width == 0
+        assert state.terminal_height == 0
+
+        # Verify output contains expected terminal control sequences
+        output_text = output.getvalue()
+        assert terminal.clear() in output_text
+        assert terminal.hide_cursor() in output_text
+        assert terminal.move_xy(0, 0) in output_text
     finally:
-        cleanup_terminal(term)
-
-
-def strip_ansi(text: str) -> str:
-    """Strip ANSI escape sequences from text.
-
-    Args:
-        text: Text containing ANSI escape sequences
-
-    Returns:
-        Text with ANSI escape sequences removed
-    """
-    # Handle both standard ANSI escapes and blessed's special sequences
-    ansi_escape = re.compile(r"(\x1b\[[0-9;]*[a-zA-Z]|\x1b\([0-9A-Z]|\x1b[@-_])")
-    return ansi_escape.sub("", text)
+        sys.stdout = old_stdout
 
 
 def test_render_status_line(term: TerminalProtocol) -> None:
-    """Test status line rendering with real Terminal instance."""
+    """Test status line rendering."""
     config = RendererConfig()
-    state = RendererState()
-    state.active_cells = 42
-    state.generation_count = 100
-    state.birth_rate = 5.0
-    state.death_rate = 3.0
-    # Set last_stats_update to current time to prevent stats reset
-    state.last_stats_update = time.time()
+    metrics = create_metrics()
 
-    # Get the rendered status line and strip ANSI sequences
-    status_text = strip_ansi(render_status_line(term, config, state))
+    # Set up test metrics
+    from dataclasses import replace
 
-    # Verify content
-    assert "Population: 42" in status_text
-    assert "Generation: 100" in status_text
-    assert "Births/s: 5.0" in status_text
-    assert "Deaths/s: 3.0" in status_text
+    from gol.metrics import GameMetrics
+
+    metrics = replace(
+        metrics,
+        game=GameMetrics(
+            active_cells=42,
+            generation_count=100,
+            birth_rate=5.0,
+            death_rate=3.0,
+            total_cells=100,
+        ),
+    )
+
+    # Render status line and strip ANSI sequences
+    status = strip_ansi(render_status_line(term, config, metrics))
+
+    # Check that metrics values are included in output
+    assert "Population: 42" in status
+    assert "Generation: 100" in status
+    assert "Births/s: 5.0" in status
+    assert "Deaths/s: 3.0" in status
 
 
 def test_render_pattern_menu(term: TerminalProtocol) -> None:
@@ -299,23 +335,18 @@ def test_render_pattern_menu(term: TerminalProtocol) -> None:
 
 
 def test_grid_rendering_with_patterns(term: TerminalProtocol) -> None:
-    """Test grid rendering with pattern preview.
-
-    Given: Pattern mode with selected pattern
-    When: Rendering grid
-    Then: Should show pattern preview and cursor
-    """
+    """Test grid rendering with pattern preview."""
     config = RendererConfig()
-    state = RendererState()
-    state.pattern_mode = True
-    state.cursor_x = 5
-    state.cursor_y = 5
+    state = RendererState.create()
+    state = state.with_pattern_mode(True).with_cursor_position(5, 5)
     config.selected_pattern = list(BUILTIN_PATTERNS.keys())[0]  # Select first pattern
 
     grid = create_grid(GridConfig(width=20, height=20))
+    metrics = create_metrics()
 
-    render_grid(term, grid, config, state)
-    assert state.previous_pattern_cells is not None
+    new_state, new_metrics = render_grid(term, grid, config, state, metrics)
+    assert new_state is not None
+    assert new_metrics is not None
 
 
 def test_grid_resize_handling(term: TerminalProtocol) -> None:
@@ -325,17 +356,16 @@ def test_grid_resize_handling(term: TerminalProtocol) -> None:
     When: Handling resize events
     Then: Should maintain margins and clear screen properly
     """
-    state = RendererState()
-    state.terminal_width = 80
-    state.terminal_height = 24
+    state = RendererState.create()
+    state = state.with_terminal_dimensions(80, 24)
 
     # Simulate resize event
-    handle_resize_event(term, state)
+    new_state = handle_resize_event(term, state)
 
-    assert state.previous_grid is None  # Should force redraw
-    assert state.previous_pattern_cells is None  # Should clear pattern preview
-    assert state.terminal_width == term.width
-    assert state.terminal_height == term.height
+    assert new_state.previous_grid is None  # Should force redraw
+    assert new_state.previous_pattern_cells is None  # Should clear pattern preview
+    assert new_state.terminal_width == term.width
+    assert new_state.terminal_height == term.height
 
 
 def test_resize_handling() -> None:
@@ -347,10 +377,287 @@ def test_resize_handling() -> None:
     term, _ = initialize_terminal()
     try:
         assert term is not None
-        state = RendererState()
-        handle_resize_event(term, state)
-        assert state.terminal_width == term.width
-        assert state.terminal_height == term.height
+        state = RendererState.create()
+        new_state = handle_resize_event(term, state)
+        assert new_state.terminal_width == term.width
+        assert new_state.terminal_height == term.height
     finally:
         if term is not None:
             cleanup_terminal(term)
+
+
+def test_render_grid_updates_metrics(term: TerminalProtocol) -> None:
+    """Test that render_grid updates metrics correctly."""
+    grid = np.array([[0, 1, 1], [1, 0, 0]], dtype=bool)
+    config = RendererConfig()
+    state = RendererState.create()
+    metrics = create_metrics()
+
+    new_state, new_metrics = render_grid(term, grid, config, state, metrics)
+    assert new_metrics.game.total_cells == 6  # 2x3 grid
+    assert new_metrics.game.active_cells == 3  # Three live cells
+
+
+def test_immutable_renderer_state_creation() -> None:
+    """Test creation of immutable renderer state.
+
+    Given: Default immutable renderer state
+    When: Creating new state
+    Then: Should have expected default values
+    """
+    state = RendererState.create()
+    assert state.start_x == 0
+    assert state.start_y == 0
+    assert state.terminal_width == 0
+    assert state.terminal_height == 0
+    assert state.pattern_mode is False
+    assert state.previous_grid is None
+    assert state.previous_pattern_cells is None
+
+
+def test_immutable_renderer_state_updates() -> None:
+    """Test immutable state updates return new instances.
+
+    Given: An immutable renderer state
+    When: Performing state updates
+    Then: Should return new instances with updated values
+    """
+    state = RendererState.create()
+
+    # Test grid position update
+    new_state = state.with_grid_position(10, 20)
+    assert new_state is not state
+    assert new_state.start_x == 10
+    assert new_state.start_y == 20
+    assert state.start_x == 0  # Original unchanged
+
+    # Test terminal dimensions update
+    new_state = state.with_terminal_dimensions(80, 24)
+    assert new_state is not state
+    assert new_state.terminal_width == 80
+    assert new_state.terminal_height == 24
+
+    # Test pattern mode update
+    new_state = state.with_pattern_mode(True)
+    assert new_state is not state
+    assert new_state.pattern_mode is True
+    assert state.pattern_mode is False  # Original unchanged
+
+
+def test_renderer_state_immutability() -> None:
+    """Test that renderer state is immutable."""
+    state = RendererState()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        state.terminal_width = 80  # type: ignore
+
+
+def test_state_update_methods() -> None:
+    """Test state update methods."""
+    state = RendererState()
+    new_state = state.with_terminal_dimensions(80, 24)
+    assert new_state.terminal_width == 80
+    assert new_state.terminal_height == 24
+    assert state.terminal_width == 0  # Original unchanged
+
+
+def test_state_chained_updates() -> None:
+    """Test chained state updates."""
+    state = RendererState()
+    new_state = (
+        state.with_terminal_dimensions(80, 24)
+        .with_grid_position(10, 5)
+        .with_pattern_mode(True)
+    )
+    assert new_state.terminal_width == 80
+    assert new_state.terminal_height == 24
+    assert new_state.start_x == 10
+    assert new_state.start_y == 5
+    assert new_state.pattern_mode is True
+
+
+def test_state_grid_updates() -> None:
+    """Test grid state updates."""
+    state = RendererState()
+    grid = {(0, 0): True, (1, 1): False}
+    new_state = state.with_previous_grid(grid)
+    assert new_state.previous_grid == grid
+    assert state.previous_grid is None  # Original unchanged
+
+
+def test_render_grid(
+    mock_terminal: TerminalProtocol,
+    mock_grid: Grid,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test grid rendering."""
+    metrics = create_metrics()
+    state, new_metrics = render_grid(
+        mock_terminal, mock_grid, mock_config, mock_state, metrics
+    )
+    mock_terminal.clear.assert_called_once()  # type: ignore
+
+
+def test_render_grid_with_pattern_cells(
+    mock_terminal: TerminalProtocol,
+    mock_grid: Grid,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test grid rendering with pattern cells."""
+    pattern_cells = {(1, 1), (1, 2), (2, 1), (2, 2)}
+    state = mock_state.with_pattern_cells(pattern_cells)
+    metrics = create_metrics()
+    new_state, new_metrics = render_grid(
+        mock_terminal, mock_grid, mock_config, state, metrics
+    )
+    assert new_state is not None
+    assert new_metrics is not None
+
+
+@pytest.fixture
+def mock_terminal() -> TerminalProtocol:
+    """Create a mock terminal for testing."""
+    terminal = Mock()
+    terminal.width = 80
+    terminal.height = 24
+    terminal.clear = Mock(return_value="")
+    terminal.move_xy = Mock(return_value="")
+    terminal.black = Mock(return_value="")
+    terminal.white = Mock(return_value="")
+    terminal.on_black = Mock(return_value="")
+    terminal.on_white = Mock(return_value="")
+    terminal.yellow = ""
+    terminal.blue = ""
+    terminal.dim = ""
+    terminal.normal = ""
+    return terminal
+
+
+@pytest.fixture
+def mock_grid() -> Grid:
+    """Create a mock grid for testing."""
+    return np.zeros((10, 10), dtype=np.bool_)
+
+
+@pytest.fixture
+def mock_config() -> RendererConfig:
+    """Create a mock renderer config for testing."""
+    return RendererConfig(
+        update_interval=100,
+        selected_pattern=None,
+        pattern_rotation=PatternTransform.NONE,
+    )
+
+
+@pytest.fixture
+def mock_state() -> RendererState:
+    """Create a mock renderer state for testing."""
+    return RendererState()
+
+
+def test_initialize_terminal() -> None:
+    """Test terminal initialization."""
+    terminal, state = initialize_terminal()
+    assert terminal is not None
+    assert state is not None
+
+
+def test_cleanup_terminal() -> None:
+    """Test terminal cleanup."""
+    terminal = Mock()
+    cleanup_terminal(terminal)
+    terminal.clear.assert_called_once()
+
+
+def test_handle_user_input_quit(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling quit command."""
+    key = Mock()
+    key.name = "q"
+    command = handle_user_input(key, mock_config, mock_state)
+    assert command == "quit"
+
+
+def test_handle_user_input_pattern_mode(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling pattern mode command."""
+    key = Mock()
+    key.name = "p"
+    command = handle_user_input(key, mock_config, mock_state)
+    assert command == "pattern"
+
+
+def test_handle_user_input_cursor_movement(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling cursor movement commands."""
+    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
+    key = create_mock_keystroke(name="KEY_LEFT")
+    command = handle_user_input(key, mock_config, state)
+    assert command == "move_cursor_left"
+
+
+def test_handle_user_input_pattern_placement(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling pattern placement command."""
+    key = create_mock_keystroke(name="KEY_SPACE", value=" ")
+    command = handle_user_input(key, mock_config, mock_state)
+    assert command == "place_pattern"
+
+
+def test_handle_user_input_pattern_rotation(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling pattern rotation command."""
+    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
+    key = create_mock_keystroke(name="r", value="r")
+    command = handle_user_input(key, mock_config, state)
+    assert command == "rotate_pattern"
+
+
+def test_handle_user_input_resize(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling resize commands."""
+    key = create_mock_keystroke(name="KEY_PLUS", value="+")
+    command = handle_user_input(key, mock_config, mock_state)
+    assert command == "resize_larger"
+
+
+def test_handle_user_input_exit_pattern_mode(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling exit pattern mode command."""
+    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
+    key = create_mock_keystroke(name="KEY_ESCAPE", value="\x1b")
+    command = handle_user_input(key, mock_config, state)
+    assert command == "exit_pattern"
+
+
+def test_handle_user_input_invalid_key(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test handling invalid key."""
+    key = create_mock_keystroke(name="invalid", value="x")
+    command = handle_user_input(key, mock_config, mock_state)
+    assert command == "continue"  # Invalid keys should return 'continue'

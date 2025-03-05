@@ -32,8 +32,11 @@ import sys
 import time
 from typing import Any, Callable, Dict, Literal, Tuple
 
+import numpy as np
+
 from gol.controller import ControllerConfig, process_generation, resize_game
 from gol.grid import BoundaryCondition, GridConfig, create_grid
+from gol.metrics import create_metrics, update_game_metrics
 from gol.patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
@@ -49,7 +52,7 @@ from gol.renderer import (
     initialize_terminal,
     safe_render_grid,
 )
-from gol.types import Grid, GridPosition
+from gol.types import Grid
 
 CommandType = Literal[
     "continue",
@@ -205,7 +208,7 @@ def run_game_loop(
     terminal: TerminalProtocol,
     grid: Grid,
     config: ControllerConfig,
-    state: RendererState,
+    initial_state: RendererState,
 ) -> None:
     """Main game loop implementing Conway's Game of Life rules.
 
@@ -217,8 +220,9 @@ def run_game_loop(
     last_frame = time.time()
     last_update = time.time()
 
-    # Track if game is paused
-    is_paused = False
+    # Initialize state and metrics
+    state = initial_state
+    metrics = create_metrics()
 
     # Command handlers
     def handle_quit() -> tuple[Grid, ControllerConfig, bool]:
@@ -226,7 +230,8 @@ def run_game_loop(
 
     def handle_restart() -> tuple[Grid, ControllerConfig, bool]:
         new_grid = create_grid(config.grid)
-        state.generation_count = 0  # Reset generation count
+        nonlocal metrics
+        metrics = create_metrics()  # Reset metrics on restart
         return new_grid, config, False
 
     def handle_pattern_mode() -> tuple[Grid, ControllerConfig, bool]:
@@ -235,13 +240,12 @@ def run_game_loop(
         Manages mode transitions while preserving pattern selection and
         ensuring proper cursor positioning for pattern placement.
         """
-        # Toggle pattern mode and pause state
-        state.pattern_mode = not state.pattern_mode
-        nonlocal is_paused
+        nonlocal state
+        # Toggle pattern mode
+        state = state.with_pattern_mode(not state.pattern_mode)
 
         if state.pattern_mode:
-            # Entering pattern mode - pause and keep current pattern if set
-            is_paused = True
+            # Entering pattern mode - keep current pattern if set
             new_config = ControllerConfig(
                 grid=config.grid,
                 renderer=config.renderer,
@@ -250,11 +254,11 @@ def run_game_loop(
                 pattern_rotation=config.renderer.pattern_rotation,
             )
             # Initialize cursor position to center of grid
-            state.cursor_x = config.grid.width // 2
-            state.cursor_y = config.grid.height // 2
+            state = state.with_cursor_position(
+                config.grid.width // 2, config.grid.height // 2
+            )
         else:
             # Exiting pattern mode via ESC - unpause and clear pattern
-            is_paused = False
             new_config = ControllerConfig(
                 grid=config.grid,
                 renderer=config.renderer,
@@ -266,15 +270,24 @@ def run_game_loop(
 
     def handle_cursor_movement(direction: str) -> tuple[Grid, ControllerConfig, bool]:
         """Handle wrapped cursor movement within grid bounds."""
+        nonlocal state
         if state.pattern_mode:
             if direction == "left":
-                state.cursor_x = (state.cursor_x - 1) % config.grid.width
+                state = state.with_cursor_position(
+                    (state.cursor_x - 1) % config.grid.width, state.cursor_y
+                )
             elif direction == "right":
-                state.cursor_x = (state.cursor_x + 1) % config.grid.width
+                state = state.with_cursor_position(
+                    (state.cursor_x + 1) % config.grid.width, state.cursor_y
+                )
             elif direction == "up":
-                state.cursor_y = (state.cursor_y - 1) % config.grid.height
+                state = state.with_cursor_position(
+                    state.cursor_x, (state.cursor_y - 1) % config.grid.height
+                )
             elif direction == "down":
-                state.cursor_y = (state.cursor_y + 1) % config.grid.height
+                state = state.with_cursor_position(
+                    state.cursor_x, (state.cursor_y + 1) % config.grid.height
+                )
 
         return grid, config, False
 
@@ -284,6 +297,7 @@ def run_game_loop(
         Returns:
             Tuple of (grid, config, should_quit)
         """
+        nonlocal state
         if state.pattern_mode and config.renderer.selected_pattern:
             pattern = BUILTIN_PATTERNS.get(
                 config.renderer.selected_pattern
@@ -291,14 +305,10 @@ def run_game_loop(
 
             if pattern:
                 # Use place_pattern with centering enabled
-                cursor_pos: GridPosition = (
-                    state.cursor_x,
-                    state.cursor_y,
-                )  # Create tuple first
                 new_grid = place_pattern(
                     grid,
                     pattern,
-                    cursor_pos,  # GridPosition is a type alias for tuple[int, int]
+                    (state.cursor_x, state.cursor_y),
                     config.renderer.pattern_rotation,
                     centered=True,
                 )
@@ -326,6 +336,7 @@ def run_game_loop(
         - State preservation
         - Proper redraw triggering
         """
+        nonlocal state
         # Calculate max dimensions based on terminal size
         # Each cell takes 2 characters width due to spacing
         # Reserve 2 lines at bottom for status/menu
@@ -358,8 +369,8 @@ def run_game_loop(
             sys.stdout.flush()
 
             # Force full redraw by clearing renderer state
-            state.previous_grid = None
-            state.previous_pattern_cells = None
+            state = state.with_previous_grid(None)
+            state = state.with_pattern_cells(None)
 
             # Resize grid and update config
             new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)
@@ -410,16 +421,24 @@ def run_game_loop(
 
             # Update game state if not paused
             if (
-                not is_paused
+                not state.pattern_mode
                 and current_time - last_update >= config.renderer.update_interval / 1000
             ):
                 grid = process_generation(grid, config.grid.boundary)
-                state.generation_count += 1
+                metrics = update_game_metrics(
+                    metrics,
+                    total_cells=grid.size,
+                    active_cells=np.count_nonzero(grid),
+                    births=0,  # Will be updated in render_grid
+                    deaths=0,  # Will be updated in render_grid
+                )
                 last_update = current_time
 
             # Render frame if enough time has passed
             if current_time - last_frame >= 1 / 60:  # Cap at 60 FPS
-                safe_render_grid(terminal, grid, config.renderer, state)
+                state, metrics = safe_render_grid(
+                    terminal, grid, config.renderer, state, metrics
+                )
                 last_frame = current_time
 
             # Small sleep to prevent busy waiting

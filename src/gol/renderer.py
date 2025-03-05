@@ -1,15 +1,15 @@
 """Terminal renderer for Game of Life."""
 
 import sys
-import time
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Protocol, Set, Tuple, runtime_checkable
+from typing import Any, Literal, Optional, Protocol, Tuple, runtime_checkable
 
 import numpy as np
 from blessed import Terminal
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
+from .metrics import Metrics, update_frame_metrics, update_game_metrics
 from .patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
@@ -17,6 +17,7 @@ from .patterns import (
     get_centered_position,
     get_pattern_cells,
 )
+from .state import RendererState
 from .types import Grid, RenderGrid, ScreenPosition
 
 # Update type alias to use types from types.py
@@ -128,42 +129,6 @@ class RendererConfig:
         self.pattern_rotation = rotation
 
 
-@dataclass
-class RendererState:
-    """Maintains renderer state between frames."""
-
-    previous_grid: Optional[RenderGrid] = None
-    start_x: int = 0
-    start_y: int = 0
-    terminal_width: int = 0
-    terminal_height: int = 0
-    last_frame_time: float = 0.0
-    generation_count: int = 0
-    total_cells: int = 0
-    active_cells: int = 0
-    births_this_second: int = 0
-    deaths_this_second: int = 0
-    birth_rate: float = 0.0
-    death_rate: float = 0.0
-    last_stats_update: float = 0.0
-    frames_this_second: int = 0
-    actual_fps: float = 0.0
-    last_fps_update: float = 0.0
-    messages_this_second: int = 0
-    messages_per_second: float = 0.0
-    last_message_update: float = 0.0
-    changes_this_second: int = 0
-    changes_per_second: float = 0.0
-    cpu_percent: float = 0.0
-    memory_mb: float = 0.0
-    pattern_mode: bool = False
-    cursor_x: int = 0
-    cursor_y: int = 0
-    previous_pattern_cells: Optional[Set[CellPos]] = None
-    was_in_pattern_mode: bool = False
-    pattern_menu: str = ""
-
-
 CommandType = Literal[
     "continue",
     "quit",
@@ -186,17 +151,20 @@ CommandType = Literal[
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 
 
-def initialize_terminal() -> Tuple[Optional[TerminalProtocol], Optional[RendererState]]:
+def initialize_terminal() -> TerminalResult:
     """Initialize terminal for game display in fullscreen mode.
 
     Sets up alternate screen buffer and hides cursor for clean rendering.
+
+    Returns:
+        Tuple of (Terminal, State) or (None, None) if initialization fails
     """
     try:
         terminal = Terminal()
         print(terminal.enter_fullscreen(), end="", flush=True)
         print(terminal.hide_cursor(), end="", flush=True)
         print(terminal.clear(), end="", flush=True)
-        state = RendererState()
+        state = RendererState.create()
         return terminal, state
     except Exception:
         if "terminal" in locals():
@@ -302,16 +270,24 @@ def handle_user_input(
     return "continue"
 
 
-def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> None:
+def handle_resize_event(
+    terminal: TerminalProtocol, state: RendererState
+) -> RendererState:
     """Handles terminal resize events.
 
     Args:
         terminal: Terminal instance to handle resize for
         state: Current renderer state
+
+    Returns:
+        New state instance with updated dimensions and cleared grid
     """
-    # Force full redraw on next frame
-    state.previous_grid = None
-    state.previous_pattern_cells = None
+    # Create new state with cleared grid and pattern cells
+    new_state = (
+        state.with_previous_grid(None)
+        .with_pattern_cells(None)
+        .with_terminal_dimensions(terminal.width, terminal.height)
+    )
 
     # Clear screen and reset cursor
     print(terminal.clear(), end="", flush=True)
@@ -325,11 +301,9 @@ def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> Non
         # Clear entire line first
         print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
 
-    # Update terminal dimensions in state
-    state.terminal_width = terminal.width
-    state.terminal_height = terminal.height
-
     sys.stdout.flush()
+
+    return new_state
 
 
 def cleanup_terminal(terminal: TerminalProtocol) -> None:
@@ -394,7 +368,7 @@ def grid_to_dict(grid: Grid) -> RenderGrid:
 def render_status_line(
     terminal: TerminalProtocol,
     config: RendererConfig,
-    state: RendererState,
+    metrics: Metrics,
 ) -> str:
     """Renders status line with game metrics and performance indicators.
 
@@ -402,18 +376,10 @@ def render_status_line(
     and provides color-coded information about population, generation,
     birth/death rates, and simulation speed.
     """
-    current_time = time.time()
-    if current_time - state.last_stats_update >= 1.0:
-        state.birth_rate = state.births_this_second
-        state.death_rate = state.deaths_this_second
-        state.births_this_second = 0
-        state.deaths_this_second = 0
-        state.last_stats_update = current_time
-
-    plain_pop = f"Population: {state.active_cells}"
-    plain_gen = f"Generation: {state.generation_count}"
-    plain_births = f"Births/s: {state.birth_rate:.1f}"
-    plain_deaths = f"Deaths/s: {state.death_rate:.1f}"
+    plain_pop = f"Population: {metrics.game.active_cells}"
+    plain_gen = f"Generation: {metrics.game.generation_count}"
+    plain_births = f"Births/s: {metrics.game.birth_rate:.1f}"
+    plain_deaths = f"Deaths/s: {metrics.game.death_rate:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
 
     true_length = (
@@ -426,10 +392,16 @@ def render_status_line(
         + len(" ")
     )
 
-    pop = f"{terminal.blue}Population: {terminal.normal}{state.active_cells}"
-    gen = f"{terminal.green}Generation: {terminal.normal}{state.generation_count}"
-    births = f"{terminal.magenta}Births/s: {terminal.normal}{state.birth_rate:.1f}"
-    deaths = f"{terminal.yellow}Deaths/s: {terminal.normal}{state.death_rate:.1f}"
+    pop = f"{terminal.blue}Population: {terminal.normal}{metrics.game.active_cells}"
+    gen = (
+        f"{terminal.green}Generation: {terminal.normal}{metrics.game.generation_count}"
+    )
+    births = (
+        f"{terminal.magenta}Births/s: {terminal.normal}{metrics.game.birth_rate:.1f}"
+    )
+    deaths = (
+        f"{terminal.yellow}Deaths/s: {terminal.normal}{metrics.game.death_rate:.1f}"
+    )
     interval = f"{terminal.white}Interval: {terminal.normal}{config.update_interval}ms"
 
     status = f"{pop} | {gen} | {births} | {deaths} | {interval}"
@@ -488,12 +460,18 @@ def render_grid(
     grid: Grid,
     config: RendererConfig,
     state: RendererState,
-) -> None:
+    metrics: Metrics,
+) -> tuple[RendererState, Metrics]:
     """Renders grid with optimized updates and pattern preview support.
 
     Uses NumPy operations for efficient state tracking and updates.
     Handles terminal resizing, pattern preview rendering, and maintains
     performance statistics for the status display.
+
+    Returns:
+        Tuple containing:
+        - New state instance with updated values
+        - New metrics instance with updated statistics
     """
     grid_height, grid_width = grid.shape
     usable_height = terminal.height - 2
@@ -506,9 +484,7 @@ def render_grid(
     )
 
     if dimensions_changed:
-        state.start_x = start_x
-        state.start_y = start_y
-        state.previous_grid = None
+        state = state.with_grid_position(start_x, start_y).with_previous_grid(None)
 
         print(terminal.clear(), end="", flush=True)
         print(terminal.move_xy(0, 0), end="", flush=True)
@@ -517,8 +493,15 @@ def render_grid(
         sys.stdout.flush()
 
     current_grid = grid_to_dict(grid)
-    state.total_cells = grid.size
-    state.active_cells = np.count_nonzero(grid)
+
+    # Update metrics
+    metrics = update_game_metrics(
+        metrics,
+        total_cells=grid.size,
+        active_cells=np.count_nonzero(grid),
+        births=0,  # Will be updated below if previous grid exists
+        deaths=0,  # Will be updated below if previous grid exists
+    )
 
     if state.previous_grid is not None:
         prev_grid = np.zeros_like(grid)
@@ -527,8 +510,14 @@ def render_grid(
 
         births = np.logical_and(~prev_grid, grid)
         deaths = np.logical_and(prev_grid, ~grid)
-        state.births_this_second += np.count_nonzero(births)
-        state.deaths_this_second += np.count_nonzero(deaths)
+
+        metrics = update_game_metrics(
+            metrics,
+            total_cells=grid.size,
+            active_cells=np.count_nonzero(grid),
+            births=np.count_nonzero(births),
+            deaths=np.count_nonzero(deaths),
+        )
 
     pattern_cells = set()
     if state.pattern_mode and config.selected_pattern:
@@ -601,17 +590,21 @@ def render_grid(
             )
 
     # Store current grid state for next frame
-    state.previous_grid = current_grid
-    state.previous_pattern_cells = pattern_cells
+    state = state.with_previous_grid(current_grid).with_pattern_cells(pattern_cells)
+
+    # Update frame metrics
+    metrics = update_frame_metrics(metrics)
 
     # Render status line or pattern menu based on mode
     if state.pattern_mode:
         print(render_pattern_menu(terminal), end="", flush=True)
     else:
-        print(render_status_line(terminal, config, state), end="", flush=True)
+        print(render_status_line(terminal, config, metrics), end="", flush=True)
 
     # Ensure output is flushed
     sys.stdout.flush()
+
+    return state, metrics
 
 
 def safe_render_grid(
@@ -619,14 +612,20 @@ def safe_render_grid(
     grid: Grid,
     config: RendererConfig,
     state: RendererState,
-) -> None:
+    metrics: Metrics,
+) -> tuple[RendererState, Metrics]:
     """Safely renders grid with comprehensive error handling.
 
     Ensures terminal is restored to a valid state even if rendering fails,
     handling I/O errors, keyboard interrupts, and unexpected exceptions.
+
+    Returns:
+        Tuple containing:
+        - New state instance with updated values
+        - New metrics instance with updated statistics
     """
     try:
-        render_grid(terminal, grid, config, state)
+        return render_grid(terminal, grid, config, state, metrics)
     except (IOError, ValueError) as e:
         cleanup_terminal(terminal)
         raise RuntimeError(f"Failed to render grid: {e}") from e

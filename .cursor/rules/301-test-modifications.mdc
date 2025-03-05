@@ -1,0 +1,81 @@
+---
+description: ENFORCE test modification constraints WHEN updating test files TO preserve test integrity
+globs: tests/**/*.py
+alwaysApply: false
+---
+<!-- markdownlint-disable MD033 -->
+
+# Test Modification Constraints
+
+## Context
+
+- When updating test files during refactoring
+- When migrating to new implementations
+- When improving test structure or readability
+- When fixing test failures
+
+## Requirements
+
+- NEVER change test assertion logic without explicit user consent
+- NEVER modify test expectations without explicit user consent
+- NEVER remove test cases without explicit user consent
+- ONLY update:
+  - Type annotations
+  - Variable names
+  - Import statements
+  - Test data structure syntax
+  - Formatting and style
+- Document ALL test changes in commit messages
+- Run tests after EVERY modification
+
+## Examples
+
+<example>
+# Good: Updates test data structure while preserving logic
+
+```python
+# Before
+grid = Grid([[True, False], [False, True]])
+assert grid[0][0] is True
+assert grid[1][1] is True
+
+# After
+grid = np.array([[True, False], [False, True]], dtype=np.bool_)
+assert grid[0, 0] is True  # Same logical check, different syntax
+assert grid[1, 1] is True  # Same logical check, different syntax
+```
+
+</example>
+
+<example type="invalid">
+# Bad: Changes test expectations without consent
+
+```python
+# Before
+def test_cell_survival():
+    """Test that cell with 2 neighbors survives."""
+    assert next_gen(cell, 2) is True
+
+# After
+def test_cell_survival():
+    """Test that cell with 3 neighbors survives."""  # Changed logic!
+    assert next_gen(cell, 3) is True
+```
+
+</example>
+
+## Critical Patterns
+
+1. 🔒 Preserve test logic and expectations
+2. ✨ Update syntax and structure only
+3. 📝 Document all changes
+4. ✅ Verify tests pass
+5. 🤝 Get explicit consent for logic changes
+
+<critical>
+
+- NEVER modify test assertions without consent
+- NEVER change test expectations without consent
+- NEVER remove test cases without consent
+
+</critical>

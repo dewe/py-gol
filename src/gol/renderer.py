@@ -20,10 +20,7 @@ from .patterns import (
 from .state import RendererState
 from .types import Grid, RenderGrid, ScreenPosition
 
-# Update type alias to use types from types.py
-CellPos = (
-    ScreenPosition  # Using ScreenPosition since it matches the tuple[int, int] type
-)
+CellPos = ScreenPosition
 
 
 @runtime_checkable
@@ -69,52 +66,42 @@ class RendererConfig:
 
     cell_alive: str = "■"
     cell_dead: str = "□"
-    cell_spacing: str = " "  # Space between cells
-    update_interval: int = 200  # milliseconds
-    refresh_per_second: int = 5  # Calculated from interval
-    min_interval: int = 10  # Minimum interval in milliseconds
-    max_interval: int = 1000  # Maximum interval in milliseconds
-    min_interval_step: int = 10  # Minimum step size for interval adjustments
-    interval_change_factor: float = 0.2  # 20% change per adjustment
+    cell_spacing: str = " "
+    update_interval: int = 200
+    refresh_per_second: int = 5
+    min_interval: int = 10
+    max_interval: int = 1000
+    min_interval_step: int = 10
+    interval_change_factor: float = 0.2
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
 
     def __post_init__(self) -> None:
-        """Calculate refresh rate based on update interval."""
         object.__setattr__(
             self, "refresh_per_second", round(1000 / self.update_interval)
         )
 
     def _round_to_step(self, value: int) -> int:
-        """Round value to nearest step size."""
         return round(value / self.min_interval_step) * self.min_interval_step
 
     def with_increased_interval(self) -> "RendererConfig":
-        """Return new config with increased update interval."""
         from dataclasses import replace
 
-        # Calculate proportional change
         change = max(
             self.min_interval_step,
             round(self.update_interval * self.interval_change_factor),
         )
-        # Round to nearest step
         new_interval = self._round_to_step(self.update_interval + change)
-        # Apply bounds
         return replace(self, update_interval=min(new_interval, self.max_interval))
 
     def with_decreased_interval(self) -> "RendererConfig":
-        """Return new config with decreased update interval."""
         from dataclasses import replace
 
-        # Calculate proportional change
         change = max(
             self.min_interval_step,
             round(self.update_interval * self.interval_change_factor),
         )
-        # Round to nearest step
         new_interval = self._round_to_step(self.update_interval - change)
-        # Apply bounds
         return replace(self, update_interval=max(new_interval, self.min_interval))
 
     def with_pattern(
@@ -122,12 +109,6 @@ class RendererConfig:
         pattern_name: Optional[str],
         rotation: PatternTransform = PatternTransform.NONE,
     ) -> "RendererConfig":
-        """Return new config with updated pattern selection.
-
-        Args:
-            pattern_name: Name of the pattern to select, or None to clear
-            rotation: Pattern rotation in degrees (0, 90, 180, 270)
-        """
         from dataclasses import replace
 
         return replace(self, selected_pattern=pattern_name, pattern_rotation=rotation)
@@ -150,8 +131,6 @@ CommandType = Literal[
     "exit_pattern",
 ]
 
-
-# Type aliases
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 
 
@@ -159,9 +138,6 @@ def initialize_terminal() -> TerminalResult:
     """Initialize terminal for game display in fullscreen mode.
 
     Sets up alternate screen buffer and hides cursor for clean rendering.
-
-    Returns:
-        Tuple of (Terminal, State) or (None, None) if initialization fails
     """
     try:
         terminal = Terminal()
@@ -181,36 +157,21 @@ def handle_user_input(
     config: RendererConfig,
     state: RendererState,
 ) -> tuple[CommandType, RendererConfig]:
-    """Handles keyboard input from user.
-
-    Args:
-        key: Keystroke from user containing input details
-        config: Renderer configuration for adjusting settings
-        state: Current renderer state
-
-    Returns:
-        Tuple containing:
-        - CommandType: Command based on input
-        - RendererConfig: Updated configuration (may be same as input if no changes)
-    """
-    # Check for quit commands
+    """Handles keyboard input from user."""
     if (
-        key.name in ("q", "Q", "^C")  # Named keys
-        or key == "\x03"  # Raw Ctrl-C
-        or key in ("q", "Q")  # Raw key values
-        or (key.name == "KEY_ESCAPE" and not state.pattern_mode)  # ESC
-        or (key == "\x1b" and not state.pattern_mode)  # Raw ESC
+        key.name in ("q", "Q", "^C")
+        or key == "\x03"
+        or key in ("q", "Q")
+        or (key.name == "KEY_ESCAPE" and not state.pattern_mode)
+        or (key == "\x1b" and not state.pattern_mode)
     ):
         return "quit", config
 
-    # Check for Escape key to exit pattern mode
     if (key.name == "KEY_ESCAPE" or key == "\x1b") and state.pattern_mode:
         return "exit_pattern", config
 
-    # Check for restart/rotate command
     if key.name in ("r", "R") or key in ("r", "R"):
-        if state.pattern_mode:  # In pattern mode
-            # Update pattern rotation while maintaining selected pattern
+        if state.pattern_mode:
             new_config = config.with_pattern(
                 config.selected_pattern,
                 config.pattern_rotation.next_rotation(),
@@ -218,26 +179,22 @@ def handle_user_input(
             return "rotate_pattern", new_config
         return "restart", config
 
-    # Check for pattern mode
     if key.name in ("p", "P") or key in ("p", "P"):
         return "pattern", config
 
-    # Check for resize commands
-    if key in ("+", "="):  # = is on the same key as + without shift
+    if key in ("+", "="):
         return "resize_larger", config
     if key == "-":
         return "resize_smaller", config
 
-    # Handle pattern selection via number keys
     if key.isdigit():
         patterns = list(BUILTIN_PATTERNS.keys()) + FilePatternStorage().list_patterns()
-        pattern_idx = int(key) - 1  # Convert to 0-based index
+        pattern_idx = int(key) - 1
         if 0 <= pattern_idx < len(patterns):
             new_config = config.with_pattern(patterns[pattern_idx])
             return "continue", new_config
         return "continue", config
 
-    # Handle cursor movement in pattern mode or interval changes in game mode
     if key.name == "KEY_LEFT":
         if state.pattern_mode:
             return "move_cursor_left", config
@@ -259,43 +216,27 @@ def handle_user_input(
             new_config = config.with_decreased_interval()
             return "continue", new_config
 
-    # Handle pattern placement
     if key == " " or key.name == "KEY_SPACE":
         return "place_pattern", config
 
-    # All other keys continue the game
     return "continue", config
 
 
 def handle_resize_event(
     terminal: TerminalProtocol, state: RendererState
 ) -> RendererState:
-    """Handles terminal resize events.
-
-    Args:
-        terminal: Terminal instance to handle resize for
-        state: Current renderer state
-
-    Returns:
-        New state instance with updated dimensions and cleared grid
-    """
-    # Create new state with cleared grid and pattern cells
+    """Handles terminal resize events by updating dimensions and clearing display."""
     new_state = (
         state.with_previous_grid(None)
         .with_pattern_cells(None)
         .with_terminal_dimensions(terminal.width, terminal.height)
     )
 
-    # Clear screen and reset cursor
     print(terminal.clear(), end="", flush=True)
     print(terminal.move_xy(0, 0), end="", flush=True)
-
-    # Re-hide cursor as resize can reset terminal state
     print(terminal.hide_cursor(), end="", flush=True)
 
-    # Clear any remaining artifacts, respecting margins
     for y in range(terminal.height):
-        # Clear entire line first
         print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
 
     sys.stdout.flush()
@@ -347,18 +288,8 @@ def calculate_grid_position(
 
 
 def grid_to_dict(grid: Grid) -> RenderGrid:
-    """Convert grid to dictionary for efficient lookup using NumPy operations.
-
-    Args:
-        grid: NumPy array grid to convert
-
-    Returns:
-        Dictionary mapping screen positions to cell states
-    """
-    # Use NumPy's nonzero to get coordinates of True values
+    """Convert grid to dictionary for efficient lookup using NumPy operations."""
     rows, cols = grid.shape
-
-    # Create dictionary with all positions
     return {(x, y): grid[y, x] for y in range(rows) for x in range(cols)}
 
 
@@ -367,12 +298,7 @@ def render_status_line(
     config: RendererConfig,
     metrics: Metrics,
 ) -> str:
-    """Renders status line with game metrics and performance indicators.
-
-    Updates statistics once per second to avoid unnecessary calculations
-    and provides color-coded information about population, generation,
-    birth/death rates, and simulation speed.
-    """
+    """Renders status line with game metrics and performance indicators."""
     plain_pop = f"Population: {metrics.game.active_cells}"
     plain_gen = f"Generation: {metrics.game.generation_count}"
     plain_births = f"Births/s: {metrics.game.birth_rate:.1f}"
@@ -414,34 +340,18 @@ def render_status_line(
 def render_pattern_menu(
     terminal: TerminalProtocol,
 ) -> str:
-    """Renders pattern selection menu.
-
-    Args:
-        terminal: Terminal instance
-
-    Returns:
-        String containing the rendered pattern menu
-    """
-    # Get available patterns
+    """Renders pattern selection menu."""
     patterns = list(BUILTIN_PATTERNS.keys()) + FilePatternStorage().list_patterns()
-
-    # Create menu text
     pattern_list = ", ".join(f"{i+1}:{name}" for i, name in enumerate(patterns))
     menu_text = (
         f"Pattern Mode - Select: {pattern_list} | R: rotate | Space: place | ESC: exit"
     )
 
-    # Calculate true length without escape sequences
     true_length = len(menu_text)
-
-    # Position at bottom of screen
     y = terminal.height - 1
-
-    # Center based on true content length
     x = (terminal.width - true_length) // 2
-    x = max(0, x)  # Ensure we don't go negative
+    x = max(0, x)
 
-    # Clear line and render menu
     return (
         terminal.move_xy(0, y)
         + " " * terminal.width
@@ -464,11 +374,6 @@ def render_grid(
     Uses NumPy operations for efficient state tracking and updates.
     Handles terminal resizing, pattern preview rendering, and maintains
     performance statistics for the status display.
-
-    Returns:
-        Tuple containing:
-        - New state instance with updated values
-        - New metrics instance with updated statistics
     """
     grid_height, grid_width = grid.shape
     usable_height = terminal.height - 2
@@ -491,13 +396,12 @@ def render_grid(
 
     current_grid = grid_to_dict(grid)
 
-    # Update metrics
     metrics = update_game_metrics(
         metrics,
         total_cells=grid.size,
         active_cells=np.count_nonzero(grid),
-        births=0,  # Will be updated below if previous grid exists
-        deaths=0,  # Will be updated below if previous grid exists
+        births=0,
+        deaths=0,
     )
 
     if state.previous_grid is not None:
@@ -539,24 +443,20 @@ def render_grid(
     visible_width = (terminal.width - start_x) // 2
     visible_height = usable_height - start_y
 
-    # Render only visible cells
     for y in range(min(grid_height, visible_height)):
         for x in range(min(grid_width, visible_width)):
-            screen_x = start_x + (x * 2)  # Account for cell spacing
+            screen_x = start_x + (x * 2)
             screen_y = start_y + y
 
-            # Skip if position would be outside terminal
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:
                 continue
 
-            # Determine cell state and appearance
             is_alive = current_grid.get((x, y), False)
             is_pattern = (x, y) in pattern_cells
             is_cursor = (
                 state.pattern_mode and x == state.cursor_x and y == state.cursor_y
             )
 
-            # Set cell appearance based on state
             if is_cursor:
                 cell_char = "+"
                 color = terminal.yellow
@@ -570,7 +470,6 @@ def render_grid(
                 else:
                     color = terminal.dim
 
-            # Render cell with proper color and ensure dead cells stay dim
             print(
                 terminal.move_xy(screen_x, screen_y)
                 + color
@@ -586,19 +485,14 @@ def render_grid(
                 flush=True,
             )
 
-    # Store current grid state for next frame
     state = state.with_previous_grid(current_grid).with_pattern_cells(pattern_cells)
-
-    # Update frame metrics
     metrics = update_frame_metrics(metrics)
 
-    # Render status line or pattern menu based on mode
     if state.pattern_mode:
         print(render_pattern_menu(terminal), end="", flush=True)
     else:
         print(render_status_line(terminal, config, metrics), end="", flush=True)
 
-    # Ensure output is flushed
     sys.stdout.flush()
 
     return state, metrics
@@ -615,11 +509,6 @@ def safe_render_grid(
 
     Ensures terminal is restored to a valid state even if rendering fails,
     handling I/O errors, keyboard interrupts, and unexpected exceptions.
-
-    Returns:
-        Tuple containing:
-        - New state instance with updated values
-        - New metrics instance with updated statistics
     """
     try:
         return render_grid(terminal, grid, config, state, metrics)

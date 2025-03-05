@@ -103,20 +103,40 @@ The implementation follows functional programming principles with:
 ## Component Architecture
 
 ```mermaid
+---
+title: Component Architecture
+---
 graph TD
-    Controller -->|Manages| Grid
-    Controller -->|Uses| Patterns
-    Controller -->|Updates| Renderer
-    Patterns -->|Modifies| Grid
-    Grid -->|Displays| Renderer
-    Terminal -->|Input| Controller
-    Storage -->|Loads/Saves| Patterns
+    %% Pure Core
+    subgraph Pure ["Pure Functional Core"]
+        Grid[Grid Operations]
+        Life[Life Rules]
+        State[State Transitions]
+        Pattern[Pattern Operations]
+    end
+
+    %% Impure Shell
+    subgraph Impure ["Impure Shell"]
+        Terminal[Terminal I/O]
+        FileIO[File I/O]
+        Signals[Signal Handlers]
+        GameLoop[Game Loop]
+    end
+
+    %% Connections
+    GameLoop --> Grid
+    GameLoop --> Life
+    GameLoop --> State
+    GameLoop --> Pattern
+    Terminal --> GameLoop
+    FileIO --> Pattern
+    Signals --> GameLoop
 
     %% Styling
-    classDef component fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef system fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
-    class Controller,Grid,Patterns,Renderer component;
-    class Terminal,Storage system;
+    classDef pure fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef impure fill:#ffebee,stroke:#b71c1c,stroke-width:2px;
+    class Grid,Life,State,Pattern pure;
+    class Terminal,FileIO,Signals,GameLoop impure;
 ```
 
 ## Pattern State Flow

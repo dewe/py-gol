@@ -309,24 +309,28 @@ Each component follows this test-driven development cycle:
    - Immutable data structures
    - No shared mutable state
    - Type-safe operations
+   - Clear separation between pure and impure code
 
-2. **Pattern Management**
-   - Centralized pattern system
-   - Pattern metadata
-   - File-based storage
-   - Pattern validation
+2. **Side Effects Management**
+   - Terminal I/O isolated in renderer module
+   - File I/O contained in pattern storage
+   - Signal handling in main controller
+   - Game loop manages state updates
+   - Metrics collection for monitoring
 
-3. **User Interface**
-   - Clear visual feedback
-   - Intuitive controls
-   - Responsive updates
-   - Mouse support
+3. **Pure Functions**
+   - Grid operations (grid.py)
+   - Life rules (life.py)
+   - State transitions (state.py)
+   - Pattern transformations (patterns.py)
+   - Neighbor calculations (grid.py)
 
-4. **Testing Strategy**
-   - Unit tests for pure functions
-   - Integration tests for components
-   - Property-based testing
-   - Test-driven development
+4. **Impure Functions**
+   - Terminal initialization/cleanup (renderer.py)
+   - Pattern file I/O (patterns.py)
+   - Signal handlers (main.py)
+   - Game loop state management (main.py)
+   - Metrics updates (metrics.py)
 
 ## Project Structure
 

@@ -4,11 +4,18 @@ Conway's Game of Life - Terminal Implementation
 
 A functional implementation of Conway's Game of Life using Python and curses.
 Features include:
+- Pure functional core with immutable state transitions
+- Side effects isolated to terminal I/O and file operations
 - Pattern management with built-in and custom patterns
 - Multiple boundary conditions (wrap, dead, reflect)
 - Pattern preview and rotation
 - Configurable grid size and speed
 - Dynamic grid resizing (automatically fits terminal dimensions)
+
+Architecture:
+- Pure Functions: Grid operations, life rules, state transitions
+- Side Effects: Terminal I/O, file operations, signal handling
+- State Management: Immutable data structures, functional patterns
 
 Controls:
   Space: Start/Stop simulation

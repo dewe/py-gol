@@ -15,6 +15,30 @@ A terminal-based implementation of Conway's Game of Life with a focus on functio
 
 ![demo](./docs/demo.gif)
 
+## Architecture
+
+The implementation follows a functional core/imperative shell architecture:
+
+### Pure Functional Core
+- **Grid Operations**: Pure functions for grid manipulation
+- **Life Rules**: Pure functions implementing game rules
+- **State Transitions**: Immutable state updates
+- **Pattern Operations**: Pure pattern transformations
+
+### Impure Shell
+- **Terminal I/O**: Display updates and user input
+- **File Operations**: Pattern storage and loading
+- **Signal Handling**: System signal management
+- **Game Loop**: State coordination and updates
+- **Metrics**: Performance monitoring
+
+### Key Principles
+- Clear separation between pure and impure code
+- Immutable data structures for state management
+- Side effects isolated to specific modules
+- Type safety through static typing
+- Efficient updates through NumPy operations
+
 ## Architecture Diagrams
 
 The architecture of this project is documented with Mermaid diagrams in [docs/diagrams.md](docs/diagrams.md). The diagrams include:

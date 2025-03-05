@@ -12,11 +12,7 @@ from .types import Grid, GridPosition, PatternGrid
 
 
 class PatternTransform(Enum):
-    """Pattern rotation behavior.
-
-    Represents and manages pattern rotations in 90-degree increments.
-    Provides methods for cycling through rotations and converting to numpy turns.
-    """
+    """Manages pattern rotations in 90-degree increments for efficient pattern manipulation."""
 
     NONE = 0
     RIGHT = 90
@@ -24,18 +20,18 @@ class PatternTransform(Enum):
     LEFT = 270
 
     def next_rotation(self) -> "PatternTransform":
-        """Get next rotation (90 degrees clockwise)."""
+        """Cycles to next 90-degree clockwise rotation for pattern preview."""
         rotations = list(PatternTransform)
         current_idx = rotations.index(self)
         return rotations[(current_idx + 1) % len(rotations)]
 
     def to_turns(self) -> int:
-        """Convert rotation to number of 90-degree turns."""
+        """Converts rotation angle to number of numpy rot90 operations needed."""
         return self.value // 90
 
 
 class PatternCategory(Enum):
-    """Categories for classifying patterns."""
+    """Classification system for organizing patterns by behavior and complexity."""
 
     STILL_LIFE = auto()
     OSCILLATOR = auto()
@@ -47,7 +43,7 @@ class PatternCategory(Enum):
 
 @dataclass(frozen=True)
 class PatternMetadata:
-    """Immutable metadata for patterns."""
+    """Immutable pattern attributes for categorization and attribution."""
 
     name: str
     description: str
@@ -60,30 +56,29 @@ class PatternMetadata:
 
 @dataclass(frozen=True)
 class Pattern:
-    """Immutable pattern representation using NumPy arrays."""
+    """Immutable pattern representation optimized for numpy operations."""
 
     metadata: PatternMetadata
     cells: PatternGrid
 
     def __post_init__(self) -> None:
-        """Validate pattern dimensions and convert to NumPy array if needed."""
+        """Ensures consistent numpy boolean array representation."""
         if not isinstance(self.cells, np.ndarray) or self.cells.dtype != np.bool_:
-            # Convert to PatternGrid type with correct dtype
             object.__setattr__(self, "cells", np.array(self.cells, dtype=np.bool_))
 
     @property
     def width(self) -> int:
-        """Get pattern width."""
+        """Pattern width in cells."""
         return self.cells.shape[1]
 
     @property
     def height(self) -> int:
-        """Get pattern height."""
+        """Pattern height in cells."""
         return self.cells.shape[0]
 
 
 class PatternStorage(Protocol):
-    """Protocol for pattern storage implementations."""
+    """Interface for pattern persistence implementations."""
 
     def save_pattern(self, pattern: Pattern) -> None:
         """Save pattern to storage."""
@@ -100,16 +95,16 @@ class PatternStorage(Protocol):
 
 @dataclass
 class FilePatternStorage:
-    """File-based pattern storage implementation."""
+    """JSON-based pattern storage in user's home directory."""
 
     storage_dir: Path = field(default_factory=lambda: Path.home() / ".gol" / "patterns")
 
     def __post_init__(self) -> None:
-        """Create storage directory if it doesn't exist."""
+        """Ensures storage directory exists."""
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
     def save_pattern(self, pattern: Pattern) -> None:
-        """Save pattern to JSON file."""
+        """Serializes pattern to JSON with numpy array conversion."""
         pattern_data = {
             "metadata": {
                 "name": pattern.metadata.name,
@@ -120,7 +115,7 @@ class FilePatternStorage:
                 "discovery_year": pattern.metadata.discovery_year,
                 "tags": pattern.metadata.tags,
             },
-            "cells": pattern.cells.tolist(),  # Convert NumPy array to list for JSON
+            "cells": pattern.cells.tolist(),
         }
 
         file_path = self.storage_dir / f"{pattern.metadata.name}.json"
@@ -128,7 +123,7 @@ class FilePatternStorage:
             json.dump(pattern_data, f, indent=2)
 
     def load_pattern(self, name: str) -> Optional[Pattern]:
-        """Load pattern from JSON file."""
+        """Deserializes pattern from JSON with numpy array reconstruction."""
         file_path = self.storage_dir / f"{name}.json"
         if not file_path.exists():
             return None
@@ -146,17 +141,15 @@ class FilePatternStorage:
             tags=data["metadata"]["tags"],
         )
 
-        # Convert list to NumPy array
         cells = np.array(data["cells"], dtype=np.bool_)
-
         return Pattern(metadata=metadata, cells=cells)
 
     def list_patterns(self) -> List[str]:
-        """List available pattern names."""
+        """Lists all JSON pattern files in storage directory."""
         return [f.stem for f in self.storage_dir.glob("*.json")]
 
 
-# Built-in pattern library
+# Built-in pattern library with historically significant patterns
 BUILTIN_PATTERNS: Dict[str, Pattern] = {
     "glider": Pattern(
         metadata=PatternMetadata(
@@ -208,18 +201,18 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
         ),
         cells=np.array(
             [
-                # Row 1: 36 cells
+                # Row 1
                 [False] * 24 + [True] + [False] * 11,
-                # Row 2: 36 cells
+                # Row 2
                 [False] * 22 + [True, False, True] + [False] * 11,
-                # Row 3: 36 cells
+                # Row 3
                 [False] * 12
                 + [True, True]
                 + [False] * 6
                 + [True, True]
                 + [False] * 12
                 + [True, True],
-                # Row 4: 36 cells
+                # Row 4
                 [False] * 11
                 + [True]
                 + [False] * 3
@@ -228,7 +221,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
                 + [True, True]
                 + [False] * 12
                 + [True, True],
-                # Row 5: 36 cells
+                # Row 5
                 [True, True]
                 + [False] * 8
                 + [True]
@@ -237,7 +230,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
                 + [False] * 3
                 + [True, True]
                 + [False] * 14,
-                # Row 6: 36 cells
+                # Row 6
                 [True, True]
                 + [False] * 8
                 + [True]
@@ -246,7 +239,7 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
                 + [False] * 4
                 + [True, False, True]
                 + [False] * 11,
-                # Row 7: 36 cells
+                # Row 7
                 [False] * 10
                 + [True]
                 + [False] * 5
@@ -254,9 +247,9 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
                 + [False] * 7
                 + [True]
                 + [False] * 11,
-                # Row 8: 36 cells
+                # Row 8
                 [False] * 11 + [True] + [False] * 3 + [True] + [False] * 20,
-                # Row 9: 36 cells
+                # Row 9
                 [False] * 12 + [True, True] + [False] * 22,
             ],
             dtype=np.bool_,
@@ -271,21 +264,10 @@ def extract_pattern(
     bottom_right: GridPosition,
     metadata: PatternMetadata,
 ) -> Pattern:
-    """Extract a pattern from a grid section.
-
-    Args:
-        grid: Source grid
-        top_left: Top-left position of pattern
-        bottom_right: Bottom-right position of pattern
-        metadata: Pattern metadata
-
-    Returns:
-        Extracted pattern
-    """
+    """Creates a new pattern from a section of an existing grid."""
     x1, y1 = top_left
     x2, y2 = bottom_right
 
-    # Cast the extracted cells to PatternGrid
     cells = cast(PatternGrid, grid[y1 : y2 + 1, x1 : x2 + 1].copy())
     return Pattern(metadata=metadata, cells=cells)
 
@@ -295,18 +277,9 @@ def get_centered_position(
     cursor_position: GridPosition,
     rotation: PatternTransform = PatternTransform.NONE,
 ) -> GridPosition:
-    """Calculate centered position for pattern placement.
-
-    Args:
-        pattern: Pattern to place
-        cursor_position: Cursor position
-        rotation: Pattern rotation transform
-
-    Returns:
-        Top-left position for centered pattern placement
-    """
+    """Calculates pattern placement position to center it on cursor."""
     x, y = cursor_position
-    # Adjust dimensions based on rotation
+    # Adjust dimensions for rotated patterns
     width = pattern.height if rotation.value in (90, 270) else pattern.width
     height = pattern.width if rotation.value in (90, 270) else pattern.height
     x_offset = width // 2
@@ -321,43 +294,25 @@ def place_pattern(
     rotation: PatternTransform = PatternTransform.NONE,
     centered: bool = True,
 ) -> Grid:
-    """Place a pattern on the grid.
-
-    Args:
-        grid: Target grid
-        pattern: Pattern to place
-        position: Position to place pattern at
-        rotation: Pattern rotation transform
-        centered: Whether to center pattern on position
-
-    Returns:
-        New grid with pattern placed
-    """
-    # Get rotated pattern cells
+    """Places pattern on grid with boundary handling and rotation support."""
     rotated_cells = cast(PatternGrid, np.rot90(pattern.cells, k=-rotation.to_turns()))
-
-    # Calculate placement position
     pos = get_centered_position(pattern, position, rotation) if centered else position
     x, y = pos
 
-    # Create new grid
     new_grid = grid.copy()
-
-    # Calculate valid placement region
     height, width = grid.shape
     pattern_height, pattern_width = rotated_cells.shape
 
-    # Calculate valid slice ranges
+    # Calculate valid intersection between pattern and grid
     y_start = max(0, y)
     y_end = min(height, y + pattern_height)
     x_start = max(0, x)
     x_end = min(width, x + pattern_width)
 
-    # Calculate pattern slice ranges
+    # Handle patterns partially outside grid bounds
     pattern_y_start = max(0, -y)
     pattern_x_start = max(0, -x)
 
-    # Place pattern in valid region
     new_grid[y_start:y_end, x_start:x_end] |= rotated_cells[
         pattern_y_start : pattern_y_start + (y_end - y_start),
         pattern_x_start : pattern_x_start + (x_end - x_start),
@@ -367,19 +322,10 @@ def place_pattern(
 
 
 def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
-    """Find all occurrences of a pattern in the grid.
-
-    Args:
-        grid: Grid to search in
-        pattern: Pattern to find
-
-    Returns:
-        List of positions where pattern was found
-    """
+    """Locates all instances of pattern in grid using sliding window comparison."""
     positions: List[GridPosition] = []
     pattern_height, pattern_width = pattern.cells.shape
 
-    # Use NumPy's sliding window approach
     for y in range(grid.shape[0] - pattern_height + 1):
         for x in range(grid.shape[1] - pattern_width + 1):
             if np.array_equal(
@@ -391,28 +337,20 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
 
 
 def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[GridPosition]:
-    """Get list of cell positions in a pattern.
-
-    Args:
-        pattern: Source pattern
-        rotation: Number of 90-degree clockwise rotations
-
-    Returns:
-        List of (x, y) positions of live cells, adjusted for rotation
-    """
+    """Generates list of live cell positions with rotation transformation."""
     cells: List[GridPosition] = []
     for y in range(pattern.height):
         for x in range(pattern.width):
             if pattern.cells[y][x]:
-                # Apply rotation
+                # Transform coordinates based on rotation angle
                 match rotation:
-                    case 0:  # 0 degrees
+                    case 0:  # Original orientation
                         cells.append((x, y))
-                    case 1:  # 90 degrees clockwise
+                    case 1:  # 90° clockwise
                         cells.append((pattern.height - 1 - y, x))
-                    case 2:  # 180 degrees
+                    case 2:  # 180°
                         cells.append((pattern.width - 1 - x, pattern.height - 1 - y))
-                    case 3:  # 270 degrees clockwise
+                    case 3:  # 270° clockwise
                         cells.append((y, pattern.width - 1 - x))
 
     return cells

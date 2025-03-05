@@ -9,6 +9,7 @@ A terminal-based implementation of Conway's Game of Life with a focus on functio
 - **Terminal UI**: Full-screen terminal interface using the Blessed library
 - **Pattern Management**: Support for loading, saving, and manipulating patterns
 - **Configurable**: Adjustable grid size, update interval, initial density, and boundary conditions
+- **Dynamic Resizing**: Grid can be resized during gameplay, automatically fitting terminal dimensions
 - **Adaptive Refresh**: Screen refresh rate automatically optimized based on update interval
 - **Multiple Boundary Types**: Support for finite, toroidal, and infinite boundaries
 
@@ -80,6 +81,8 @@ Run with terminal-sized grid, fast updates, and toroidal boundaries:
 - Press `Ctrl-C` to exit gracefully
 - Press `Escape` to exit
 - Press `r` to restart with a new grid
+- Press `+` to increase grid size (auto-fits to terminal)
+- Press `-` to decrease grid size (auto-fits to terminal)
 - Press `↑` to slow down the simulation
 - Press `↓` to speed up the simulation
 - Press `p` to enter pattern mode

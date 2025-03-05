@@ -8,6 +8,7 @@ Features include:
 - Multiple boundary conditions (wrap, dead, reflect)
 - Pattern preview and rotation
 - Configurable grid size and speed
+- Dynamic grid resizing (automatically fits terminal dimensions)
 
 Controls:
   Space: Start/Stop simulation
@@ -20,7 +21,8 @@ Controls:
   Arrow keys: Move cursor
   Q: Quit game
   W: Toggle wrap mode
-  +/-: Adjust speed
+  +/-: Resize grid larger/smaller (auto-fits to terminal)
+  Up/Down: Adjust speed
   Mouse: Click to toggle cells
 """
 
@@ -84,12 +86,11 @@ def parse_arguments() -> ControllerConfig:
         "  - Press 'r' to restart with a new grid\n"
         "  - Press 'p' to enter pattern mode\n"
         "  - Press 'b' to cycle boundary conditions\n"
-        "  - Press '+'/'-' to resize grid\n"
+        "  - Press '+'/'-' to resize grid (automatically fits to terminal size)\n"
         "  - Press '['/']' to rotate pattern\n"
         "  - Press Space to place pattern\n"
         "  - Press Escape to exit pattern mode\n"
-        "  - Press ↑ to slow down the simulation\n"
-        "  - Press ↓ to speed up the simulation"
+        "  - Press ↑/↓ to adjust simulation speed"
     )
 
     # Use more efficient default values
@@ -338,10 +339,16 @@ def run_game_loop(
         return grid, config, False
 
     def handle_resize(larger: bool) -> tuple[Grid, ControllerConfig, bool]:
+        # Calculate max dimensions based on terminal size
+        # Each cell takes 2 characters width due to spacing
+        # Reserve 2 lines at bottom for status/menu
+        max_width = terminal.width // 2  # Each cell is 2 chars wide with spacing
+        max_height = terminal.height - 2  # Reserve bottom lines for status/menu
+
         # Calculate new dimensions
         factor = 1.2 if larger else 0.8
-        new_width = max(10, int(config.grid.width * factor))
-        new_height = max(10, int(config.grid.height * factor))
+        new_width = max(10, min(max_width, int(config.grid.width * factor)))
+        new_height = max(10, min(max_height, int(config.grid.height * factor)))
 
         # Resize grid and update config
         new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)

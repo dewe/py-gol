@@ -187,6 +187,9 @@ CommandType = Literal[
     "move_cursor_down",
     "place_pattern",
     "rotate_pattern",
+    "cycle_boundary",
+    "resize_larger",
+    "resize_smaller",
     "exit_pattern",
 ]
 
@@ -250,6 +253,8 @@ def handle_user_input(
             - Returns movement commands for arrow keys in pattern mode
             - Returns "place_pattern" for space
             - Returns "rotate_pattern" for 'r' or 'R' (when in pattern mode)
+            - Returns "resize_larger" for '+'
+            - Returns "resize_smaller" for '-'
             - Returns "continue" for any other key
     """
     # Check for quit commands
@@ -280,6 +285,12 @@ def handle_user_input(
     # Check for pattern mode
     if key.name in ("p", "P") or key in ("p", "P"):
         return "pattern"
+
+    # Check for resize commands
+    if key in ("+", "="):  # = is on the same key as + without shift
+        return "resize_larger"
+    if key == "-":
+        return "resize_smaller"
 
     # Handle pattern selection via number keys
     if key.isdigit():

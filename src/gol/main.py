@@ -74,10 +74,10 @@ CommandType = Literal[
 
 
 def parse_arguments() -> ControllerConfig:
-    """Parse command line arguments.
+    """Parse command line arguments and provide sensible defaults.
 
-    Returns:
-        ControllerConfig with parsed arguments
+    Uses efficient default values optimized for typical terminal sizes
+    while ensuring minimum playable dimensions.
     """
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life\n\n"
@@ -148,14 +148,10 @@ def parse_arguments() -> ControllerConfig:
 def adjust_grid_dimensions(
     config: ControllerConfig, terminal: TerminalProtocol
 ) -> ControllerConfig:
-    """Adjust grid dimensions based on terminal size if not specified.
+    """Adjust grid dimensions to fit terminal while maintaining playability.
 
-    Args:
-        config: Current configuration
-        terminal: Terminal instance
-
-    Returns:
-        Updated configuration with proper dimensions
+    Ensures grid fits within terminal bounds with proper margins for UI elements
+    while respecting minimum dimensions for gameplay.
     """
     # Minimum grid dimensions
     MIN_WIDTH = 30
@@ -201,11 +197,7 @@ def adjust_grid_dimensions(
 
 
 def setup_signal_handlers(terminal: TerminalProtocol) -> None:
-    """Set up signal handlers for graceful shutdown.
-
-    Args:
-        terminal: Terminal instance to cleanup on signals
-    """
+    """Set up signal handlers for graceful terminal restoration on exit."""
 
     def signal_handler(sig: int, frame: Any) -> None:
         """Handle signals by cleaning up terminal and exiting."""
@@ -223,15 +215,13 @@ def run_game_loop(
     config: ControllerConfig,
     state: RendererState,
 ) -> None:
-    """Main game loop.
+    """Main game loop implementing Conway's Game of Life rules.
 
-    Args:
-        terminal: Terminal instance
-        grid: Current game grid
-        config: Controller configuration
-        state: Current renderer state
+    Manages game state updates, user input handling, and rendering with
+    performance optimizations like frame rate limiting and efficient
+    terminal updates.
     """
-    # Track timing
+    # Track timing for performance optimization
     last_frame = time.time()
     last_update = time.time()
 
@@ -248,7 +238,11 @@ def run_game_loop(
         return new_grid, config, False
 
     def handle_pattern_mode() -> tuple[Grid, ControllerConfig, bool]:
-        """Handle entering/exiting pattern mode."""
+        """Toggle pattern mode with state preservation.
+
+        Manages mode transitions while preserving pattern selection and
+        ensuring proper cursor positioning for pattern placement.
+        """
         # Toggle pattern mode and pause state
         state.pattern_mode = not state.pattern_mode
         nonlocal is_paused
@@ -279,14 +273,7 @@ def run_game_loop(
         return grid, new_config, False
 
     def handle_cursor_movement(direction: str) -> tuple[Grid, ControllerConfig, bool]:
-        """Handle cursor movement in pattern mode.
-
-        Args:
-            direction: Direction to move cursor ('left', 'right', 'up', 'down')
-
-        Returns:
-            Tuple of (grid, config, should_quit)
-        """
+        """Handle wrapped cursor movement within grid bounds."""
         if state.pattern_mode:
             if direction == "left":
                 state.cursor_x = (state.cursor_x - 1) % config.grid.width
@@ -339,6 +326,14 @@ def run_game_loop(
         return grid, config, False
 
     def handle_resize(larger: bool) -> tuple[Grid, ControllerConfig, bool]:
+        """Resize grid while preserving content and preventing artifacts.
+
+        Implements smooth resize operation with:
+        - Terminal dimension constraints
+        - Artifact prevention
+        - State preservation
+        - Proper redraw triggering
+        """
         # Calculate max dimensions based on terminal size
         # Each cell takes 2 characters width due to spacing
         # Reserve 2 lines at bottom for status/menu
@@ -440,7 +435,7 @@ def run_game_loop(
 
 
 def main() -> None:
-    """Main entry point."""
+    """Main entry point with error handling and cleanup guarantees."""
     try:
         # Parse command line arguments
         config = parse_arguments()

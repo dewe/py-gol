@@ -1,0 +1,63 @@
+{
+    "test_patterns": {
+        "block": {
+            "name": "block",
+            "description": "2x2 block pattern",
+            "category": "STILL_LIFE",
+            "pattern": [
+                [
+                    true,
+                    true
+                ],
+                [
+                    true,
+                    true
+                ]
+            ]
+        },
+        "blinker": {
+            "name": "blinker",
+            "description": "3x1 oscillator pattern",
+            "category": "OSCILLATOR",
+            "pattern": [
+                [
+                    false,
+                    true,
+                    false
+                ],
+                [
+                    false,
+                    true,
+                    false
+                ],
+                [
+                    false,
+                    true,
+                    false
+                ]
+            ]
+        },
+        "glider": {
+            "name": "glider",
+            "description": "Basic glider pattern",
+            "category": "SPACESHIP",
+            "pattern": [
+                [
+                    false,
+                    true,
+                    false
+                ],
+                [
+                    false,
+                    false,
+                    true
+                ],
+                [
+                    true,
+                    true,
+                    true
+                ]
+            ]
+        }
+    }
+}

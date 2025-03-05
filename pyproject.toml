@@ -42,6 +42,11 @@ gol = "gol.main:main"
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "rules: tests for Game of Life rules",
+    "patterns: tests for pattern evolution",
+    "boundaries: tests for boundary conditions"
+]
 
 [tool.mypy]
 python_version = "3.10"

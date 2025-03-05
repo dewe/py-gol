@@ -415,7 +415,7 @@ def run_game_loop(
             # Handle user input
             key = terminal.inkey(timeout=0.001)
             if key:
-                command = handle_user_input(terminal, key, config.renderer, state)
+                command = handle_user_input(key, config.renderer, state)
                 if command:
                     handler = command_map.get(command)
                     if handler:

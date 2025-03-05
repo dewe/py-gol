@@ -211,7 +211,6 @@ def initialize_terminal(
 
 
 def handle_user_input(
-    terminal: TerminalProtocol,
     key: Keystroke,
     config: RendererConfig,
     state: RendererState,
@@ -219,7 +218,6 @@ def handle_user_input(
     """Handles keyboard input from user.
 
     Args:
-        terminal: Terminal instance
         key: Keystroke from user containing input details
         config: Renderer configuration for adjusting settings
         state: Current renderer state

@@ -39,6 +39,40 @@ def initialize_game(
 
     try:
         with terminal.cbreak():
+            # Handle auto-sizing if dimensions are 0
+            if config.grid.width <= 0 or config.grid.height <= 0:
+                MIN_WIDTH = 30
+                MIN_HEIGHT = 20
+
+                # Calculate dimensions based on terminal size
+                width = max(
+                    MIN_WIDTH,
+                    (
+                        (terminal.width - 12) // 2
+                        if config.grid.width <= 0
+                        else config.grid.width
+                    ),
+                )
+                height = max(
+                    MIN_HEIGHT,
+                    (
+                        terminal.height - 8
+                        if config.grid.height <= 0
+                        else config.grid.height
+                    ),
+                )
+
+                # Create new config with calculated dimensions
+                config = ControllerConfig(
+                    grid=GridConfig(
+                        width=width,
+                        height=height,
+                        density=config.grid.density,
+                        boundary=config.grid.boundary,
+                    ),
+                    renderer=config.renderer,
+                )
+
             grid = create_grid(config.grid)
             return terminal, grid
     except Exception as e:

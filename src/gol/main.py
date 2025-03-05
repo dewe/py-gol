@@ -32,12 +32,7 @@ import sys
 import time
 from typing import Any, Callable, Dict, Literal, Tuple
 
-from gol.controller import (
-    ControllerConfig,
-    initialize_game,
-    process_generation,
-    resize_game,
-)
+from gol.controller import ControllerConfig, process_generation, resize_game
 from gol.grid import BoundaryCondition, GridConfig, create_grid
 from gol.patterns import (
     BUILTIN_PATTERNS,
@@ -51,6 +46,7 @@ from gol.renderer import (
     TerminalProtocol,
     cleanup_terminal,
     handle_user_input,
+    initialize_terminal,
     safe_render_grid,
 )
 from gol.types import Grid, GridPosition
@@ -73,11 +69,14 @@ CommandType = Literal[
 ]
 
 
-def parse_arguments() -> ControllerConfig:
+def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments and provide sensible defaults.
 
     Uses efficient default values optimized for typical terminal sizes
     while ensuring minimum playable dimensions.
+
+    Returns:
+        Raw argument namespace for flexible dimension handling
     """
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life\n\n"
@@ -97,14 +96,14 @@ def parse_arguments() -> ControllerConfig:
     parser.add_argument(
         "--width",
         type=int,
-        default=30,  # Default to minimum width
-        help="Width of the grid (default: 30, auto-sized to terminal width if 0)",
+        default=0,  # Default to auto-size
+        help="Width of the grid (default: auto-sized to terminal width)",
     )
     parser.add_argument(
         "--height",
         type=int,
-        default=20,  # Default to minimum height
-        help="Height of the grid (default: 20, auto-sized to terminal height if 0)",
+        default=0,  # Default to auto-size
+        help="Height of the grid (default: auto-sized to terminal height)",
     )
 
     parser.add_argument(
@@ -129,20 +128,7 @@ def parse_arguments() -> ControllerConfig:
         help="Boundary condition (default: finite)",
     )
 
-    args = parser.parse_args()
-
-    # Convert boundary condition string to enum
-    boundary = BoundaryCondition[args.boundary.upper()]
-
-    return ControllerConfig(
-        grid=GridConfig(
-            width=args.width,
-            height=args.height,
-            density=args.density,
-            boundary=boundary,
-        ),
-        renderer=RendererConfig(update_interval=args.interval),
-    )
+    return parser.parse_args()
 
 
 def adjust_grid_dimensions(
@@ -436,15 +422,44 @@ def run_game_loop(
 
 def main() -> None:
     """Main entry point with error handling and cleanup guarantees."""
+    terminal: TerminalProtocol | None = None
     try:
-        # Parse command line arguments
-        config = parse_arguments()
+        # Parse command line arguments first (without grid config)
+        args = parse_arguments()
 
-        # Initialize game
-        terminal, grid = initialize_game(config)
+        # Initialize terminal to get dimensions
+        terminal, _ = initialize_terminal()
+        if terminal is None:
+            raise RuntimeError("Failed to initialize terminal")
 
-        # Adjust grid dimensions based on terminal size
-        config = adjust_grid_dimensions(config, terminal)
+        # Calculate grid dimensions based on terminal size
+        # Each cell takes 2 characters width due to spacing
+        # Leave more margin around the grid (6 chars on each side, 4 lines top/bottom)
+        MIN_WIDTH = 30
+        MIN_HEIGHT = 20
+
+        width = max(
+            MIN_WIDTH,
+            args.width if args.width > 0 else (terminal.width - 12) // 2,
+        )
+        height = max(
+            MIN_HEIGHT,
+            args.height if args.height > 0 else terminal.height - 8,
+        )
+
+        # Create config with calculated dimensions
+        config = ControllerConfig(
+            grid=GridConfig(
+                width=width,
+                height=height,
+                density=args.density,
+                boundary=BoundaryCondition[args.boundary.upper()],
+            ),
+            renderer=RendererConfig(update_interval=args.interval),
+        )
+
+        # Initialize game with proper dimensions
+        grid = create_grid(config.grid)
 
         # Set up signal handlers
         setup_signal_handlers(terminal)
@@ -464,7 +479,8 @@ def main() -> None:
 
     finally:
         # Clean up
-        cleanup_terminal(terminal)
+        if terminal is not None:
+            cleanup_terminal(terminal)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,12 @@
 """Pure functional implementation of Conway's Game of Life."""
 
 import numpy as np
-from numpy.typing import NDArray
 
 from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
-from gol.types import Grid
+from gol.types import Grid, IntArray
 
 
-def calculate_next_state(current_state: Grid, live_neighbors: NDArray[np.int_]) -> Grid:
+def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
     """Calculate next state of cells using vectorized operations.
 
     Args:

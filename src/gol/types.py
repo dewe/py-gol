@@ -16,9 +16,7 @@ PatternGrid: TypeAlias = NDArray[np.bool_]
 PatternTransform: TypeAlias = Literal[0, 90, 180, 270]  # Rotation angles
 
 # Rendering types
-ScreenPosition: TypeAlias = tuple[
-    int, int
-]  # (x, y) coordinates in terminal/display space
+ScreenPosition: TypeAlias = tuple[int, int]  # (x, y) coords in terminal space
 RenderGrid: TypeAlias = dict[ScreenPosition, bool]
 
 # Type aliases for numpy operations

@@ -5,9 +5,8 @@ from enum import Enum, auto
 from typing import cast
 
 import numpy as np
-from numpy.typing import NDArray
 
-from .types import Grid, GridPosition
+from .types import BoolArray, Grid, GridPosition, IntArray
 
 
 class BoundaryCondition(Enum):
@@ -67,7 +66,7 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
     )
 
     # Perform padding and slicing
-    resized: NDArray[np.bool_] = np.pad(
+    resized: BoolArray = np.pad(
         grid, pad_width, mode="constant", constant_values=False
     )[:new_height, :new_width]
 
@@ -76,7 +75,7 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
 
 def get_neighbors(
     grid: Grid, pos: GridPosition, boundary: BoundaryCondition
-) -> NDArray[np.int_]:
+) -> IntArray:
     """Get valid neighbor positions as a 2xN array of coordinates."""
     height, width = grid.shape
     x, y = pos
@@ -98,18 +97,18 @@ def get_neighbors(
                 & (neighbors[1] >= 0)
                 & (neighbors[1] < height)
             )
-            return cast(NDArray[np.int_], neighbors[:, valid])
+            return cast(IntArray, neighbors[:, valid])
         case BoundaryCondition.TOROIDAL:
             # Apply modulo for wrapping
             neighbors[0] %= width
             neighbors[1] %= height
-            return cast(NDArray[np.int_], neighbors)
+            return cast(IntArray, neighbors)
         case _:  # INFINITE
-            return cast(NDArray[np.int_], neighbors)
+            return cast(IntArray, neighbors)
 
 
 def count_live_neighbors(
-    grid: Grid, positions: NDArray[np.int_], boundary: BoundaryCondition
+    grid: Grid, positions: IntArray, boundary: BoundaryCondition
 ) -> int:
     """Count live neighbors using numpy operations."""
     if positions.size == 0:

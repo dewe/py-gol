@@ -397,34 +397,6 @@ def grid_to_dict(grid: Grid) -> RenderGrid:
     return {(x, y): grid[y, x] for y in range(rows) for x in range(cols)}
 
 
-def render_cell(
-    terminal: TerminalProtocol,
-    x: int,
-    y: int,
-    is_alive: bool,
-    config: RendererConfig,
-) -> str:
-    """Render a single cell.
-
-    Args:
-        terminal: Terminal instance
-        x: X coordinate
-        y: Y coordinate
-        is_alive: Whether cell is alive
-        config: Renderer configuration
-
-    Returns:
-        String to render cell
-    """
-    if is_alive:
-        # Use bright white for maximum visibility of live cells
-        return (
-            terminal.white + config.cell_alive + terminal.normal + config.cell_spacing
-        )
-    # Make dead cells very dim
-    return terminal.dim + config.cell_dead + terminal.dim + config.cell_spacing
-
-
 def render_status_line(
     terminal: TerminalProtocol,
     config: RendererConfig,

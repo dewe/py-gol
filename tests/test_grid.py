@@ -1,5 +1,6 @@
 """Tests for grid management."""
 
+import dataclasses
 from typing import Callable, Final, TypeAlias
 
 import numpy as np
@@ -15,6 +16,7 @@ from gol.grid import (
     resize_grid,
 )
 from gol.types import Grid, GridPosition, GridView, IntArray
+from tests.conftest import create_test_grid  # Add import from conftest
 
 # Type Aliases
 NeighborValidator: TypeAlias = Callable[[IntArray], bool]
@@ -39,11 +41,6 @@ CORNER_POSITION: Final[GridPosition] = (0, 0)
 
 
 # Helper Functions
-def create_test_grid(pattern: GridPattern) -> Grid:
-    """Creates a test grid from a pattern."""
-    return np.array(pattern, dtype=np.bool_)
-
-
 def count_live_cells(grid: Grid) -> int:
     """Counts number of live cells in grid."""
     return int(np.sum(grid))
@@ -263,3 +260,64 @@ class TestNeighborCounting:
 
         # Assert
         assert count == 2  # Only cells within grid boundaries
+
+
+def test_grid_config_immutability() -> None:
+    """Test that GridConfig is immutable."""
+    config = GridConfig(width=10, height=10)
+
+    # Verify that attempting to modify attributes raises FrozenInstanceError
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        config.width = 20  # type: ignore
+
+    # Verify original values remain unchanged
+    assert config.width == 10
+    assert config.height == 10
+
+
+def test_grid_config_dimension_updates() -> None:
+    """Test that dimension updates return new instances."""
+    config = GridConfig(width=10, height=10)
+
+    # Test dimension update
+    new_config = config.with_dimensions(20, 30)
+    assert new_config is not config
+    assert new_config.width == 20
+    assert new_config.height == 30
+    assert config.width == 10  # Original unchanged
+    assert config.height == 10  # Original unchanged
+
+    # Test invalid dimensions
+    with pytest.raises(ValueError):
+        config.with_dimensions(0, 10)
+    with pytest.raises(ValueError):
+        config.with_dimensions(10, 0)
+
+
+def test_grid_config_density_updates() -> None:
+    """Test that density updates return new instances."""
+    config = GridConfig(width=10, height=10, density=0.3)
+
+    # Test density update
+    new_config = config.with_density(0.5)
+    assert new_config is not config
+    assert new_config.density == 0.5
+    assert config.density == 0.3  # Original unchanged
+
+    # Test invalid density
+    with pytest.raises(ValueError):
+        config.with_density(-0.1)
+    with pytest.raises(ValueError):
+        config.with_density(1.1)
+
+
+def test_grid_config_boundary_updates() -> None:
+    """Test that boundary updates return new instances."""
+    config = GridConfig(width=10, height=10)
+    assert config.boundary == BoundaryCondition.FINITE
+
+    # Test boundary update
+    new_config = config.with_boundary(BoundaryCondition.TOROIDAL)
+    assert new_config is not config
+    assert new_config.boundary == BoundaryCondition.TOROIDAL
+    assert config.boundary == BoundaryCondition.FINITE  # Original unchanged

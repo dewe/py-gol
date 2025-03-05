@@ -136,12 +136,6 @@ def metrics() -> Metrics:
     return create_metrics()
 
 
-@pytest.fixture
-def grid() -> Grid:
-    """Create a test grid."""
-    return np.zeros((10, 10), dtype=bool)
-
-
 def test_render_status_line_metrics(
     terminal: TerminalProtocol,
     config: RendererConfig,
@@ -210,12 +204,12 @@ def test_render_grid_frame_metrics(
     config: RendererConfig,
     state: RendererState,
     metrics: Metrics,
-    grid: Grid,
+    test_grid: Grid,  # Use test_grid from conftest
 ) -> None:
     """Test that render_grid properly tracks frame metrics."""
     # Render multiple frames
     for _ in range(5):
-        state, metrics = render_grid(terminal, grid, config, state, metrics)
+        state, metrics = render_grid(terminal, test_grid, config, state, metrics)
 
     assert metrics.perf.frames_this_second == 5
     assert metrics.perf.actual_fps == 0.0  # Not updated until 1 second passes
@@ -229,7 +223,7 @@ def test_render_grid_frame_metrics(
         perf=replace(metrics.perf, last_fps_update=time.time() - 1.1),
     )
 
-    state, metrics = render_grid(terminal, grid, config, state, metrics)
+    state, metrics = render_grid(terminal, test_grid, config, state, metrics)
 
     assert metrics.perf.frames_this_second == 1  # Reset after time update
     assert metrics.perf.actual_fps == pytest.approx(

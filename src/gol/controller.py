@@ -63,13 +63,9 @@ def initialize_game(
                 )
 
                 # Create new config with calculated dimensions
+                new_grid_config = config.grid.with_dimensions(width, height)
                 config = ControllerConfig(
-                    grid=GridConfig(
-                        width=width,
-                        height=height,
-                        density=config.grid.density,
-                        boundary=config.grid.boundary,
-                    ),
+                    grid=new_grid_config,
                     renderer=config.renderer,
                 )
 
@@ -101,12 +97,7 @@ def resize_game(
     new_grid = resize_grid(grid, new_width, new_height)
 
     # Create new configuration
-    new_config = GridConfig(
-        width=new_width,
-        height=new_height,
-        density=config.density,
-        boundary=config.boundary,
-    )
+    new_config = config.with_dimensions(new_width, new_height)
 
     return new_grid, new_config
 

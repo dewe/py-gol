@@ -9,15 +9,11 @@ import pytest
 from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
 from gol.life import calculate_next_state, next_generation
 from gol.types import Grid, GridPosition, IntArray
+from tests.conftest import create_test_grid
 
 # Load test patterns
 with open(Path(__file__).parent / "test_data" / "patterns.json") as f:
     TEST_PATTERNS = json.load(f)["test_patterns"]
-
-
-def create_test_grid(pattern: list[list[bool]]) -> Grid:
-    """Create a Grid from a list of boolean lists."""
-    return np.array(pattern, dtype=np.bool_)
 
 
 def create_neighbor_counts(data: list[list[int]]) -> IntArray:

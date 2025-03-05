@@ -37,12 +37,7 @@ import numpy as np
 from gol.controller import ControllerConfig, process_generation, resize_game
 from gol.grid import BoundaryCondition, GridConfig, create_grid
 from gol.metrics import create_metrics, update_game_metrics
-from gol.patterns import (
-    BUILTIN_PATTERNS,
-    FilePatternStorage,
-    PatternTransform,
-    place_pattern,
-)
+from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
     RendererConfig,
     RendererState,
@@ -246,12 +241,13 @@ def run_game_loop(
 
         if state.pattern_mode:
             # Entering pattern mode - keep current pattern if set
+            new_renderer = config.renderer.with_pattern(
+                config.renderer.selected_pattern
+                or "glider"  # Use existing pattern or default to glider
+            )
             new_config = ControllerConfig(
                 grid=config.grid,
-                renderer=config.renderer,
-                selected_pattern=config.renderer.selected_pattern
-                or "glider",  # Use existing pattern or default to glider
-                pattern_rotation=config.renderer.pattern_rotation,
+                renderer=new_renderer,
             )
             # Initialize cursor position to center of grid
             state = state.with_cursor_position(
@@ -259,11 +255,10 @@ def run_game_loop(
             )
         else:
             # Exiting pattern mode via ESC - unpause and clear pattern
+            new_renderer = config.renderer.with_pattern(None)
             new_config = ControllerConfig(
                 grid=config.grid,
-                renderer=config.renderer,
-                selected_pattern=None,
-                pattern_rotation=PatternTransform.NONE,
+                renderer=new_renderer,
             )
 
         return grid, new_config, False
@@ -313,8 +308,12 @@ def run_game_loop(
                     centered=True,
                 )
                 # Keep pattern mode active and clear selected pattern
-                config.renderer.set_pattern(None)
-                return new_grid, config, False
+                new_renderer = config.renderer.with_pattern(None)
+                new_config = ControllerConfig(
+                    grid=config.grid,
+                    renderer=new_renderer,
+                )
+                return new_grid, new_config, False
 
         return grid, config, False
 
@@ -373,16 +372,16 @@ def run_game_loop(
             state = state.with_pattern_cells(None)
 
             # Resize grid and update config
-            new_grid, new_config = resize_game(grid, new_width, new_height, config.grid)
+            new_grid, new_grid_config = resize_game(
+                grid, new_width, new_height, config.grid
+            )
 
             # Create new controller config
-            new_controller_config = ControllerConfig(
-                grid=new_config,
+            new_config = ControllerConfig(
+                grid=new_grid_config,
                 renderer=config.renderer,
-                selected_pattern=config.selected_pattern,
-                pattern_rotation=config.pattern_rotation,
             )
-            return new_grid, new_controller_config, False
+            return new_grid, new_config, False
 
         return grid, config, False
 
@@ -413,8 +412,14 @@ def run_game_loop(
             # Handle user input
             key = terminal.inkey(timeout=0.001)
             if key:
-                command = handle_user_input(key, config.renderer, state)
+                command, new_renderer = handle_user_input(key, config.renderer, state)
                 if command:
+                    # Update config with new renderer state if changed
+                    if new_renderer is not config.renderer:
+                        config = ControllerConfig(
+                            grid=config.grid,
+                            renderer=new_renderer,
+                        )
                     handler = command_map.get(command)
                     if handler:
                         grid, config, should_quit = handler()

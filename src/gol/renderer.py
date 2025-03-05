@@ -60,15 +60,18 @@ class TerminalProtocol(Protocol):
     def cbreak(self) -> Any: ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class RendererConfig:
-    """Configuration for renderer."""
+    """Configuration for renderer.
+
+    This class is immutable. All modifications return new instances.
+    """
 
     cell_alive: str = "■"
     cell_dead: str = "□"
     cell_spacing: str = " "  # Space between cells
     update_interval: int = 200  # milliseconds
-    refresh_per_second: Optional[int] = None  # Calculated from interval
+    refresh_per_second: int = 5  # Calculated from interval
     min_interval: int = 10  # Minimum interval in milliseconds
     max_interval: int = 1000  # Maximum interval in milliseconds
     min_interval_step: int = 10  # Minimum step size for interval adjustments
@@ -78,18 +81,18 @@ class RendererConfig:
 
     def __post_init__(self) -> None:
         """Calculate refresh rate based on update interval."""
-        self._update_refresh_rate()
-
-    def _update_refresh_rate(self) -> None:
-        """Update refresh rate based on current interval."""
-        self.refresh_per_second = round(1000 / self.update_interval)
+        object.__setattr__(
+            self, "refresh_per_second", round(1000 / self.update_interval)
+        )
 
     def _round_to_step(self, value: int) -> int:
         """Round value to nearest step size."""
         return round(value / self.min_interval_step) * self.min_interval_step
 
-    def increase_interval(self) -> None:
-        """Increase update interval proportionally."""
+    def with_increased_interval(self) -> "RendererConfig":
+        """Return new config with increased update interval."""
+        from dataclasses import replace
+
         # Calculate proportional change
         change = max(
             self.min_interval_step,
@@ -98,11 +101,12 @@ class RendererConfig:
         # Round to nearest step
         new_interval = self._round_to_step(self.update_interval + change)
         # Apply bounds
-        self.update_interval = min(new_interval, self.max_interval)
-        self._update_refresh_rate()
+        return replace(self, update_interval=min(new_interval, self.max_interval))
 
-    def decrease_interval(self) -> None:
-        """Decrease update interval proportionally."""
+    def with_decreased_interval(self) -> "RendererConfig":
+        """Return new config with decreased update interval."""
+        from dataclasses import replace
+
         # Calculate proportional change
         change = max(
             self.min_interval_step,
@@ -111,22 +115,22 @@ class RendererConfig:
         # Round to nearest step
         new_interval = self._round_to_step(self.update_interval - change)
         # Apply bounds
-        self.update_interval = max(new_interval, self.min_interval)
-        self._update_refresh_rate()
+        return replace(self, update_interval=max(new_interval, self.min_interval))
 
-    def set_pattern(
+    def with_pattern(
         self,
         pattern_name: Optional[str],
         rotation: PatternTransform = PatternTransform.NONE,
-    ) -> None:
-        """Set the selected pattern and rotation.
+    ) -> "RendererConfig":
+        """Return new config with updated pattern selection.
 
         Args:
             pattern_name: Name of the pattern to select, or None to clear
             rotation: Pattern rotation in degrees (0, 90, 180, 270)
         """
-        self.selected_pattern = pattern_name
-        self.pattern_rotation = rotation
+        from dataclasses import replace
+
+        return replace(self, selected_pattern=pattern_name, pattern_rotation=rotation)
 
 
 CommandType = Literal[
@@ -176,7 +180,7 @@ def handle_user_input(
     key: Keystroke,
     config: RendererConfig,
     state: RendererState,
-) -> CommandType:
+) -> tuple[CommandType, RendererConfig]:
     """Handles keyboard input from user.
 
     Args:
@@ -185,17 +189,9 @@ def handle_user_input(
         state: Current renderer state
 
     Returns:
-        CommandType: Command based on input:
-            - Returns "quit" for 'q', 'Q', Ctrl-C (^C), or ESC (not in pattern mode)
-            - Returns "restart" for 'r' or 'R' (when not in pattern mode)
-            - Returns "pattern" for 'p' or 'P'
-            - Returns "exit_pattern" for Escape (in pattern mode)
-            - Returns movement commands for arrow keys in pattern mode
-            - Returns "place_pattern" for space
-            - Returns "rotate_pattern" for 'r' or 'R' (when in pattern mode)
-            - Returns "resize_larger" for '+'
-            - Returns "resize_smaller" for '-'
-            - Returns "continue" for any other key
+        Tuple containing:
+        - CommandType: Command based on input
+        - RendererConfig: Updated configuration (may be same as input if no changes)
     """
     # Check for quit commands
     if (
@@ -205,69 +201,70 @@ def handle_user_input(
         or (key.name == "KEY_ESCAPE" and not state.pattern_mode)  # ESC
         or (key == "\x1b" and not state.pattern_mode)  # Raw ESC
     ):
-        return "quit"
+        return "quit", config
 
     # Check for Escape key to exit pattern mode
     if (key.name == "KEY_ESCAPE" or key == "\x1b") and state.pattern_mode:
-        return "exit_pattern"
+        return "exit_pattern", config
 
     # Check for restart/rotate command
     if key.name in ("r", "R") or key in ("r", "R"):
         if state.pattern_mode:  # In pattern mode
             # Update pattern rotation while maintaining selected pattern
-            config.set_pattern(
+            new_config = config.with_pattern(
                 config.selected_pattern,
                 config.pattern_rotation.next_rotation(),
             )
-            return "rotate_pattern"
-        return "restart"
+            return "rotate_pattern", new_config
+        return "restart", config
 
     # Check for pattern mode
     if key.name in ("p", "P") or key in ("p", "P"):
-        return "pattern"
+        return "pattern", config
 
     # Check for resize commands
     if key in ("+", "="):  # = is on the same key as + without shift
-        return "resize_larger"
+        return "resize_larger", config
     if key == "-":
-        return "resize_smaller"
+        return "resize_smaller", config
 
     # Handle pattern selection via number keys
     if key.isdigit():
         patterns = list(BUILTIN_PATTERNS.keys()) + FilePatternStorage().list_patterns()
         pattern_idx = int(key) - 1  # Convert to 0-based index
         if 0 <= pattern_idx < len(patterns):
-            config.set_pattern(patterns[pattern_idx])
-        return "continue"
+            new_config = config.with_pattern(patterns[pattern_idx])
+            return "continue", new_config
+        return "continue", config
 
     # Handle cursor movement in pattern mode or interval changes in game mode
     if key.name == "KEY_LEFT":
         if state.pattern_mode:
-            return "move_cursor_left"
-        return "continue"
+            return "move_cursor_left", config
+        return "continue", config
     elif key.name == "KEY_RIGHT":
         if state.pattern_mode:
-            return "move_cursor_right"
-        return "continue"
+            return "move_cursor_right", config
+        return "continue", config
     elif key.name == "KEY_UP":
         if state.pattern_mode:
-            return "move_cursor_up"
+            return "move_cursor_up", config
         else:
-            config.increase_interval()
-        return "continue"
+            new_config = config.with_increased_interval()
+            return "continue", new_config
     elif key.name == "KEY_DOWN":
         if state.pattern_mode:
-            return "move_cursor_down"
+            return "move_cursor_down", config
         else:
-            config.decrease_interval()
-        return "continue"
+            new_config = config.with_decreased_interval()
+            return "continue", new_config
 
     # Handle pattern placement
     if key == " " or key.name == "KEY_SPACE":
-        return "place_pattern"
+        return "place_pattern", config
 
     # All other keys continue the game
-    return "continue"
+    return "continue", config
 
 
 def handle_resize_event(

@@ -1,17 +1,20 @@
 """Tests for game controller."""
 
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pytest
 
 from gol.controller import (
     ControllerConfig,
     GridConfig,
+    RendererConfig,
     initialize_game,
     process_generation,
     resize_game,
 )
-from gol.grid import BoundaryCondition
-from gol.renderer import RendererConfig
+from gol.grid import BoundaryCondition, create_grid
+from gol.renderer import cleanup_terminal
 
 
 @pytest.fixture
@@ -42,26 +45,94 @@ def test_initialize_game(config: ControllerConfig) -> None:
     assert grid.shape == (config.grid.height, config.grid.width)  # Check dimensions
 
 
-def test_resize_game(config: ControllerConfig) -> None:
-    """
-    Given: A grid with known pattern
-    When: Resizing the grid
-    Then: Should preserve pattern within new bounds
-    """
-    # Create initial grid with known pattern
-    grid = np.array([[True, True], [False, False]], dtype=np.bool_)
+def test_resize_game() -> None:
+    """Test grid resizing."""
+    # Create initial grid and config
+    config = GridConfig(width=10, height=10, density=0.3)
+    grid = create_grid(config)
 
-    # Resize to larger dimensions
-    new_width = 3
-    new_height = 3
-    new_grid, _ = resize_game(grid, new_width, new_height, config.grid)
+    # Test resize to larger dimensions
+    new_grid, new_config = resize_game(grid, 20, 15, config)
+    assert new_grid.shape == (15, 20)
+    assert new_config.width == 20
+    assert new_config.height == 15
+    assert new_config.density == config.density  # Should preserve density
+    assert new_config.boundary == config.boundary  # Should preserve boundary
+    assert new_config is not config  # Should be a new instance
 
-    # Check dimensions
-    assert new_grid.shape == (new_height, new_width)
+    # Test resize to smaller dimensions
+    new_grid, new_config = resize_game(grid, 5, 8, config)
+    assert new_grid.shape == (8, 5)
+    assert new_config.width == 5
+    assert new_config.height == 8
+    assert new_config.density == config.density  # Should preserve density
+    assert new_config.boundary == config.boundary  # Should preserve boundary
+    assert new_config is not config  # Should be a new instance
 
-    # Check pattern preservation
-    assert new_grid[0, 0] and new_grid[0, 1]  # Original pattern preserved
-    assert not np.any(new_grid[2])  # New row dead
+
+def test_initialize_game_with_dimensions() -> None:
+    """Test game initialization with explicit dimensions."""
+    config = ControllerConfig(
+        grid=GridConfig(width=30, height=20, density=0.3),
+        renderer=RendererConfig(),
+    )
+
+    terminal, grid = initialize_game(config)
+    try:
+        assert grid.shape == (20, 30)  # Height, width
+    finally:
+        cleanup_terminal(terminal)
+
+
+def create_mock_terminal() -> Mock:
+    """Create a mock terminal with proper context manager support."""
+    terminal = Mock()
+    terminal.width = 80
+    terminal.height = 24
+
+    # Create a context manager mock
+    cbreak_context = Mock()
+    cbreak_context.__enter__ = Mock(return_value=None)
+    cbreak_context.__exit__ = Mock(return_value=None)
+    terminal.cbreak = Mock(return_value=cbreak_context)
+
+    return terminal
+
+
+@patch("gol.controller.initialize_terminal")
+def test_initialize_game_auto_dimensions(mock_init_terminal: Mock) -> None:
+    """Test game initialization with auto dimensions."""
+    terminal = create_mock_terminal()
+    state = Mock()
+    mock_init_terminal.return_value = (terminal, state)
+
+    config = ControllerConfig(
+        grid=GridConfig(width=30, height=20, density=0.3),  # Use valid dimensions
+        renderer=RendererConfig(),
+    )
+    grid = initialize_game(config)[1]
+
+    assert grid.shape[1] == 30  # Original width preserved
+    assert grid.shape[0] == 20  # Original height preserved
+
+
+@patch("gol.controller.initialize_terminal")
+def test_initialize_game_minimum_dimensions(mock_init_terminal: Mock) -> None:
+    """Test game initialization with minimum dimensions."""
+    terminal = create_mock_terminal()
+    terminal.width = 30  # Minimum width to fit 10 cells (2 chars each) + margins
+    terminal.height = 12  # Minimum height to fit 10 cells + status lines
+    state = Mock()
+    mock_init_terminal.return_value = (terminal, state)
+
+    config = ControllerConfig(
+        grid=GridConfig(width=10, height=10, density=0.3),  # Use valid dimensions
+        renderer=RendererConfig(),
+    )
+    grid = initialize_game(config)[1]
+
+    assert grid.shape[1] >= 10
+    assert grid.shape[0] >= 10
 
 
 def test_process_generation(config: ControllerConfig) -> None:

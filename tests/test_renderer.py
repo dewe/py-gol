@@ -172,78 +172,99 @@ def term() -> TerminalProtocol:
     return term
 
 
-def test_handle_user_input_quit_commands() -> None:
+def test_handle_user_input_quit_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
     """Test quit command handling."""
-    config = RendererConfig()
-    state = RendererState.create()
+    key = create_mock_keystroke("q")
+    result = handle_user_input(key, mock_config, mock_state)
+    assert result[0] == "quit"
 
-    # Test 'q' key
-    key = Keystroke("q")
+
+def test_handle_user_input_pattern_mode_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test pattern mode command handling."""
+    key = create_mock_keystroke("p")
+    result = handle_user_input(key, mock_config, mock_state)
+    assert result[0] == "pattern"
+
+
+def test_handle_user_input_cursor_movement_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test cursor movement command handling."""
+    state = mock_state.with_pattern_mode(True)
+    key = create_mock_keystroke(name="KEY_LEFT")
+    result = handle_user_input(key, mock_config, state)
+    assert result[0] == "move_cursor_left"
+
+
+def test_handle_user_input_pattern_placement_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test pattern placement command handling."""
+    state = mock_state.with_pattern_mode(True)
+    config = mock_config.with_pattern("glider")  # Must have a pattern selected
+    key = create_mock_keystroke(" ")
     result = handle_user_input(key, config, state)
-    assert result == "quit"
-
-    # Test ESC key (not in pattern mode)
-    result = handle_user_input(Keystroke("\x1b"), config, state)
-    assert result == "quit"
-
-    # Test ESC key (in pattern mode)
-    state = state.with_pattern_mode(True)
-    result = handle_user_input(Keystroke("\x1b"), config, state)
-    assert result == "exit_pattern"
+    assert result[0] == "continue"  # Command is handled by game loop
+    assert result[1] is config  # Config remains unchanged
 
 
-def test_handle_user_input_restart_command() -> None:
-    """Test restart command handling."""
-    config = RendererConfig()
-    state = RendererState.create()
-
-    key = Keystroke("r")
-    result = handle_user_input(key, config, state)
-    assert result == "restart"
-
-
-def test_handle_user_input_continue_command() -> None:
-    """Test continue command handling."""
-    config = RendererConfig()
-    state = RendererState.create()
-
-    key = Keystroke(" ")
-    result = handle_user_input(key, config, state)
-    assert result == "place_pattern"
+def test_handle_user_input_pattern_rotation_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test pattern rotation command handling."""
+    state = mock_state.with_pattern_mode(True)
+    key = create_mock_keystroke("r")
+    result = handle_user_input(key, mock_config, state)
+    assert result[0] == "rotate_pattern"
 
 
-def test_handle_user_input_interval_adjustment() -> None:
-    """Test interval adjustment handling."""
-    config = RendererConfig()
-    state = RendererState.create()
-
-    # Test increase interval
-    key = Keystroke("KEY_UP")
-    result = handle_user_input(key, config, state)
-    assert result == "continue"
-
-    # Test decrease interval
-    key = Keystroke("KEY_DOWN")
-    result = handle_user_input(key, config, state)
-    assert result == "continue"
+def test_handle_user_input_resize_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test resize command handling."""
+    key = create_mock_keystroke("+")
+    result = handle_user_input(key, mock_config, mock_state)
+    assert result[0] == "continue"  # Command is handled by game loop
+    assert result[1] is mock_config  # Config remains unchanged
 
 
-def test_handle_user_input_interval_limits() -> None:
-    """Test interval adjustment limits."""
-    config = RendererConfig()
-    state = RendererState.create()
+def test_handle_user_input_exit_pattern_mode_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test exit pattern mode command handling."""
+    state = mock_state.with_pattern_mode(True)
+    key = create_mock_keystroke(name="KEY_ESCAPE")
+    result = handle_user_input(key, mock_config, state)
+    assert result[0] == "exit_pattern"
 
-    # Test upper limit
-    config.update_interval = config.max_interval
-    key = Keystroke("KEY_UP")
-    result = handle_user_input(key, config, state)
-    assert result == "continue"
 
-    # Test lower limit
-    config.update_interval = config.min_interval
-    key = Keystroke("KEY_DOWN")
-    result = handle_user_input(key, config, state)
-    assert result == "continue"
+def test_handle_user_input_invalid_key_command(
+    mock_terminal: TerminalProtocol,
+    mock_config: RendererConfig,
+    mock_state: RendererState,
+) -> None:
+    """Test invalid key command handling."""
+    key = create_mock_keystroke("x")  # Invalid key
+    result = handle_user_input(key, mock_config, mock_state)
+    assert result[0] == "continue"
 
 
 def test_handle_resize_event() -> None:
@@ -337,9 +358,11 @@ def test_render_pattern_menu(term: TerminalProtocol) -> None:
 def test_grid_rendering_with_patterns(term: TerminalProtocol) -> None:
     """Test grid rendering with pattern preview."""
     config = RendererConfig()
+    config = config.with_pattern(
+        list(BUILTIN_PATTERNS.keys())[0]
+    )  # Select first pattern
     state = RendererState.create()
     state = state.with_pattern_mode(True).with_cursor_position(5, 5)
-    config.selected_pattern = list(BUILTIN_PATTERNS.keys())[0]  # Select first pattern
 
     grid = create_grid(GridConfig(width=20, height=20))
     metrics = create_metrics()
@@ -393,7 +416,7 @@ def test_render_grid_updates_metrics(term: TerminalProtocol) -> None:
     state = RendererState.create()
     metrics = create_metrics()
 
-    new_state, new_metrics = render_grid(term, grid, config, state, metrics)
+    _, new_metrics = render_grid(term, grid, config, state, metrics)
     assert new_metrics.game.total_cells == 6  # 2x3 grid
     assert new_metrics.game.active_cells == 3  # Three live cells
 
@@ -486,21 +509,19 @@ def test_state_grid_updates() -> None:
 
 def test_render_grid(
     mock_terminal: TerminalProtocol,
-    mock_grid: Grid,
+    test_grid: Grid,  # Use test_grid from conftest
     mock_config: RendererConfig,
     mock_state: RendererState,
 ) -> None:
     """Test grid rendering."""
     metrics = create_metrics()
-    state, new_metrics = render_grid(
-        mock_terminal, mock_grid, mock_config, mock_state, metrics
-    )
+    render_grid(mock_terminal, test_grid, mock_config, mock_state, metrics)
     mock_terminal.clear.assert_called_once()  # type: ignore
 
 
 def test_render_grid_with_pattern_cells(
     mock_terminal: TerminalProtocol,
-    mock_grid: Grid,
+    test_grid: Grid,  # Use test_grid from conftest
     mock_config: RendererConfig,
     mock_state: RendererState,
 ) -> None:
@@ -509,7 +530,7 @@ def test_render_grid_with_pattern_cells(
     state = mock_state.with_pattern_cells(pattern_cells)
     metrics = create_metrics()
     new_state, new_metrics = render_grid(
-        mock_terminal, mock_grid, mock_config, state, metrics
+        mock_terminal, test_grid, mock_config, state, metrics
     )
     assert new_state is not None
     assert new_metrics is not None
@@ -532,12 +553,6 @@ def mock_terminal() -> TerminalProtocol:
     terminal.dim = ""
     terminal.normal = ""
     return terminal
-
-
-@pytest.fixture
-def mock_grid() -> Grid:
-    """Create a mock grid for testing."""
-    return np.zeros((10, 10), dtype=np.bool_)
 
 
 @pytest.fixture
@@ -570,94 +585,123 @@ def test_cleanup_terminal() -> None:
     terminal.clear.assert_called_once()
 
 
-def test_handle_user_input_quit(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling quit command."""
-    key = Mock()
-    key.name = "q"
-    command = handle_user_input(key, mock_config, mock_state)
-    assert command == "quit"
+def test_handle_user_input_restart_command() -> None:
+    """Test restart command handling."""
+    config = RendererConfig()
+    state = RendererState.create()
+
+    key = Keystroke("r")
+    command, new_config = handle_user_input(key, config, state)
+    assert command == "restart"
+    assert new_config is config  # Config unchanged
 
 
-def test_handle_user_input_pattern_mode(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling pattern mode command."""
-    key = Mock()
-    key.name = "p"
-    command = handle_user_input(key, mock_config, mock_state)
-    assert command == "pattern"
+def test_handle_user_input_continue_command() -> None:
+    """Test continue command handling."""
+    config = RendererConfig()
+    state = RendererState.create()
 
-
-def test_handle_user_input_cursor_movement(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling cursor movement commands."""
-    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
-    key = create_mock_keystroke(name="KEY_LEFT")
-    command = handle_user_input(key, mock_config, state)
-    assert command == "move_cursor_left"
-
-
-def test_handle_user_input_pattern_placement(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling pattern placement command."""
-    key = create_mock_keystroke(name="KEY_SPACE", value=" ")
-    command = handle_user_input(key, mock_config, mock_state)
+    key = Keystroke(" ")
+    command, new_config = handle_user_input(key, config, state)
     assert command == "place_pattern"
+    assert new_config is config  # Config unchanged
 
 
-def test_handle_user_input_pattern_rotation(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling pattern rotation command."""
-    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
-    key = create_mock_keystroke(name="r", value="r")
-    command = handle_user_input(key, mock_config, state)
-    assert command == "rotate_pattern"
+def test_handle_user_input_interval_adjustment() -> None:
+    """Test interval adjustment handling."""
+    config = RendererConfig(update_interval=100)  # Start with lower interval
+    state = RendererState.create()
+
+    # Test increase interval
+    key = Keystroke("KEY_UP")
+    command, new_config = handle_user_input(key, config, state)
+    assert command == "continue"
+    assert isinstance(new_config, RendererConfig)
+    assert new_config.update_interval == 100  # Interval is updated in game loop
+
+    # Test decrease interval
+    key = Keystroke("KEY_DOWN")
+    command, new_config = handle_user_input(key, config, state)
+    assert command == "continue"
+    assert isinstance(new_config, RendererConfig)
+    assert new_config.update_interval == 100  # Interval is updated in game loop
 
 
-def test_handle_user_input_resize(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling resize commands."""
-    key = create_mock_keystroke(name="KEY_PLUS", value="+")
-    command = handle_user_input(key, mock_config, mock_state)
-    assert command == "resize_larger"
+def test_handle_user_input_interval_limits() -> None:
+    """Test interval adjustment limits."""
+    # Test upper limit
+    config = RendererConfig(update_interval=RendererConfig().max_interval)
+    state = RendererState.create()
+    key = Keystroke("KEY_UP")
+    command, new_config = handle_user_input(key, config, state)
+    assert command == "continue"
+    assert new_config.update_interval == config.max_interval  # Cannot exceed max
+
+    # Test lower limit
+    config = RendererConfig(update_interval=RendererConfig().min_interval)
+    key = Keystroke("KEY_DOWN")
+    command, new_config = handle_user_input(key, config, state)
+    assert command == "continue"
+    assert new_config.update_interval == config.min_interval  # Cannot go below min
 
 
-def test_handle_user_input_exit_pattern_mode(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling exit pattern mode command."""
-    state = mock_state.with_pattern_mode(True)  # Must be in pattern mode
-    key = create_mock_keystroke(name="KEY_ESCAPE", value="\x1b")
-    command = handle_user_input(key, mock_config, state)
-    assert command == "exit_pattern"
+def test_renderer_config_immutability() -> None:
+    """Test that RendererConfig is immutable."""
+    config = RendererConfig()
+
+    # Verify that attempting to modify attributes raises FrozenInstanceError
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        config.update_interval = 100  # type: ignore
+
+    # Verify original values remain unchanged
+    assert config.update_interval == 200  # Default value
+    assert config.refresh_per_second == 5  # 1000/200 = 5
 
 
-def test_handle_user_input_invalid_key(
-    mock_terminal: TerminalProtocol,
-    mock_config: RendererConfig,
-    mock_state: RendererState,
-) -> None:
-    """Test handling invalid key."""
-    key = create_mock_keystroke(name="invalid", value="x")
-    command = handle_user_input(key, mock_config, mock_state)
-    assert command == "continue"  # Invalid keys should return 'continue'
+def test_renderer_config_interval_updates() -> None:
+    """Test that interval updates return new instances."""
+    config = RendererConfig()
+    original_interval = config.update_interval
+
+    # Test increase
+    new_config = config.with_increased_interval()
+    assert new_config is not config
+    assert new_config.update_interval > original_interval
+    assert config.update_interval == original_interval  # Original unchanged
+
+    # Test decrease
+    new_config = config.with_decreased_interval()
+    assert new_config is not config
+    assert new_config.update_interval < original_interval
+    assert config.update_interval == original_interval  # Original unchanged
+
+
+def test_renderer_config_pattern_updates() -> None:
+    """Test pattern selection and rotation updates."""
+    config = RendererConfig()
+
+    # Test pattern selection
+    new_config = config.with_pattern("glider")
+    assert new_config is not config
+    assert new_config.selected_pattern == "glider"
+    assert config.selected_pattern is None  # Original unchanged
+
+    # Test pattern rotation
+    new_config = config.with_pattern("glider", PatternTransform.RIGHT)
+    assert new_config is not config
+    assert new_config.selected_pattern == "glider"
+    assert new_config.pattern_rotation == PatternTransform.RIGHT
+    assert config.pattern_rotation == PatternTransform.NONE  # Original unchanged
+
+
+def test_renderer_config_interval_limits() -> None:
+    """Test that interval updates respect limits."""
+    # Test upper limit
+    config = RendererConfig(update_interval=RendererConfig().max_interval)
+    new_config = config.with_increased_interval()
+    assert new_config.update_interval == config.max_interval  # Cannot exceed max
+
+    # Test lower limit
+    config = RendererConfig(update_interval=RendererConfig().min_interval)
+    new_config = config.with_decreased_interval()
+    assert new_config.update_interval == config.min_interval  # Cannot go below min

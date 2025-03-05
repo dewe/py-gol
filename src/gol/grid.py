@@ -19,7 +19,10 @@ class BoundaryCondition(Enum):
 
 @dataclass(frozen=True)
 class GridConfig:
-    """Grid configuration with validation."""
+    """Grid configuration with validation.
+
+    This class is immutable. All modifications return new instances.
+    """
 
     width: int
     height: int
@@ -32,6 +35,52 @@ class GridConfig:
             raise ValueError("Grid dimensions must be positive")
         if not 0 <= self.density <= 1:
             raise ValueError("Density must be between 0 and 1")
+
+    def with_dimensions(self, width: int, height: int) -> "GridConfig":
+        """Return new config with updated dimensions.
+
+        Args:
+            width: New grid width
+            height: New grid height
+
+        Returns:
+            New GridConfig instance with updated dimensions
+
+        Raises:
+            ValueError: If dimensions are invalid
+        """
+        from dataclasses import replace
+
+        return replace(self, width=width, height=height)
+
+    def with_density(self, density: float) -> "GridConfig":
+        """Return new config with updated density.
+
+        Args:
+            density: New grid density (0.0 to 1.0)
+
+        Returns:
+            New GridConfig instance with updated density
+
+        Raises:
+            ValueError: If density is invalid
+        """
+        from dataclasses import replace
+
+        return replace(self, density=density)
+
+    def with_boundary(self, boundary: BoundaryCondition) -> "GridConfig":
+        """Return new config with updated boundary condition.
+
+        Args:
+            boundary: New boundary condition
+
+        Returns:
+            New GridConfig instance with updated boundary condition
+        """
+        from dataclasses import replace
+
+        return replace(self, boundary=boundary)
 
 
 def create_grid(config: GridConfig) -> Grid:

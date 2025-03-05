@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 from gol.grid import BoundaryCondition, GridConfig, create_grid, resize_grid
 from gol.life import next_generation
+from gol.patterns import PatternTransform
 from gol.renderer import (
     RendererConfig,
     TerminalProtocol,
@@ -21,7 +22,7 @@ class ControllerConfig:
     grid: GridConfig
     renderer: RendererConfig
     selected_pattern: Optional[str] = None
-    pattern_rotation: int = 0
+    pattern_rotation: PatternTransform = PatternTransform.NONE
 
 
 def initialize_game(

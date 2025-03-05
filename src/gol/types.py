@@ -1,6 +1,6 @@
 """Type definitions for Game of Life."""
 
-from typing import Literal, TypeAlias, Union
+from typing import TypeAlias, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,7 +13,7 @@ GridIndex: TypeAlias = Union[int, slice]
 
 # Pattern types
 PatternGrid: TypeAlias = NDArray[np.bool_]
-PatternTransform: TypeAlias = Literal[0, 90, 180, 270]  # Rotation angles
+
 
 # Rendering types
 ScreenPosition: TypeAlias = tuple[int, int]  # (x, y) coords in terminal space

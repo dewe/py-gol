@@ -3,7 +3,7 @@
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Protocol, Set, Tuple, cast, runtime_checkable
+from typing import Any, Literal, Optional, Protocol, Set, Tuple, runtime_checkable
 
 import numpy as np
 import psutil
@@ -14,10 +14,11 @@ from blessed.keyboard import Keystroke
 from .patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
+    PatternTransform,
     get_centered_position,
     get_pattern_cells,
 )
-from .types import Grid, PatternTransform, RenderGrid, ScreenPosition
+from .types import Grid, RenderGrid, ScreenPosition
 
 # Update type alias to use types from types.py
 CellPos = (
@@ -84,7 +85,7 @@ class RendererConfig:
     min_interval_step: int = 10  # Minimum step size for interval adjustments
     interval_change_factor: float = 0.2  # 20% change per adjustment
     selected_pattern: Optional[str] = None
-    pattern_rotation: int = 0
+    pattern_rotation: PatternTransform = PatternTransform.NONE
 
     def __post_init__(self) -> None:
         """Calculate refresh rate based on update interval."""
@@ -124,7 +125,11 @@ class RendererConfig:
         self.update_interval = max(new_interval, self.min_interval)
         self._update_refresh_rate()
 
-    def set_pattern(self, pattern_name: Optional[str], rotation: int = 0) -> None:
+    def set_pattern(
+        self,
+        pattern_name: Optional[str],
+        rotation: PatternTransform = PatternTransform.NONE,
+    ) -> None:
         """Set the selected pattern and rotation.
 
         Args:
@@ -266,7 +271,8 @@ def handle_user_input(
         if state.pattern_mode:  # In pattern mode
             # Update pattern rotation while maintaining selected pattern
             config.set_pattern(
-                config.selected_pattern, (config.pattern_rotation + 90) % 360
+                config.selected_pattern,
+                config.pattern_rotation.next_rotation(),
             )
             return "rotate_pattern"
         return "restart"
@@ -614,12 +620,12 @@ def render_grid(
 
         if pattern:
             # Convert rotation to number of 90-degree turns
-            turns = (config.pattern_rotation // 90) % 4
+            turns = config.pattern_rotation.to_turns()
             # Get centered position for pattern preview
             preview_pos = get_centered_position(
                 pattern,
                 (state.cursor_x, state.cursor_y),
-                rotation=cast(PatternTransform, (turns * 90)),
+                rotation=config.pattern_rotation,
             )
             cells = get_pattern_cells(pattern, turns)
 

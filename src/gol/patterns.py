@@ -8,12 +8,30 @@ from typing import Dict, List, Optional, Protocol, cast
 
 import numpy as np
 
-from .types import (  # Add these from types.py
-    Grid,
-    GridPosition,
-    PatternGrid,
-    PatternTransform,
-)
+from .types import Grid, GridPosition, PatternGrid  # Add these from types.py
+
+
+class PatternTransform(Enum):
+    """Pattern rotation behavior.
+
+    Represents and manages pattern rotations in 90-degree increments.
+    Provides methods for cycling through rotations and converting to numpy turns.
+    """
+
+    NONE = 0
+    RIGHT = 90
+    FLIP = 180
+    LEFT = 270
+
+    def next_rotation(self) -> "PatternTransform":
+        """Get next rotation (90 degrees clockwise)."""
+        rotations = list(PatternTransform)
+        current_idx = rotations.index(self)
+        return rotations[(current_idx + 1) % len(rotations)]
+
+    def to_turns(self) -> int:
+        """Convert rotation to number of 90-degree turns."""
+        return self.value // 90
 
 
 class PatternCategory(Enum):
@@ -273,22 +291,24 @@ def extract_pattern(
 
 
 def get_centered_position(
-    pattern: Pattern, cursor_position: GridPosition, rotation: PatternTransform = 0
+    pattern: Pattern,
+    cursor_position: GridPosition,
+    rotation: PatternTransform = PatternTransform.NONE,
 ) -> GridPosition:
     """Calculate centered position for pattern placement.
 
     Args:
         pattern: Pattern to place
         cursor_position: Cursor position
-        rotation: Number of 90-degree clockwise rotations
+        rotation: Pattern rotation transform
 
     Returns:
         Top-left position for centered pattern placement
     """
     x, y = cursor_position
     # Adjust dimensions based on rotation
-    width = pattern.height if rotation in (90, 270) else pattern.width
-    height = pattern.width if rotation in (90, 270) else pattern.height
+    width = pattern.height if rotation.value in (90, 270) else pattern.width
+    height = pattern.width if rotation.value in (90, 270) else pattern.height
     x_offset = width // 2
     y_offset = height // 2
     return (x - x_offset, y - y_offset)
@@ -298,7 +318,7 @@ def place_pattern(
     grid: Grid,
     pattern: Pattern,
     position: GridPosition,
-    rotation: PatternTransform = 0,
+    rotation: PatternTransform = PatternTransform.NONE,
     centered: bool = True,
 ) -> Grid:
     """Place a pattern on the grid.
@@ -307,17 +327,14 @@ def place_pattern(
         grid: Target grid
         pattern: Pattern to place
         position: Position to place pattern at
-        rotation: Rotation in degrees (must be multiple of 90)
+        rotation: Pattern rotation transform
         centered: Whether to center pattern on position
 
     Returns:
         New grid with pattern placed
     """
-    if rotation not in (0, 90, 180, 270):
-        raise ValueError("Rotation must be 0, 90, 180, or 270 degrees")
-
     # Get rotated pattern cells
-    rotated_cells = cast(PatternGrid, np.rot90(pattern.cells, k=(-rotation // 90) % 4))
+    rotated_cells = cast(PatternGrid, np.rot90(pattern.cells, k=-rotation.to_turns()))
 
     # Calculate placement position
     pos = get_centered_position(pattern, position, rotation) if centered else position

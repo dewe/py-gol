@@ -191,7 +191,7 @@ TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 
 
 def initialize_terminal(
-    config: RendererConfig,
+    _config: RendererConfig,
 ) -> Tuple[Optional[TerminalProtocol], Optional[RendererState]]:
     """Initialize terminal for game display in fullscreen mode.
 

@@ -8,16 +8,11 @@ from gol.types import Grid, IntArray
 
 
 def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
-    """Calculate next state of cells using vectorized operations.
+    """Calculate next state using vectorized operations for performance.
 
-    Args:
-        current_state: Current state of cells as boolean array
-        live_neighbors: Number of live neighboring cells for each cell
-
-    Returns:
-        Next state of cells as boolean array
+    Applies Conway's rules using NumPy's logical operations to process
+    all cells simultaneously instead of iterating.
     """
-    # Vectorized implementation of Conway's rules
     survival = np.logical_and(
         current_state, np.logical_or(live_neighbors == 2, live_neighbors == 3)
     )
@@ -27,32 +22,23 @@ def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
 
 
 def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
-    """Calculate the next generation of the grid using vectorized operations.
+    """Calculate the next generation using optimized convolution operations.
 
-    Args:
-        grid: Current grid state
-        boundary: Boundary condition to apply
-
-    Returns:
-        New grid representing the next generation
+    Uses scipy's convolve2d for efficient neighbor counting, with different
+    boundary handling strategies based on the boundary condition.
     """
-    # Define convolution kernel for counting neighbors
     kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
 
-    # Calculate live neighbors based on boundary condition
     match boundary:
         case BoundaryCondition.TOROIDAL:
-            # For toroidal, use periodic boundary
             live_counts = signal.convolve2d(
                 grid.astype(np.int_), kernel, mode="same", boundary="wrap"
             )
         case BoundaryCondition.FINITE:
-            # For finite, use zero boundary
             live_counts = signal.convolve2d(
                 grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
             )
         case _:  # INFINITE
-            # For infinite, extend with zeros
             live_counts = signal.convolve2d(grid.astype(np.int_), kernel, mode="same")
 
     return calculate_next_state(grid, live_counts)

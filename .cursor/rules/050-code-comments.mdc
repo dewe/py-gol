@@ -1,7 +1,7 @@
 ---
 description: ENFORCE comment standards WHEN writing or modifying code TO maintain clear and meaningful documentation
-globs: src/**/*.{py,js,ts,cpp,c,h,hpp,java}
-alwaysApply: false
+globs: src/**/*.{py,js,ts,go}
+alwaysApply: true
 ---
 <!-- markdownlint-disable MD033 -->
 

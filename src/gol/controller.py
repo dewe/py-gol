@@ -28,26 +28,17 @@ class ControllerConfig:
 def initialize_game(
     config: ControllerConfig,
 ) -> Tuple[TerminalProtocol, Grid]:
-    """Initialize game components.
+    """Initialize game components and handle terminal setup.
 
-    Args:
-        config: Controller configuration parameters
-
-    Returns:
-        Tuple of (terminal, grid)
-
-    Raises:
-        RuntimeError: If terminal initialization fails
+    Manages terminal initialization in raw mode for direct keyboard input,
+    ensuring proper cleanup on failure.
     """
-    # Initialize terminal
     terminal, state = initialize_terminal(config.renderer)
     if terminal is None or state is None:
         raise RuntimeError("Failed to initialize terminal")
 
     try:
-        # Enter raw mode for keyboard input
         with terminal.cbreak():
-            # Create initial grid
             grid = create_grid(config.grid)
             return terminal, grid
     except Exception as e:
@@ -87,23 +78,10 @@ def resize_game(
 
 
 def process_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
-    """Process one generation of cell updates.
-
-    Args:
-        grid: Current grid state
-        boundary: Boundary condition to apply
-
-    Returns:
-        New grid state for next generation
-    """
+    """Process one generation of cell updates using the Game of Life rules."""
     return next_generation(grid, boundary)
 
 
 def cleanup_game(terminal: TerminalProtocol) -> None:
-    """Clean up game resources.
-
-    Args:
-        terminal: Terminal instance to cleanup
-    """
-    # Restore terminal state using proper cleanup sequence
+    """Restore terminal to its original state and release resources."""
     cleanup_terminal(terminal)

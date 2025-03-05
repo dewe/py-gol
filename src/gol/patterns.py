@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Protocol, cast
 
 import numpy as np
 
-from .types import Grid, GridPosition, PatternGrid  # Add these from types.py
+from .types import Grid, GridPosition, PatternGrid
 
 
 class PatternTransform(Enum):

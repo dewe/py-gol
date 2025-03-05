@@ -193,28 +193,16 @@ TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 def initialize_terminal(
     config: RendererConfig,
 ) -> Tuple[Optional[TerminalProtocol], Optional[RendererState]]:
-    """Initialize terminal for game display.
+    """Initialize terminal for game display in fullscreen mode.
 
-    Args:
-        config: Renderer configuration
-
-    Returns:
-        Tuple of (terminal, state) if successful, (None, None) otherwise
+    Sets up alternate screen buffer and hides cursor for clean rendering.
     """
     try:
-        # Initialize terminal
         terminal = Terminal()
-
-        # Enter alternate screen mode and hide cursor
         print(terminal.enter_fullscreen(), end="", flush=True)
         print(terminal.hide_cursor(), end="", flush=True)
-
-        # Clear screen
         print(terminal.clear(), end="", flush=True)
-
-        # Initialize renderer state
         state = RendererState()
-
         return terminal, state
     except Exception:
         if "terminal" in locals():
@@ -353,19 +341,14 @@ def handle_resize_event(terminal: TerminalProtocol, state: RendererState) -> Non
 
 
 def cleanup_terminal(terminal: TerminalProtocol) -> None:
-    """Restores terminal to original state.
-
-    Args:
-        terminal: Terminal instance to cleanup
-    """
+    """Restores terminal to original state, ensuring proper cleanup even on errors."""
     try:
-        print(terminal.normal_cursor(), end="", flush=True)  # Show cursor
-        print(terminal.exit_ca_mode(), end="", flush=True)  # Exit alternate screen
+        print(terminal.normal_cursor(), end="", flush=True)
+        print(terminal.exit_ca_mode(), end="", flush=True)
         print(terminal.exit_fullscreen(), end="", flush=True)
-        print(terminal.normal, end="", flush=True)  # Reset attributes
-        print(terminal.clear(), end="", flush=True)  # Clear screen
+        print(terminal.normal, end="", flush=True)
+        print(terminal.clear(), end="", flush=True)
         sys.stdout.flush()
-
     except Exception as e:
         print(f"Error during terminal cleanup: {str(e)}", file=sys.stderr)
 
@@ -374,36 +357,26 @@ def calculate_grid_position(
     terminal: TerminalProtocol,
     grid: Grid,
 ) -> tuple[int, int]:
-    """Calculates centered position for grid.
+    """Calculates optimal centered position for grid display.
 
-    Args:
-        terminal: Terminal instance
-        grid: Grid to calculate position for
-
-    Returns:
-        Tuple of (start_x, start_y) coordinates for centered grid
+    Accounts for terminal dimensions, grid size, and necessary margins
+    to ensure the grid fits within the visible area while maintaining
+    proper spacing for status lines and borders.
     """
-    # Get grid dimensions from NumPy array shape
     grid_height, grid_width = grid.shape
+    total_width = grid_width * 2
+    total_height = grid_height
 
-    # Calculate total grid dimensions including spacing
-    total_width = grid_width * 2  # Each cell is 2 chars wide with spacing
-    total_height = grid_height  # Each cell is 1 char high
+    margin = 1
+    usable_height = terminal.height - 2
+    usable_width = terminal.width - (2 * margin)
 
-    # Account for status line at bottom and margins
-    margin = 1  # Reduce side margin to 1 character
-    usable_height = terminal.height - 2  # Reserve 2 lines for status/menu
-    usable_width = terminal.width - (2 * margin)  # Account for side margins
+    center_x = (usable_width // 2) + margin
+    center_y = ((usable_height - 2) // 2) + margin
 
-    # Calculate center position first, accounting for margins
-    center_x = (usable_width // 2) + margin  # Center within usable width
-    center_y = ((usable_height - 2) // 2) + margin  # Add top margin of 1
-
-    # Calculate starting position to center the grid
     start_x = center_x - (total_width // 2)
     start_y = center_y - (total_height // 2)
 
-    # Ensure we stay within margins
     start_x = max(margin, min(start_x, terminal.width - total_width - margin))
     start_y = max(margin, min(start_y, usable_height - total_height - margin))
 
@@ -459,17 +432,12 @@ def render_status_line(
     config: RendererConfig,
     state: RendererState,
 ) -> str:
-    """Renders status line at bottom of screen.
+    """Renders status line with game metrics and performance indicators.
 
-    Args:
-        terminal: Terminal instance
-        config: Renderer configuration
-        state: Current renderer state
-
-    Returns:
-        String containing the rendered status line
+    Updates statistics once per second to avoid unnecessary calculations
+    and provides color-coded information about population, generation,
+    birth/death rates, and simulation speed.
     """
-    # Update statistics every second
     current_time = time.time()
     if current_time - state.last_stats_update >= 1.0:
         state.birth_rate = state.births_this_second
@@ -478,14 +446,12 @@ def render_status_line(
         state.deaths_this_second = 0
         state.last_stats_update = current_time
 
-    # Create plain text version to calculate true length
     plain_pop = f"Population: {state.active_cells}"
     plain_gen = f"Generation: {state.generation_count}"
     plain_births = f"Births/s: {state.birth_rate:.1f}"
     plain_deaths = f"Deaths/s: {state.death_rate:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
 
-    # Calculate true length without escape sequences
     true_length = (
         len(plain_pop)
         + len(plain_gen)
@@ -496,24 +462,17 @@ def render_status_line(
         + len(" ")
     )
 
-    # Format colored version
     pop = f"{terminal.blue}Population: {terminal.normal}{state.active_cells}"
     gen = f"{terminal.green}Generation: {terminal.normal}{state.generation_count}"
     births = f"{terminal.magenta}Births/s: {terminal.normal}{state.birth_rate:.1f}"
     deaths = f"{terminal.yellow}Deaths/s: {terminal.normal}{state.death_rate:.1f}"
     interval = f"{terminal.white}Interval: {terminal.normal}{config.update_interval}ms"
 
-    # Combine metrics with separators
     status = f"{pop} | {gen} | {births} | {deaths} | {interval}"
 
-    # Position at bottom of screen
     y = terminal.height - 1
+    x = max(0, (terminal.width - true_length) // 2)
 
-    # Center based on true content length
-    x = (terminal.width - true_length) // 2
-    x = max(0, x)  # Ensure we don't go negative
-
-    # Clear the line and render the status
     return (
         terminal.move_xy(0, y) + " " * terminal.width + terminal.move_xy(x, y) + status
     )
@@ -570,64 +529,47 @@ def render_grid(
     config: RendererConfig,
     state: RendererState,
 ) -> None:
-    """Renders current grid state using NumPy operations.
+    """Renders grid with optimized updates and pattern preview support.
 
-    Args:
-        terminal: Terminal instance
-        grid: NumPy array grid to render
-        config: Renderer configuration
-        state: Current renderer state
+    Uses NumPy operations for efficient state tracking and updates.
+    Handles terminal resizing, pattern preview rendering, and maintains
+    performance statistics for the status display.
     """
-    # Grid dimensions from NumPy array shape
     grid_height, grid_width = grid.shape
-
-    # Reserve bottom two lines for menu and status
     usable_height = terminal.height - 2
-
-    # Calculate grid position
     start_x, start_y = calculate_grid_position(terminal, grid)
 
-    # Check if dimensions or position changed
     dimensions_changed = (
         start_x != state.start_x
         or start_y != state.start_y
         or state.previous_grid is None
     )
 
-    # Update stored position if changed
     if dimensions_changed:
         state.start_x = start_x
         state.start_y = start_y
-        state.previous_grid = None  # Force full redraw
+        state.previous_grid = None
 
-        # Clear entire screen when dimensions change
         print(terminal.clear(), end="", flush=True)
         print(terminal.move_xy(0, 0), end="", flush=True)
         for y in range(terminal.height):
             print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
         sys.stdout.flush()
 
-    # Convert current grid to dictionary using optimized NumPy operations
     current_grid = grid_to_dict(grid)
-
-    # Update statistics using NumPy operations
     state.total_cells = grid.size
     state.active_cells = np.count_nonzero(grid)
 
-    # Track births and deaths if we have a previous grid
     if state.previous_grid is not None:
-        # Convert previous grid to NumPy array for comparison
         prev_grid = np.zeros_like(grid)
         for (x, y), val in state.previous_grid.items():
             prev_grid[y, x] = val
 
-        # Calculate births and deaths using NumPy operations
         births = np.logical_and(~prev_grid, grid)
         deaths = np.logical_and(prev_grid, ~grid)
         state.births_this_second += np.count_nonzero(births)
         state.deaths_this_second += np.count_nonzero(deaths)
 
-    # Get pattern preview cells if in pattern mode
     pattern_cells = set()
     if state.pattern_mode and config.selected_pattern:
         pattern = BUILTIN_PATTERNS.get(
@@ -635,9 +577,7 @@ def render_grid(
         ) or FilePatternStorage().load_pattern(config.selected_pattern)
 
         if pattern:
-            # Convert rotation to number of 90-degree turns
             turns = config.pattern_rotation.to_turns()
-            # Get centered position for pattern preview
             preview_pos = get_centered_position(
                 pattern,
                 (state.cursor_x, state.cursor_y),
@@ -645,14 +585,12 @@ def render_grid(
             )
             cells = get_pattern_cells(pattern, turns)
 
-            # Add all pattern cells to the set, using NumPy's modulo for wrapping
             for dx, dy in cells:
                 x = (preview_pos[0] + dx) % grid_width
                 y = (preview_pos[1] + dy) % grid_height
                 pattern_cells.add((x, y))
 
-    # Calculate visible grid bounds based on terminal size
-    visible_width = (terminal.width - start_x) // 2  # Each cell takes 2 chars
+    visible_width = (terminal.width - start_x) // 2
     visible_height = usable_height - start_y
 
     # Render only visible cells
@@ -717,33 +655,24 @@ def render_grid(
 
 
 def safe_render_grid(
-    terminal: TerminalProtocol,  # Accept any terminal that implements the protocol
+    terminal: TerminalProtocol,
     grid: Grid,
     config: RendererConfig,
     state: RendererState,
 ) -> None:
-    """Safely renders grid with error handling.
+    """Safely renders grid with comprehensive error handling.
 
-    Args:
-        terminal: Terminal instance
-        grid: Current game grid
-        config: Renderer configuration
-        state: Current renderer state
-
-    This function wraps render_grid with error handling to ensure
-    the terminal is always left in a valid state, even if rendering fails.
+    Ensures terminal is restored to a valid state even if rendering fails,
+    handling I/O errors, keyboard interrupts, and unexpected exceptions.
     """
     try:
         render_grid(terminal, grid, config, state)
     except (IOError, ValueError) as e:
-        # Handle I/O errors (like broken pipe) and value errors
         cleanup_terminal(terminal)
         raise RuntimeError(f"Failed to render grid: {e}") from e
     except KeyboardInterrupt:
-        # Handle Ctrl-C gracefully
         cleanup_terminal(terminal)
         raise
     except Exception as e:
-        # Handle any other unexpected errors
         cleanup_terminal(terminal)
         raise RuntimeError(f"Unexpected error during rendering: {e}") from e

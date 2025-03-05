@@ -10,16 +10,16 @@ from .types import BoolArray, Grid, GridPosition, IntArray
 
 
 class BoundaryCondition(Enum):
-    """Available boundary conditions for the grid."""
+    """Available boundary conditions for grid evolution."""
 
-    FINITE = auto()  # Cells outside grid are dead
-    TOROIDAL = auto()  # Grid wraps around edges
-    INFINITE = auto()  # Grid extends infinitely
+    FINITE = auto()  # Dead cells beyond edges
+    TOROIDAL = auto()  # Wraps around edges
+    INFINITE = auto()  # Extends infinitely
 
 
 @dataclass(frozen=True)
 class GridConfig:
-    """Grid configuration parameters."""
+    """Grid configuration with validation."""
 
     width: int
     height: int
@@ -27,7 +27,7 @@ class GridConfig:
     boundary: BoundaryCondition = BoundaryCondition.FINITE
 
     def __post_init__(self) -> None:
-        """Validate configuration parameters."""
+        """Validate grid dimensions and density."""
         if self.width <= 0 or self.height <= 0:
             raise ValueError("Grid dimensions must be positive")
         if not 0 <= self.density <= 1:
@@ -37,11 +37,8 @@ class GridConfig:
 def create_grid(config: GridConfig) -> Grid:
     """Creates initial grid with random cell distribution.
 
-    Args:
-        config: Grid configuration parameters
-
-    Returns:
-        A new Grid with random live cells based on density
+    Uses numpy's random generator for efficient array initialization
+    based on the configured density.
     """
     rng = np.random.default_rng()
     array: BoolArray = rng.random((config.height, config.width)) < config.density
@@ -110,7 +107,11 @@ def get_neighbors(
 def count_live_neighbors(
     grid: Grid, positions: IntArray, boundary: BoundaryCondition
 ) -> int:
-    """Count live neighbors using numpy operations."""
+    """Count live neighbors using vectorized operations.
+
+    Handles different boundary conditions efficiently using NumPy operations
+    instead of iterating over positions.
+    """
     if positions.size == 0:
         return 0
 
@@ -138,7 +139,11 @@ def get_grid_section(
     bottom_right: GridPosition,
     boundary: BoundaryCondition,
 ) -> Grid:
-    """Get a section of the grid."""
+    """Get a section of the grid with boundary condition handling.
+
+    For toroidal boundaries, wraps coordinates using modulo.
+    For finite/infinite boundaries, pads with dead cells beyond edges.
+    """
     x1, y1 = top_left
     x2, y2 = bottom_right
 
@@ -148,14 +153,11 @@ def get_grid_section(
         x_indices = np.arange(x1, x2 + 1) % width
         return cast(Grid, grid[np.ix_(y_indices, x_indices)])
     else:
-        # For FINITE and INFINITE, pad with False
         section = np.zeros((y2 - y1 + 1, x2 - x1 + 1), dtype=np.bool_)
 
-        # Calculate valid indices
         valid_y = slice(max(0, y1), min(grid.shape[0], y2 + 1))
         valid_x = slice(max(0, x1), min(grid.shape[1], x2 + 1))
 
-        # Copy valid section
         section_y = slice(max(0, -y1), min(section.shape[0], grid.shape[0] - y1))
         section_x = slice(max(0, -x1), min(section.shape[1], grid.shape[1] - x1))
 

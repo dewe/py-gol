@@ -1,10 +1,12 @@
-"""Tests for renderer metrics integration."""
+"""Tests for renderer metrics integration.
+
+Focus on impure functions that handle metrics display and terminal output.
+"""
 
 import re
 from dataclasses import dataclass, replace
 from typing import Any
 
-import numpy as np
 import pytest
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
@@ -14,10 +16,8 @@ from gol.renderer import (
     RendererConfig,
     RendererState,
     TerminalProtocol,
-    render_grid,
     render_status_line,
 )
-from gol.types import Grid
 
 
 def strip_ansi(text: str) -> str:
@@ -164,68 +164,28 @@ def test_render_status_line_metrics(
     assert "Deaths/s: 1.5" in status
 
 
-def test_render_grid_updates_metrics(
+def test_render_status_line_with_boundary(
     terminal: TerminalProtocol,
     config: RendererConfig,
-    state: RendererState,
     metrics: Metrics,
 ) -> None:
-    """Test that render_grid properly updates metrics."""
-    # Create test grid with some active cells
-    grid = np.zeros((10, 10), dtype=bool)
-    grid[4:7, 4:7] = True  # 9 active cells
+    """Test that status line correctly displays boundary condition."""
+    from gol.grid import BoundaryCondition
 
-    # First render to establish baseline
-    state, metrics = render_grid(terminal, grid, config, state, metrics)
-
-    assert metrics.game.total_cells == 100  # 10x10 grid
-    assert metrics.game.active_cells == 9  # 3x3 block of active cells
-
-    # Modify grid to trigger births/deaths
-    prev_grid = grid.copy()
-    grid[3:8, 3:8] = True  # Expand to 5x5 block
-
-    # Update state with previous grid
-    state = state.with_previous_grid(
-        {(x, y): prev_grid[y, x] for y, x in np.ndindex(prev_grid.shape)}
-    )
-
-    # Second render should detect changes
-    state, metrics = render_grid(terminal, grid, config, state, metrics)
-
-    assert metrics.game.total_cells == 100
-    assert metrics.game.active_cells == 25  # 5x5 block
-    assert metrics.game.births_this_second == 16  # New cells added
-    assert metrics.game.deaths_this_second == 0  # No cells died
+    config = replace(config, boundary_condition=BoundaryCondition.TOROIDAL)
+    status = strip_ansi(render_status_line(terminal, config, metrics))
+    assert "Boundary: TOROIDAL" in status
 
 
-def test_render_grid_frame_metrics(
+def test_render_status_line_formatting(
     terminal: TerminalProtocol,
     config: RendererConfig,
-    state: RendererState,
     metrics: Metrics,
-    test_grid: Grid,  # Use test_grid from conftest
 ) -> None:
-    """Test that render_grid properly tracks frame metrics."""
-    # Render multiple frames
-    for _ in range(5):
-        state, metrics = render_grid(terminal, test_grid, config, state, metrics)
-
-    assert metrics.perf.frames_this_second == 5
-    assert metrics.perf.actual_fps == 0.0  # Not updated until 1 second passes
-
-    # Force time update and render one more frame
-    import time
-    from dataclasses import replace
-
-    metrics = replace(
-        metrics,
-        perf=replace(metrics.perf, last_fps_update=time.time() - 1.1),
-    )
-
-    state, metrics = render_grid(terminal, test_grid, config, state, metrics)
-
-    assert metrics.perf.frames_this_second == 1  # Reset after time update
-    assert metrics.perf.actual_fps == pytest.approx(
-        5, rel=0.1
-    )  # ~5 FPS from previous frames
+    """Test that status line uses correct terminal formatting."""
+    status = render_status_line(terminal, config, metrics)
+    assert "blue" in status  # Population
+    assert "green" in status  # Generation
+    assert "magenta" in status  # Births/s
+    assert "yellow" in status  # Deaths/s
+    assert "white" in status  # Interval

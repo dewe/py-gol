@@ -22,6 +22,13 @@ PatternGrid: TypeAlias = NDArray[np.bool_]  # Pattern definition grid
 ScreenPosition: TypeAlias = tuple[int, int]  # Terminal coordinates
 RenderGrid: TypeAlias = dict[ScreenPosition, bool]  # Sparse render grid
 
+# Viewport types
+ViewportOffset: TypeAlias = tuple[int, int]  # (offset_x, offset_y)
+ViewportDimensions: TypeAlias = tuple[int, int]  # (width, height)
+ViewportBounds: TypeAlias = tuple[
+    int, int, int, int
+]  # (start_x, start_y, width, height)
+
 # NumPy operation types
 BoolArray: TypeAlias = NDArray[np.bool_]  # Boolean arrays
 IntArray: TypeAlias = NDArray[np.int_]  # Integer arrays

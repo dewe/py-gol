@@ -8,9 +8,33 @@ for state updates.
 from dataclasses import dataclass
 from typing import Optional, Set
 
-from .types import RenderGrid, ScreenPosition
+from .types import RenderGrid, ScreenPosition, ViewportDimensions, ViewportOffset
 
 CellPos = ScreenPosition
+
+
+@dataclass(frozen=True)
+class ViewportState:
+    """Immutable viewport state.
+
+    Manages the viewport dimensions and position relative to the grid origin.
+    All fields are immutable to ensure thread safety and predictable state updates.
+    """
+
+    width: int = 40  # Default viewport width
+    height: int = 25  # Default viewport height
+    offset_x: int = 0  # Viewport offset from grid origin
+    offset_y: int = 0  # Viewport offset from grid origin
+
+    @property
+    def dimensions(self) -> ViewportDimensions:
+        """Get viewport dimensions as (width, height)."""
+        return (self.width, self.height)
+
+    @property
+    def offset(self) -> ViewportOffset:
+        """Get viewport offset as (offset_x, offset_y)."""
+        return (self.offset_x, self.offset_y)
 
 
 @dataclass(frozen=True)
@@ -34,6 +58,8 @@ class RendererState:
     previous_pattern_cells: Optional[frozenset[CellPos]] = None
     was_in_pattern_mode: bool = False
     pattern_menu: str = ""
+
+    viewport: ViewportState = ViewportState()
 
     @classmethod
     def create(cls) -> "RendererState":
@@ -69,3 +95,16 @@ class RendererState:
 
         frozen_cells = frozenset(cells) if cells is not None else None
         return replace(self, previous_pattern_cells=frozen_cells)
+
+    def with_viewport(self, viewport: ViewportState) -> "RendererState":
+        """Update viewport state.
+
+        Args:
+            viewport: New viewport state
+
+        Returns:
+            Updated renderer state with new viewport
+        """
+        from dataclasses import replace
+
+        return replace(self, viewport=viewport)

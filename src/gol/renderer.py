@@ -18,8 +18,8 @@ from .patterns import (
     get_centered_position,
     get_pattern_cells,
 )
-from .state import RendererState
-from .types import Grid, RenderGrid, ScreenPosition
+from .state import RendererState, ViewportState
+from .types import Grid, RenderGrid, ScreenPosition, ViewportBounds
 
 CellPos = ScreenPosition
 
@@ -131,6 +131,12 @@ CommandType = Literal[
     "resize_larger",
     "resize_smaller",
     "exit_pattern",
+    "viewport_expand",
+    "viewport_shrink",
+    "viewport_pan_left",
+    "viewport_pan_right",
+    "viewport_pan_up",
+    "viewport_pan_down",
 ]
 
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
@@ -188,8 +194,12 @@ def handle_user_input(
         return "cycle_boundary", config
 
     if key in ("+", "="):
+        if state.pattern_mode:
+            return "viewport_expand", config
         return "resize_larger", config
     if key == "-":
+        if state.pattern_mode:
+            return "viewport_shrink", config
         return "resize_smaller", config
 
     if key.isdigit():
@@ -203,23 +213,19 @@ def handle_user_input(
     if key.name == "KEY_LEFT":
         if state.pattern_mode:
             return "move_cursor_left", config
-        return "continue", config
+        return "viewport_pan_left", config
     elif key.name == "KEY_RIGHT":
         if state.pattern_mode:
             return "move_cursor_right", config
-        return "continue", config
+        return "viewport_pan_right", config
     elif key.name == "KEY_UP":
         if state.pattern_mode:
             return "move_cursor_up", config
-        else:
-            new_config = config.with_increased_interval()
-            return "continue", new_config
+        return "viewport_pan_up", config
     elif key.name == "KEY_DOWN":
         if state.pattern_mode:
             return "move_cursor_down", config
-        else:
-            new_config = config.with_decreased_interval()
-            return "continue", new_config
+        return "viewport_pan_down", config
 
     if key == " " or key.name == "KEY_SPACE":
         return "place_pattern", config
@@ -380,18 +386,155 @@ def render_pattern_menu(
     )
 
 
-def render_grid(
+def calculate_render_metrics(
+    grid: Grid,
+    previous_grid: Optional[RenderGrid],
+    metrics: Metrics,
+) -> Metrics:
+    """Pure function to calculate updated metrics based on grid state.
+
+    Args:
+        grid: Current grid state
+        previous_grid: Previous grid state for calculating changes
+        metrics: Current metrics state
+
+    Returns:
+        Updated metrics with new calculations
+    """
+    metrics = update_game_metrics(
+        metrics,
+        total_cells=grid.size,
+        active_cells=np.count_nonzero(grid),
+        births=0,
+        deaths=0,
+    )
+
+    if previous_grid is not None:
+        prev_grid = np.zeros_like(grid)
+        for (x, y), val in previous_grid.items():
+            prev_grid[y, x] = val
+
+        births = np.logical_and(~prev_grid, grid)
+        deaths = np.logical_and(prev_grid, ~grid)
+
+        metrics = update_game_metrics(
+            metrics,
+            total_cells=grid.size,
+            active_cells=np.count_nonzero(grid),
+            births=np.count_nonzero(births),
+            deaths=np.count_nonzero(deaths),
+        )
+
+    return metrics
+
+
+def calculate_pattern_cells(
+    grid_width: int,
+    grid_height: int,
+    pattern_name: Optional[str],
+    cursor_pos: tuple[int, int],
+    rotation: PatternTransform,
+) -> set[tuple[int, int]]:
+    """Pure function to calculate pattern preview cell positions.
+
+    Args:
+        grid_width: Width of the grid
+        grid_height: Height of the grid
+        pattern_name: Name of the selected pattern
+        cursor_pos: Current cursor position (x, y)
+        rotation: Pattern rotation state
+
+    Returns:
+        Set of (x, y) coordinates for pattern cells
+    """
+    if not pattern_name:
+        return set()
+
+    pattern = BUILTIN_PATTERNS.get(pattern_name) or FilePatternStorage().load_pattern(
+        pattern_name
+    )
+    if not pattern:
+        return set()
+
+    # Get pattern cells with rotation
+    turns = rotation.to_turns()
+    cells = get_pattern_cells(pattern, turns)
+
+    # Calculate center position for pattern placement
+    preview_pos = get_centered_position(pattern, cursor_pos, rotation=rotation)
+
+    # Apply grid wrapping to each cell position
+    return {
+        ((preview_pos[0] + dx) % grid_width, (preview_pos[1] + dy) % grid_height)
+        for dx, dy in cells
+    }
+
+
+def calculate_viewport_bounds(
+    viewport: ViewportState,
+    terminal_width: int,
+    terminal_height: int,
+    start_x: int,
+    start_y: int,
+    grid_width: int,
+    grid_height: int,
+) -> ViewportBounds:
+    """Pure function to calculate viewport rendering bounds.
+
+    Args:
+        viewport: Current viewport state
+        terminal_width: Terminal width
+        terminal_height: Terminal height
+        start_x: Grid start X position
+        start_y: Grid start Y position
+        grid_width: Grid width
+        grid_height: Grid height
+
+    Returns:
+        Tuple of (viewport_start_x, viewport_start_y, visible_width, visible_height)
+    """
+    # Ensure viewport stays within grid bounds for toroidal grid
+    viewport_start_x = viewport.offset_x % grid_width
+    viewport_start_y = viewport.offset_y % grid_height
+
+    # Calculate maximum visible area based on terminal constraints
+    max_visible_width = (terminal_width - start_x) // 2
+    max_visible_height = terminal_height - start_y - 2
+
+    # Constrain visible area to both viewport size and terminal bounds
+    visible_width = min(viewport.width, max_visible_width, grid_width)
+    visible_height = min(viewport.height, max_visible_height, grid_height)
+
+    return viewport_start_x, viewport_start_y, visible_width, visible_height
+
+
+def render_grid_to_terminal(
     terminal: TerminalProtocol,
     grid: Grid,
     config: RendererConfig,
     state: RendererState,
     metrics: Metrics,
 ) -> tuple[RendererState, Metrics]:
-    """Renders grid with optimized updates and pattern preview support.
+    """Renders grid to terminal with side effects.
 
-    Uses NumPy operations for efficient state tracking and updates.
-    Handles terminal resizing, pattern preview rendering, and maintains
-    performance statistics for the status display.
+    This function has the following side effects:
+    - Writes to terminal using print() and terminal control sequences
+    - Flushes stdout
+    - Updates terminal cursor position
+    - Modifies terminal colors and formatting
+
+    Uses pure helper functions for calculations while containing all side effects
+    to this single function.
+
+    Args:
+        terminal: Terminal interface for rendering
+        grid: Current grid state
+        config: Renderer configuration
+        state: Current renderer state
+        metrics: Current metrics state
+
+    Returns:
+        Tuple of (new_state, new_metrics)
     """
     grid_height, grid_width = grid.shape
     usable_height = terminal.height - 2
@@ -413,58 +556,38 @@ def render_grid(
         sys.stdout.flush()
 
     current_grid = grid_to_dict(grid)
+    metrics = calculate_render_metrics(grid, state.previous_grid, metrics)
 
-    metrics = update_game_metrics(
-        metrics,
-        total_cells=grid.size,
-        active_cells=np.count_nonzero(grid),
-        births=0,
-        deaths=0,
+    pattern_cells = calculate_pattern_cells(
+        grid_width,
+        grid_height,
+        config.selected_pattern if state.pattern_mode else None,
+        (state.cursor_x, state.cursor_y),
+        config.pattern_rotation,
     )
 
-    if state.previous_grid is not None:
-        prev_grid = np.zeros_like(grid)
-        for (x, y), val in state.previous_grid.items():
-            prev_grid[y, x] = val
-
-        births = np.logical_and(~prev_grid, grid)
-        deaths = np.logical_and(prev_grid, ~grid)
-
-        metrics = update_game_metrics(
-            metrics,
-            total_cells=grid.size,
-            active_cells=np.count_nonzero(grid),
-            births=np.count_nonzero(births),
-            deaths=np.count_nonzero(deaths),
+    viewport_start_x, viewport_start_y, visible_width, visible_height = (
+        calculate_viewport_bounds(
+            state.viewport,
+            terminal.width,
+            terminal.height,
+            start_x,
+            start_y,
+            grid_width,
+            grid_height,
         )
+    )
 
-    pattern_cells = set()
-    if state.pattern_mode and config.selected_pattern:
-        pattern = BUILTIN_PATTERNS.get(
-            config.selected_pattern
-        ) or FilePatternStorage().load_pattern(config.selected_pattern)
+    # Render cells - this section contains necessary side effects for terminal output
+    for vy in range(visible_height):
+        for vx in range(visible_width):
+            # Convert viewport coordinates to grid coordinates
+            x = (viewport_start_x + vx) % grid_width
+            y = (viewport_start_y + vy) % grid_height
 
-        if pattern:
-            turns = config.pattern_rotation.to_turns()
-            preview_pos = get_centered_position(
-                pattern,
-                (state.cursor_x, state.cursor_y),
-                rotation=config.pattern_rotation,
-            )
-            cells = get_pattern_cells(pattern, turns)
-
-            for dx, dy in cells:
-                x = (preview_pos[0] + dx) % grid_width
-                y = (preview_pos[1] + dy) % grid_height
-                pattern_cells.add((x, y))
-
-    visible_width = (terminal.width - start_x) // 2
-    visible_height = usable_height - start_y
-
-    for y in range(min(grid_height, visible_height)):
-        for x in range(min(grid_width, visible_width)):
-            screen_x = start_x + (x * 2)
-            screen_y = start_y + y
+            # Calculate screen position
+            screen_x = start_x + (vx * 2)
+            screen_y = start_y + vy
 
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:
                 continue
@@ -529,7 +652,7 @@ def safe_render_grid(
     handling I/O errors, keyboard interrupts, and unexpected exceptions.
     """
     try:
-        return render_grid(terminal, grid, config, state, metrics)
+        return render_grid_to_terminal(terminal, grid, config, state, metrics)
     except (IOError, ValueError) as e:
         cleanup_terminal(terminal)
         raise RuntimeError(f"Failed to render grid: {e}") from e

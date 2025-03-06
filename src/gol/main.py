@@ -42,7 +42,13 @@ from typing import Any, Callable, Dict, Literal, Tuple
 
 import numpy as np
 
-from gol.controller import ControllerConfig, process_generation, resize_game
+from gol.controller import (
+    ControllerConfig,
+    handle_viewport_pan,
+    handle_viewport_resize,
+    process_generation,
+    resize_game,
+)
 from gol.grid import BoundaryCondition, GridConfig, create_grid
 from gol.metrics import create_metrics, update_game_metrics
 from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
@@ -72,6 +78,12 @@ CommandType = Literal[
     "resize_larger",
     "resize_smaller",
     "exit_pattern",
+    "viewport_expand",
+    "viewport_shrink",
+    "viewport_pan_left",
+    "viewport_pan_right",
+    "viewport_pan_up",
+    "viewport_pan_down",
 ]
 
 
@@ -413,6 +425,22 @@ def run_game_loop(
         )
         return grid, new_config, False
 
+    def handle_viewport_resize_command(
+        expand: bool,
+    ) -> tuple[Grid, ControllerConfig, bool]:
+        """Handle viewport resize while preserving content."""
+        nonlocal state
+        state = handle_viewport_resize(state, expand)
+        return grid, config, False
+
+    def handle_viewport_pan_command(
+        dx: int, dy: int
+    ) -> tuple[Grid, ControllerConfig, bool]:
+        """Handle viewport panning."""
+        nonlocal state
+        state = handle_viewport_pan(state, dx, dy)
+        return grid, config, False
+
     # Command map
     command_map: Dict[
         CommandType, Callable[[], Tuple[Grid, ControllerConfig, bool]]
@@ -430,6 +458,12 @@ def run_game_loop(
         "resize_larger": lambda: handle_resize(True),
         "resize_smaller": lambda: handle_resize(False),
         "exit_pattern": handle_pattern_mode,  # Reuse pattern mode handler to exit
+        "viewport_expand": lambda: handle_viewport_resize_command(True),
+        "viewport_shrink": lambda: handle_viewport_resize_command(False),
+        "viewport_pan_left": lambda: handle_viewport_pan_command(-1, 0),
+        "viewport_pan_right": lambda: handle_viewport_pan_command(1, 0),
+        "viewport_pan_up": lambda: handle_viewport_pan_command(0, -1),
+        "viewport_pan_down": lambda: handle_viewport_pan_command(0, 1),
     }
 
     # Main loop with terminal in raw mode

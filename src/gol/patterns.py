@@ -337,20 +337,30 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
 
 
 def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[GridPosition]:
-    """Generates list of live cell positions with rotation transformation."""
+    """Generates list of live cell positions with rotation transformation.
+
+    Args:
+        pattern: Pattern to get cells from
+        rotation: Number of 90-degree clockwise rotations (0-3)
+
+    Returns:
+        List of (x, y) coordinates for live cells after rotation
+    """
     cells: List[GridPosition] = []
-    for y in range(pattern.height):
-        for x in range(pattern.width):
+    height, width = pattern.cells.shape
+
+    for y in range(height):
+        for x in range(width):
             if pattern.cells[y][x]:
                 # Transform coordinates based on rotation angle
                 match rotation:
                     case 0:  # Original orientation
                         cells.append((x, y))
                     case 1:  # 90° clockwise
-                        cells.append((pattern.height - 1 - y, x))
+                        cells.append((y, width - 1 - x))
                     case 2:  # 180°
-                        cells.append((pattern.width - 1 - x, pattern.height - 1 - y))
+                        cells.append((width - 1 - x, height - 1 - y))
                     case 3:  # 270° clockwise
-                        cells.append((y, pattern.width - 1 - x))
+                        cells.append((height - 1 - y, x))
 
     return cells

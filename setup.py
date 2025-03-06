@@ -9,16 +9,16 @@ setup(
     install_requires=[
         "blessed>=1.20",  # Terminal UI
         "typing-extensions>=4.0.0",  # Type hints
-        "numpy>=1.24.0",  # Fast array operations
+        "scipy>=1.12.0",  # Fast array operations (includes numpy)
     ],
     extras_require={
         "dev": [
             "pytest>=7.0",
-            "pytest-asyncio>=0.21.0",
             "pytest-cov>=4.0",
             "black>=23.0",
             "ruff>=0.1.0",
             "mypy>=1.9.0",  # Static type checking
+            "types-setuptools>=75.0.0",  # Type stubs for setuptools
         ],
     },
     entry_points={

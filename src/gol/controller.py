@@ -12,6 +12,7 @@ from gol.renderer import (
     cleanup_terminal,
     initialize_terminal,
 )
+from gol.state import RendererState, ViewportState
 from gol.types import Grid
 
 
@@ -110,3 +111,57 @@ def process_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
 def cleanup_game(terminal: TerminalProtocol) -> None:
     """Restore terminal to its original state and release resources."""
     cleanup_terminal(terminal)
+
+
+def handle_viewport_resize(state: RendererState, expand: bool) -> RendererState:
+    """Pure function to handle viewport resize.
+
+    Resizes the viewport by a fixed delta while maintaining minimum dimensions
+    and preserving the viewport offset.
+
+    Args:
+        state: Current renderer state
+        expand: True to expand viewport, False to shrink
+
+    Returns:
+        New renderer state with updated viewport dimensions
+    """
+    viewport = state.viewport
+    delta = 4  # Resize by 4 cells at a time
+    new_width = viewport.width + (delta if expand else -delta)
+    new_height = viewport.height + (delta if expand else -delta)
+
+    # Ensure minimum viewport size
+    new_width = max(20, new_width)
+    new_height = max(10, new_height)
+
+    new_viewport = ViewportState(
+        width=new_width,
+        height=new_height,
+        offset_x=viewport.offset_x,
+        offset_y=viewport.offset_y,
+    )
+    return state.with_viewport(new_viewport)
+
+
+def handle_viewport_pan(state: RendererState, dx: int, dy: int) -> RendererState:
+    """Pure function to handle viewport panning.
+
+    Pans the viewport by the specified delta while preserving dimensions.
+
+    Args:
+        state: Current renderer state
+        dx: Horizontal pan delta (-1 for left, 1 for right)
+        dy: Vertical pan delta (-1 for up, 1 for down)
+
+    Returns:
+        New renderer state with updated viewport offset
+    """
+    viewport = state.viewport
+    new_viewport = ViewportState(
+        width=viewport.width,
+        height=viewport.height,
+        offset_x=viewport.offset_x + dx,
+        offset_y=viewport.offset_y + dy,
+    )
+    return state.with_viewport(new_viewport)

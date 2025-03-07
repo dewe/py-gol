@@ -144,24 +144,42 @@ def handle_viewport_resize(state: RendererState, expand: bool) -> RendererState:
     return state.with_viewport(new_viewport)
 
 
-def handle_viewport_pan(state: RendererState, dx: int, dy: int) -> RendererState:
+def handle_viewport_pan(
+    state: RendererState,
+    dx: int,
+    dy: int,
+    grid_width: int = 50,  # Default grid dimensions for backward compatibility
+    grid_height: int = 30,
+) -> RendererState:
     """Pure function to handle viewport panning.
 
-    Pans the viewport by the specified delta while preserving dimensions.
+    Pans the viewport by the specified delta while preserving dimensions
+    and enforcing grid boundaries.
 
     Args:
         state: Current renderer state
         dx: Horizontal pan delta (-1 for left, 1 for right)
         dy: Vertical pan delta (-1 for up, 1 for down)
+        grid_width: Width of the game grid
+        grid_height: Height of the game grid
 
     Returns:
         New renderer state with updated viewport offset
     """
     viewport = state.viewport
+
+    # Calculate maximum allowed offsets
+    max_x_offset = max(0, grid_width - viewport.width)
+    max_y_offset = max(0, grid_height - viewport.height)
+
+    # Calculate new offsets with boundary constraints
+    new_x = max(0, min(max_x_offset, viewport.offset_x + dx))
+    new_y = max(0, min(max_y_offset, viewport.offset_y + dy))
+
     new_viewport = ViewportState(
         width=viewport.width,
         height=viewport.height,
-        offset_x=viewport.offset_x + dx,
-        offset_y=viewport.offset_y + dy,
+        offset_x=new_x,
+        offset_y=new_y,
     )
     return state.with_viewport(new_viewport)

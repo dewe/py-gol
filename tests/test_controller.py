@@ -9,12 +9,14 @@ from gol.controller import (
     ControllerConfig,
     GridConfig,
     RendererConfig,
+    handle_viewport_pan,
     initialize_game,
     process_generation,
     resize_game,
 )
 from gol.grid import BoundaryCondition, create_grid
 from gol.renderer import cleanup_terminal
+from gol.state import RendererState, ViewportState
 
 
 @pytest.fixture
@@ -160,3 +162,104 @@ def test_process_generation(config: ControllerConfig) -> None:
     assert new_grid[1, 1]  # Center cell survives
     assert new_grid[1, 2]  # Right cell becomes alive
     assert not new_grid[2, 1]  # Bottom cell dies
+
+
+def test_viewport_pan_boundaries() -> None:
+    """
+    Given: A grid and viewport of known dimensions
+    When: Panning the viewport in different directions
+    Then: Should stop at grid boundaries
+    """
+    # Create initial state with viewport smaller than grid
+    grid_width, grid_height = 50, 30
+    viewport_width, viewport_height = 20, 10
+    initial_state = RendererState().with_viewport(
+        ViewportState(
+            width=viewport_width,
+            height=viewport_height,
+            offset_x=0,
+            offset_y=0,
+        )
+    )
+
+    # Test panning right to boundary
+    max_x_offset = grid_width - viewport_width
+    state = initial_state
+    for _ in range(max_x_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, 1, 0, grid_width, grid_height)
+    assert state.viewport.offset_x == max_x_offset  # Should stop at boundary
+
+    # Test panning down to boundary
+    max_y_offset = grid_height - viewport_height
+    state = initial_state
+    for _ in range(max_y_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, 0, 1, grid_width, grid_height)
+    assert state.viewport.offset_y == max_y_offset  # Should stop at boundary
+
+    # Test panning left to boundary
+    state = initial_state.with_viewport(
+        ViewportState(
+            width=viewport_width,
+            height=viewport_height,
+            offset_x=max_x_offset,
+            offset_y=0,
+        )
+    )
+    for _ in range(max_x_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, -1, 0, grid_width, grid_height)
+    assert state.viewport.offset_x == 0  # Should stop at boundary
+
+    # Test panning up to boundary
+    state = initial_state.with_viewport(
+        ViewportState(
+            width=viewport_width,
+            height=viewport_height,
+            offset_x=0,
+            offset_y=max_y_offset,
+        )
+    )
+    for _ in range(max_y_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, 0, -1, grid_width, grid_height)
+    assert state.viewport.offset_y == 0  # Should stop at boundary
+
+
+def test_viewport_pan_diagonal_boundaries() -> None:
+    """
+    Given: A grid and viewport of known dimensions
+    When: Panning the viewport diagonally
+    Then: Should respect both x and y boundaries independently
+    """
+    # Create initial state with viewport smaller than grid
+    grid_width, grid_height = 50, 30
+    viewport_width, viewport_height = 20, 10
+    initial_state = RendererState().with_viewport(
+        ViewportState(
+            width=viewport_width,
+            height=viewport_height,
+            offset_x=0,
+            offset_y=0,
+        )
+    )
+
+    # Test panning to bottom-right corner
+    max_x_offset = grid_width - viewport_width
+    max_y_offset = grid_height - viewport_height
+    state = initial_state
+    for _ in range(max(max_x_offset, max_y_offset) + 5):
+        state = handle_viewport_pan(state, 1, 1, grid_width, grid_height)
+    assert state.viewport.offset_x == max_x_offset
+    assert state.viewport.offset_y == max_y_offset
+
+    # Test panning to top-left corner
+    state = initial_state.with_viewport(
+        ViewportState(
+            width=viewport_width,
+            height=viewport_height,
+            offset_x=max_x_offset,
+            offset_y=max_y_offset,
+        )
+    )
+    for _ in range(max(max_x_offset, max_y_offset) + 5):
+        state = handle_viewport_pan(state, -1, -1, grid_width, grid_height)
+    assert state.viewport.offset_x == 0
+    assert state.viewport.offset_y == 0

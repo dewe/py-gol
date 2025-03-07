@@ -94,31 +94,57 @@ def test_viewport_pan() -> None:
     """Given a renderer state with viewport
     When panning in different directions
     Then offset should update accordingly while preserving dimensions
+    and respecting grid boundaries
     """
+    grid_width, grid_height = 50, 30
     initial_viewport = ViewportState(width=40, height=25, offset_x=0, offset_y=0)
     state = RendererState(viewport=initial_viewport)
 
     # Pan right
-    state = handle_viewport_pan(state, dx=1, dy=0)
+    state = handle_viewport_pan(
+        state, dx=1, dy=0, grid_width=grid_width, grid_height=grid_height
+    )
     dimensions: ViewportDimensions = state.viewport.dimensions
     offset: ViewportOffset = state.viewport.offset
     assert offset == (1, 0)
     assert dimensions == (40, 25)
 
     # Pan down
-    state = handle_viewport_pan(state, dx=0, dy=1)
+    state = handle_viewport_pan(
+        state, dx=0, dy=1, grid_width=grid_width, grid_height=grid_height
+    )
     offset = state.viewport.offset
     assert offset == (1, 1)
 
-    # Pan left
-    state = handle_viewport_pan(state, dx=-2, dy=0)
+    # Pan left twice (should stop at 0)
+    state = handle_viewport_pan(
+        state, dx=-2, dy=0, grid_width=grid_width, grid_height=grid_height
+    )
     offset = state.viewport.offset
-    assert offset == (-1, 1)
+    assert offset == (0, 1)  # Clamped at left boundary
 
-    # Pan up
-    state = handle_viewport_pan(state, dx=0, dy=-2)
+    # Pan up twice (should stop at 0)
+    state = handle_viewport_pan(
+        state, dx=0, dy=-2, grid_width=grid_width, grid_height=grid_height
+    )
     offset = state.viewport.offset
-    assert offset == (-1, -1)
+    assert offset == (0, 0)  # Clamped at top boundary
+
+    # Pan beyond right boundary
+    max_x = grid_width - initial_viewport.width
+    state = handle_viewport_pan(
+        state, dx=max_x + 5, dy=0, grid_width=grid_width, grid_height=grid_height
+    )
+    offset = state.viewport.offset
+    assert offset == (max_x, 0)  # Clamped at right boundary
+
+    # Pan beyond bottom boundary
+    max_y = grid_height - initial_viewport.height
+    state = handle_viewport_pan(
+        state, dx=0, dy=max_y + 5, grid_width=grid_width, grid_height=grid_height
+    )
+    offset = state.viewport.offset
+    assert offset == (max_x, max_y)  # Clamped at bottom boundary
 
 
 def test_viewport_key_bindings_pattern_mode() -> None:

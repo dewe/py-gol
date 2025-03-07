@@ -20,12 +20,14 @@ A terminal-based implementation of Conway's Game of Life with a focus on functio
 The implementation follows a functional core/imperative shell architecture:
 
 ### Pure Functional Core
+
 - **Grid Operations**: Pure functions for grid manipulation
 - **Life Rules**: Pure functions implementing game rules
 - **State Transitions**: Immutable state updates
 - **Pattern Operations**: Pure pattern transformations
 
 ### Impure Shell
+
 - **Terminal I/O**: Display updates and user input
 - **File Operations**: Pattern storage and loading
 - **Signal Handling**: System signal management
@@ -33,6 +35,7 @@ The implementation follows a functional core/imperative shell architecture:
 - **Metrics**: Performance monitoring
 
 ### Key Principles
+
 - Clear separation between pure and impure code
 - Immutable data structures for state management
 - Side effects isolated to specific modules
@@ -229,7 +232,7 @@ pytest tests/test_grid.py     # Test grid management only
 - **mypy**: Static type checking
 - **ruff**: Fast Python linter
 
-## Architecture
+## Architecture principles
 
 The implementation follows these architectural principles:
 

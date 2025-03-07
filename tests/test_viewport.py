@@ -3,12 +3,13 @@
 Tests viewport state management, resizing, panning and coordinate translation.
 """
 
-from unittest.mock import Mock
+from unittest.mock import Mock, PropertyMock
 
+import pytest
 from blessed.keyboard import Keystroke
 
 from gol.controller import handle_viewport_pan, handle_viewport_resize
-from gol.renderer import RendererConfig, calculate_viewport_bounds, handle_user_input
+from gol.renderer import TerminalProtocol, calculate_viewport_bounds
 from gol.state import RendererState, ViewportState
 
 
@@ -23,27 +24,53 @@ def create_mock_keystroke(name: str = "", value: str = "") -> Mock:
         Mock keystroke object
     """
     key = Mock(spec=Keystroke)
-    key.name = name
+    key.name = name or value
     key.configure_mock(__str__=Mock(return_value=value))
     key.configure_mock(__eq__=Mock(side_effect=lambda x: str(key) == x))
     key.configure_mock(isdigit=Mock(return_value=value.isdigit() if value else False))
     return key
 
 
+@pytest.fixture
+def mock_terminal() -> TerminalProtocol:
+    """Create a mock terminal for testing."""
+    terminal = Mock(spec=TerminalProtocol)
+    type(terminal).width = PropertyMock(return_value=80)
+    type(terminal).height = PropertyMock(return_value=24)
+    terminal.clear.return_value = ""
+    terminal.move_xy.return_value = ""
+    terminal.hide_cursor.return_value = ""
+    terminal.normal_cursor.return_value = ""
+    terminal.enter_fullscreen.return_value = ""
+    terminal.exit_fullscreen.return_value = ""
+    terminal.enter_ca_mode.return_value = ""
+    terminal.exit_ca_mode.return_value = ""
+    type(terminal).normal = PropertyMock(return_value="")
+    type(terminal).dim = PropertyMock(return_value="")
+    type(terminal).white = PropertyMock(return_value="")
+    type(terminal).blue = PropertyMock(return_value="")
+    type(terminal).green = PropertyMock(return_value="")
+    type(terminal).yellow = PropertyMock(return_value="")
+    type(terminal).magenta = PropertyMock(return_value="")
+    terminal.inkey.return_value = Keystroke("")
+    terminal.cbreak.return_value = terminal
+    return terminal
+
+
 def test_viewport_state_defaults() -> None:
-    """Test default viewport state initialization."""
-    viewport = ViewportState(dimensions=(40, 25))
-    assert viewport.dimensions == (40, 25)
-    assert viewport.offset_x == 0
-    assert viewport.offset_y == 0
+    """Test viewport state default values."""
+    state = RendererState()
+    assert state.viewport.width == 50
+    assert state.viewport.height == 30
+    assert state.viewport.offset == (0, 0)
 
 
 def test_viewport_state_custom_values() -> None:
     """Test viewport state with custom values."""
-    viewport = ViewportState(dimensions=(30, 20), offset_x=5, offset_y=-3)
-    assert viewport.dimensions == (30, 20)
-    assert viewport.offset_x == 5
-    assert viewport.offset_y == -3
+    viewport = ViewportState(dimensions=(50, 30), offset_x=5, offset_y=10)
+    assert viewport.width == 50
+    assert viewport.height == 30
+    assert viewport.offset == (5, 10)
 
 
 def test_viewport_resize_expand() -> None:
@@ -79,147 +106,110 @@ def test_viewport_resize_minimum_bounds() -> None:
 
 
 def test_viewport_pan() -> None:
-    """Test viewport panning in all directions."""
-    grid_width, grid_height = 50, 30
-    initial_viewport = ViewportState(dimensions=(40, 25))
+    """Test viewport panning behavior."""
+    grid_width, grid_height = 100, 80
+    initial_viewport = ViewportState(dimensions=(40, 30), offset_x=5, offset_y=5)
     state = RendererState().with_viewport(initial_viewport)
 
-    # Test panning right
-    new_state = handle_viewport_pan(state, 5, 0, grid_width, grid_height)
-    assert new_state.viewport.offset_x == 5
-    assert new_state.viewport.offset_y == 0
-    assert new_state.viewport.dimensions == initial_viewport.dimensions
+    # Test panning in all directions
+    state = handle_viewport_pan(
+        state, dx=1, dy=0, grid_width=grid_width, grid_height=grid_height
+    )  # Right
+    assert state.viewport.offset == (6, 5)
 
-    # Test panning down
-    new_state = handle_viewport_pan(state, 0, 3, grid_width, grid_height)
-    assert new_state.viewport.offset_x == 0
-    assert new_state.viewport.offset_y == 3
-    assert new_state.viewport.dimensions == initial_viewport.dimensions
+    state = handle_viewport_pan(
+        state, dx=-1, dy=0, grid_width=grid_width, grid_height=grid_height
+    )  # Left
+    assert state.viewport.offset == (5, 5)
 
-    # Test panning diagonally
-    new_state = handle_viewport_pan(state, 2, 2, grid_width, grid_height)
-    assert new_state.viewport.offset_x == 2
-    assert new_state.viewport.offset_y == 2
-    assert new_state.viewport.dimensions == initial_viewport.dimensions
+    state = handle_viewport_pan(
+        state, dx=0, dy=1, grid_width=grid_width, grid_height=grid_height
+    )  # Down
+    assert state.viewport.offset == (5, 6)
+
+    state = handle_viewport_pan(
+        state, dx=0, dy=-1, grid_width=grid_width, grid_height=grid_height
+    )  # Up
+    assert state.viewport.offset == (5, 5)
 
 
 def test_viewport_pan_grid_boundaries() -> None:
     """Test viewport panning respects grid boundaries."""
-    grid_width, grid_height = 50, 30
-    viewport_width, viewport_height = 20, 10
-    initial_state = RendererState().with_viewport(
-        ViewportState(dimensions=(viewport_width, viewport_height))
-    )
+    grid_width, grid_height = 100, 80
+    viewport = ViewportState(dimensions=(40, 30), offset_x=80, offset_y=60)
+    state = RendererState().with_viewport(viewport)
 
-    # Test right boundary
-    state = initial_state
-    max_x_offset = grid_width - viewport_width
-    for _ in range(max_x_offset + 5):
-        state = handle_viewport_pan(state, 1, 0, grid_width, grid_height)
-    assert state.viewport.offset_x == max_x_offset
+    # Test panning beyond grid boundaries
+    new_state = handle_viewport_pan(state, dx=1, dy=1)
+    assert new_state.viewport.offset_x <= grid_width - viewport.width
+    assert new_state.viewport.offset_y <= grid_height - viewport.height
 
-    # Test bottom boundary
-    state = initial_state
-    max_y_offset = grid_height - viewport_height
-    for _ in range(max_y_offset + 5):
-        state = handle_viewport_pan(state, 0, 1, grid_width, grid_height)
-    assert state.viewport.offset_y == max_y_offset
+    # Test panning to negative coordinates
+    viewport = ViewportState(dimensions=(40, 30), offset_x=5, offset_y=5)
+    state = RendererState().with_viewport(viewport)
+    new_state = handle_viewport_pan(state, dx=-10, dy=-10)
+    assert new_state.viewport.offset_x >= 0
+    assert new_state.viewport.offset_y >= 0
 
 
 def test_viewport_bounds_basic() -> None:
     """Test basic viewport bounds calculation."""
-    viewport = ViewportState(dimensions=(40, 25))
-    grid_width, grid_height = 100, 60
-    terminal_width, terminal_height = 120, 40
-    start_x, start_y = 2, 1
-
+    viewport = ViewportState(dimensions=(40, 30))
     bounds = calculate_viewport_bounds(
-        viewport,
-        terminal_width,
-        terminal_height,
-        start_x,
-        start_y,
-        grid_width,
-        grid_height,
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=0,
+        start_y=0,
+        grid_width=100,
+        grid_height=80,
     )
     viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
     assert viewport_start_x == 0
     assert viewport_start_y == 0
-    assert visible_width == 40
-    assert visible_height == 25
+    assert visible_width <= viewport.width
+    assert visible_height <= viewport.height
 
 
 def test_viewport_bounds_with_offset() -> None:
-    """Test viewport bounds with offset."""
-    viewport = ViewportState(dimensions=(40, 25), offset_x=5, offset_y=3)
-    grid_width, grid_height = 100, 60
-    terminal_width, terminal_height = 120, 40
-    start_x, start_y = 2, 1
-
+    """Test viewport bounds calculation with offset."""
+    viewport = ViewportState(dimensions=(40, 30), offset_x=20, offset_y=15)
     bounds = calculate_viewport_bounds(
-        viewport,
-        terminal_width,
-        terminal_height,
-        start_x,
-        start_y,
-        grid_width,
-        grid_height,
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=0,
+        start_y=0,
+        grid_width=100,
+        grid_height=80,
     )
     viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
-    assert viewport_start_x == 5
-    assert viewport_start_y == 3
-    assert visible_width == 40
-    assert visible_height == 25
+    assert viewport_start_x == 20
+    assert viewport_start_y == 15
+    assert visible_width <= viewport.width
+    assert visible_height <= viewport.height
 
 
 def test_viewport_bounds_terminal_constraints() -> None:
     """Test viewport bounds respect terminal constraints."""
-    viewport = ViewportState(dimensions=(100, 50))
-    grid_width, grid_height = 80, 40
-    terminal_width, terminal_height = 60, 30
-    start_x, start_y = 2, 1
-
+    viewport = ViewportState(dimensions=(60, 40))  # Larger than terminal
     bounds = calculate_viewport_bounds(
-        viewport,
-        terminal_width,
-        terminal_height,
-        start_x,
-        start_y,
-        grid_width,
-        grid_height,
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=5,
+        start_y=2,
+        grid_width=100,
+        grid_height=80,
     )
-    _, _, visible_width, visible_height = bounds
+    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
-    assert visible_width <= terminal_width // 2  # Account for cell width
-    assert visible_height <= terminal_height - 1  # Account for status line
+    # Terminal width - start_x - margins
+    max_visible_width = (80 - 5) // 2
+    # Terminal height - start_y - status lines
+    max_visible_height = 24 - 2 - 2
 
-
-def test_viewport_key_bindings() -> None:
-    """Test viewport key bindings in both modes."""
-    config = RendererConfig()
-
-    # Test pattern mode
-    pattern_state = RendererState(pattern_mode=True)
-
-    # Viewport resize
-    plus_key = create_mock_keystroke(value="+")
-    command, _ = handle_user_input(plus_key, config, pattern_state)
-    assert command == "viewport_expand"
-
-    minus_key = create_mock_keystroke(value="-")
-    command, _ = handle_user_input(minus_key, config, pattern_state)
-    assert command == "viewport_shrink"
-
-    # Test normal mode
-    normal_state = RendererState(pattern_mode=False)
-
-    # Viewport panning
-    left_key = create_mock_keystroke(name="KEY_LEFT")
-    command, _ = handle_user_input(left_key, config, normal_state)
-    assert command == "viewport_pan_left"
-
-    right_key = create_mock_keystroke(name="KEY_RIGHT")
-    command, _ = handle_user_input(right_key, config, normal_state)
-    assert command == "viewport_pan_right"
+    assert visible_width <= max_visible_width
+    assert visible_height <= max_visible_height

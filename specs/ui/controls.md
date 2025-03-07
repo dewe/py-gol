@@ -7,14 +7,14 @@
 | Space       | Start/Stop simulation          |
 | P           | Enter pattern mode             |
 | C           | Clear grid                     |
-| Arrow keys  | Pan viewport                   |
-| Q, Esc      | Quit game                      |
 | R           | Restart with new grid          |
 | B           | Cycle boundary conditions      |
 | +           | Resize grid larger             |
 | -           | Resize grid smaller            |
+| Arrow keys  | Pan viewport                   |
 | Shift+Up    | Increase simulation speed      |
 | Shift+Down  | Decrease simulation speed      |
+| Q, Esc      | Quit game                      |
 
 ## Pattern Mode
 
@@ -25,3 +25,8 @@
 | Space       | Place pattern                  |
 | Arrow keys  | Move cursor                    |
 | P           | Exit pattern mode              |
+| Q, Esc      | Quit game                      |
+
+## Important
+
+Remove any key controls not specified here.

@@ -5,15 +5,15 @@ It uses frozen dataclasses to ensure state immutability and provides pure functi
 for state updates.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Set
+import dataclasses
+from typing import Optional
 
-from .types import GameDimensions, RenderGrid, ScreenPosition, ViewportOffset
+import numpy as np
 
-CellPos = ScreenPosition
+from gol.types import GameDimensions, ViewportOffset
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class ViewportState:
     """Immutable viewport state.
 
@@ -40,68 +40,88 @@ class ViewportState:
         """Get viewport offset as (offset_x, offset_y)."""
         return (self.offset_x, self.offset_y)
 
+    @classmethod
+    def create(cls, dimensions: tuple[int, int]) -> "ViewportState":
+        """Create a new viewport state with specified dimensions."""
+        return cls(dimensions=dimensions)
 
-@dataclass(frozen=True)
+
+@dataclasses.dataclass(frozen=True)
 class RendererState:
-    """Immutable core renderer state.
-
-    This class maintains the core state of the renderer between frames.
-    All fields are immutable to ensure thread safety and predictable state updates.
-    State updates are performed through pure functions that return new state instances.
-    """
-
-    previous_grid: Optional[RenderGrid] = None
-    start_x: int = 0
-    start_y: int = 0
-    terminal_width: int = 0
-    terminal_height: int = 0
+    """Immutable state for renderer configuration."""
 
     pattern_mode: bool = False
     cursor_x: int = 0
     cursor_y: int = 0
-    previous_pattern_cells: Optional[frozenset[CellPos]] = None
-    was_in_pattern_mode: bool = False
-    pattern_menu: str = ""
-
-    viewport: ViewportState = ViewportState(dimensions=(40, 25))  # Default dimensions
+    previous_grid: Optional[np.ndarray] = None
+    pattern_cells: Optional[np.ndarray] = None
+    viewport: ViewportState = dataclasses.field(
+        default_factory=lambda: ViewportState.create((50, 30))
+    )
+    paused: bool = False
+    start_x: int = 0
+    start_y: int = 0
 
     @classmethod
-    def create(cls, dimensions: GameDimensions = (40, 25)) -> "RendererState":
-        """Create a new renderer state with specified dimensions."""
-        return cls(viewport=ViewportState(dimensions=dimensions))
+    def create(
+        cls,
+        dimensions: tuple[int, int] = (50, 30),
+        pattern_mode: bool = False,
+        cursor_x: int = 0,
+        cursor_y: int = 0,
+        previous_grid: Optional[np.ndarray] = None,
+        pattern_cells: Optional[np.ndarray] = None,
+        viewport: Optional[ViewportState] = None,
+        paused: bool = False,
+        start_x: int = 0,
+        start_y: int = 0,
+    ) -> "RendererState":
+        """Create a new renderer state with optional overrides."""
+        return cls(
+            pattern_mode=pattern_mode,
+            cursor_x=cursor_x,
+            cursor_y=cursor_y,
+            previous_grid=previous_grid,
+            pattern_cells=pattern_cells,
+            viewport=viewport or ViewportState.create(dimensions),
+            paused=paused,
+            start_x=start_x,
+            start_y=start_y,
+        )
 
-    def with_grid_position(self, x: int, y: int) -> "RendererState":
-        from dataclasses import replace
-
-        return replace(self, start_x=x, start_y=y)
-
-    def with_terminal_dimensions(self, width: int, height: int) -> "RendererState":
-        from dataclasses import replace
-
-        return replace(self, terminal_width=width, terminal_height=height)
-
-    def with_pattern_mode(self, enabled: bool) -> "RendererState":
-        from dataclasses import replace
-
-        return replace(self, pattern_mode=enabled)
+    def with_pattern_mode(self, pattern_mode: bool) -> "RendererState":
+        """Create new state with updated pattern mode."""
+        return dataclasses.replace(self, pattern_mode=pattern_mode)
 
     def with_cursor_position(self, x: int, y: int) -> "RendererState":
-        from dataclasses import replace
+        """Create new state with updated cursor position."""
+        return dataclasses.replace(self, cursor_x=x, cursor_y=y)
 
-        return replace(self, cursor_x=x, cursor_y=y)
+    def with_previous_grid(self, grid: Optional[np.ndarray]) -> "RendererState":
+        """Create new state with updated previous grid."""
+        return dataclasses.replace(self, previous_grid=grid)
 
-    def with_previous_grid(self, grid: Optional[RenderGrid]) -> "RendererState":
-        from dataclasses import replace
-
-        return replace(self, previous_grid=grid)
-
-    def with_pattern_cells(self, cells: Optional[Set[CellPos]]) -> "RendererState":
-        from dataclasses import replace
-
-        frozen_cells = frozenset(cells) if cells is not None else None
-        return replace(self, previous_pattern_cells=frozen_cells)
+    def with_pattern_cells(self, cells: Optional[np.ndarray]) -> "RendererState":
+        """Create new state with updated pattern cells."""
+        return dataclasses.replace(self, pattern_cells=cells)
 
     def with_viewport(self, viewport: ViewportState) -> "RendererState":
-        from dataclasses import replace
+        """Create new state with updated viewport."""
+        return dataclasses.replace(self, viewport=viewport)
 
-        return replace(self, viewport=viewport)
+    def with_paused(self, paused: bool) -> "RendererState":
+        """Create new state with updated pause state."""
+        return dataclasses.replace(self, paused=paused)
+
+    def with_terminal_dimensions(self, width: int, height: int) -> "RendererState":
+        """Create new state with updated terminal dimensions."""
+        return dataclasses.replace(
+            self,
+            viewport=ViewportState.create((width, height)),
+            previous_grid=None,
+            pattern_cells=None,
+        )
+
+    def with_grid_position(self, x: int, y: int) -> "RendererState":
+        """Create new state with updated grid position."""
+        return dataclasses.replace(self, start_x=x, start_y=y)

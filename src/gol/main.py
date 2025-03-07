@@ -23,14 +23,14 @@ Controls:
     - Number keys (1-9): Select pattern
     - R: Rotate pattern
     - Space: Place pattern
-    - Esc: Exit pattern mode
+    - P: Exit pattern mode
   C: Clear grid
-  Arrow keys: Move cursor
-  Q: Quit game
-  W: Toggle wrap mode
-  +/-: Resize grid larger/smaller (auto-fits to terminal)
-  Up/Down: Adjust speed
-  Mouse: Click to toggle cells
+  Arrow keys: Pan viewport
+  Q, Esc: Quit game
+  R: Restart with new grid
+  B: Cycle boundary conditions
+  +/-: Resize grid
+  Shift+Up/Down: Adjust simulation speed
 """
 
 import argparse
@@ -83,6 +83,10 @@ CommandType = Literal[
     "viewport_pan_right",
     "viewport_pan_up",
     "viewport_pan_down",
+    "clear_grid",
+    "toggle_simulation",
+    "speed_up",
+    "speed_down",
 ]
 
 
@@ -285,6 +289,40 @@ def run_game_loop(
 
         return grid, new_config, False
 
+    def handle_clear_grid() -> tuple[Grid, ControllerConfig, bool]:
+        """Clear the grid by creating a new empty grid."""
+        new_grid = np.zeros_like(grid)
+        return new_grid, config, False
+
+    def handle_toggle_simulation() -> tuple[Grid, ControllerConfig, bool]:
+        """Toggle simulation pause state."""
+        nonlocal state
+        state = state.with_paused(not state.paused)
+        return grid, config, False
+
+    def handle_speed_adjustment(increase: bool) -> tuple[Grid, ControllerConfig, bool]:
+        """Adjust simulation speed."""
+        current_interval = config.renderer.update_interval
+        # Adjust by 20% of current interval, min 50ms, max 2000ms
+        delta = max(current_interval * 0.2, 50)
+        new_interval = round(
+            max(
+                50,
+                min(
+                    2000,
+                    current_interval - delta if increase else current_interval + delta,
+                ),
+            )
+        )
+
+        new_renderer = config.renderer.with_update_interval(new_interval)
+        new_config = ControllerConfig(
+            dimensions=config.dimensions,
+            grid=config.grid,
+            renderer=new_renderer,
+        )
+        return grid, new_config, False
+
     def handle_cursor_movement(direction: str) -> tuple[Grid, ControllerConfig, bool]:
         """Handle wrapped cursor movement within grid bounds."""
         nonlocal state
@@ -469,6 +507,10 @@ def run_game_loop(
         "viewport_pan_right": lambda: handle_viewport_pan_command(1, 0),
         "viewport_pan_up": lambda: handle_viewport_pan_command(0, -1),
         "viewport_pan_down": lambda: handle_viewport_pan_command(0, 1),
+        "clear_grid": handle_clear_grid,
+        "toggle_simulation": handle_toggle_simulation,
+        "speed_up": lambda: handle_speed_adjustment(True),
+        "speed_down": lambda: handle_speed_adjustment(False),
     }
 
     # Main loop with terminal in raw mode
@@ -496,6 +538,7 @@ def run_game_loop(
             # Update game state if not paused
             if (
                 not state.pattern_mode
+                and not state.paused
                 and current_time - last_update >= config.renderer.update_interval / 1000
             ):
                 grid = process_generation(grid, config.grid.boundary)

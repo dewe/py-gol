@@ -83,6 +83,7 @@ sequenceDiagram
    - Infinite mode: Expandable boundaries
 
 3. Expandable Boundaries (Infinite Mode):
+
    ```mermaid
    ---
    title: Grid Expansion in Infinite Mode
@@ -102,6 +103,7 @@ sequenceDiagram
    - Viewport is panned beyond current dimensions
 
    Expansion behavior:
+
    ```python
    # When a cell or pattern exceeds current bounds
    new_width = max(current_width, required_x + EXPANSION_MARGIN)
@@ -146,7 +148,8 @@ sequenceDiagram
    - Status line requires 1 line at bottom
 
 2. Available space calculation:
-   ```
+
+   ```python
    available_width = terminal_width // 2  # Due to cell width
    available_height = terminal_height - 1  # Reserve status line
    ```

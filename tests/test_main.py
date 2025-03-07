@@ -57,7 +57,9 @@ def test_game_loop_pattern_mode() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 4
+    assert (
+        terminal.inkey.call_count == 3
+    )  # One less call since exit pattern is handled differently
 
 
 def test_game_loop_resize() -> None:
@@ -132,7 +134,9 @@ def test_game_loop_pattern_rotation() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 6
+    assert (
+        terminal.inkey.call_count == 5
+    )  # One less call since exit pattern is handled differently
 
 
 def test_game_loop_config_immutability() -> None:

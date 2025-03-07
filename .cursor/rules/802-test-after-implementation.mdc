@@ -1,9 +1,8 @@
 ---
 description: ENFORCE test verification WHEN implementing features TO maintain code reliability
-globs: 
+globs: src/**/*
 alwaysApply: true
 ---
-
 <!-- markdownlint-disable MD033 -->
 
 # Test-After-Implementation Workflow

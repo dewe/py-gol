@@ -1,0 +1,89 @@
+---
+description: ENFORCE two-phase implementation workflow WHEN implementing features TO maintain code quality and alignment
+globs: src/**/*
+alwaysApply: false
+---
+<!-- markdownlint-disable MD033 -->
+
+# Two-Phase Implementation Workflow
+
+## Context
+
+- When implementing new features
+- When making significant code changes
+- When modifying core functionality
+- When implementing complex requirements
+
+## Requirements
+
+### Phase 1: Planning 🎯
+
+1. Receive and analyze user requirement
+2. Request clarification if needed
+3. Propose implementation plan with clear steps
+4. Wait for user approval before proceeding
+
+### Phase 2: Implementation ⚙️
+
+1. Start with test implementation
+2. Present tests for user review
+3. Wait for test approval
+4. Implement feature code
+5. Run tests and fix any lint issues
+6. Present results to user
+
+## Examples
+
+<example>
+# Good: Following two-phase workflow
+
+Phase 1:
+
+```markdown
+# User: Add viewport boundary checks
+# AI: Suggests plan:
+1. Add boundary calculation logic
+2. Implement clamping
+3. Update tests
+# User: Approved
+```
+
+Phase 2:
+
+```python
+# AI: Implements tests first
+def test_viewport_pan_boundaries():
+    """Test viewport stops at grid edges"""
+    ...
+# User: Approved
+# AI: Implements feature
+def handle_viewport_pan():
+    """Pan viewport with boundary checks"""
+    ...
+# AI: Runs tests and fixes lint
+```
+
+</example>
+
+<example type="invalid">
+# Bad: Skipping phases or steps
+
+```python
+# User: Add viewport boundary checks
+# AI: Implements directly without plan
+def handle_viewport_pan():
+    """Add boundary checks"""
+    ...
+# AI: Adds tests after implementation
+```
+
+</example>
+
+<critical>
+
+- NEVER skip the planning phase
+- NEVER implement code before tests
+- ALWAYS wait for user approval between phases
+- ALWAYS run tests after implementation
+
+</critical>

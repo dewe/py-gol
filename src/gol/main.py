@@ -53,7 +53,6 @@ from gol.grid import BoundaryCondition, GridConfig, create_grid
 from gol.metrics import create_metrics, update_game_metrics
 from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
-    RendererConfig,
     RendererState,
     TerminalProtocol,
     cleanup_terminal,
@@ -194,6 +193,7 @@ def adjust_grid_dimensions(
 
     # Create new config with adjusted dimensions
     return ControllerConfig(
+        dimensions=(width, height),
         grid=GridConfig(
             width=width,
             height=height,
@@ -266,6 +266,7 @@ def run_game_loop(
                 or "glider"  # Use existing pattern or default to glider
             )
             new_config = ControllerConfig(
+                dimensions=config.dimensions,
                 grid=config.grid,
                 renderer=new_renderer,
             )
@@ -277,6 +278,7 @@ def run_game_loop(
             # Exiting pattern mode via ESC - unpause and clear pattern
             new_renderer = config.renderer.with_pattern(None)
             new_config = ControllerConfig(
+                dimensions=config.dimensions,
                 grid=config.grid,
                 renderer=new_renderer,
             )
@@ -330,6 +332,7 @@ def run_game_loop(
                 # Keep pattern mode active and clear selected pattern
                 new_renderer = config.renderer.with_pattern(None)
                 new_config = ControllerConfig(
+                    dimensions=config.dimensions,
                     grid=config.grid,
                     renderer=new_renderer,
                 )
@@ -398,6 +401,7 @@ def run_game_loop(
 
             # Create new controller config
             new_config = ControllerConfig(
+                dimensions=(new_width, new_height),
                 grid=new_grid_config,
                 renderer=config.renderer,
             )
@@ -420,6 +424,7 @@ def run_game_loop(
             config.renderer, boundary_condition=new_boundary
         )
         new_config = ControllerConfig(
+            dimensions=config.dimensions,
             grid=new_grid_config,
             renderer=new_renderer_config,
         )
@@ -480,6 +485,7 @@ def run_game_loop(
                     # Update config with new renderer state if changed
                     if new_renderer is not config.renderer:
                         config = ControllerConfig(
+                            dimensions=config.dimensions,
                             grid=config.grid,
                             renderer=new_renderer,
                         )
@@ -548,17 +554,12 @@ def main() -> None:
         )
 
         # Create config with calculated dimensions
-        config = ControllerConfig(
-            grid=GridConfig(
-                width=width,
-                height=height,
-                density=args.density,
-                boundary=BoundaryCondition[args.boundary.upper()],
-            ),
-            renderer=RendererConfig(
-                update_interval=args.interval,
-                boundary_condition=BoundaryCondition[args.boundary.upper()],
-            ),
+        config = ControllerConfig.create(
+            width=width,
+            height=height,
+            density=args.density,
+            boundary=BoundaryCondition[args.boundary.upper()],
+            update_interval=args.interval,
         )
 
         # Initialize game with proper dimensions
@@ -567,8 +568,8 @@ def main() -> None:
         # Set up signal handlers
         setup_signal_handlers(terminal)
 
-        # Initialize renderer state
-        state = RendererState()
+        # Initialize renderer state with same dimensions
+        state = RendererState.create(dimensions=config.dimensions)
 
         # Run game loop
         run_game_loop(terminal, grid, config, state)

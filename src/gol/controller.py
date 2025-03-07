@@ -13,17 +13,59 @@ from gol.renderer import (
     initialize_terminal,
 )
 from gol.state import RendererState, ViewportState
-from gol.types import Grid
+from gol.types import GameDimensions, Grid
 
 
 @dataclass(frozen=True)
 class ControllerConfig:
     """Configuration for game controller."""
 
+    dimensions: GameDimensions  # Centralized dimensions for grid and viewport
     grid: GridConfig
     renderer: RendererConfig
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
+
+    def __post_init__(self) -> None:
+        """Validate dimensions match grid config."""
+        width, height = self.dimensions
+        if width != self.grid.width or height != self.grid.height:
+            raise ValueError("Grid dimensions must match game dimensions")
+
+    @classmethod
+    def create(
+        cls,
+        width: int,
+        height: int,
+        density: float = 0.3,
+        boundary: BoundaryCondition = BoundaryCondition.FINITE,
+        update_interval: int = 200,
+    ) -> "ControllerConfig":
+        """Create a new controller config with consistent dimensions."""
+        dimensions = (width, height)
+        grid_config = GridConfig(
+            width=width,
+            height=height,
+            density=density,
+            boundary=boundary,
+        )
+        renderer_config = RendererConfig(
+            update_interval=update_interval,
+            boundary_condition=boundary,
+        )
+        return cls(
+            dimensions=dimensions,
+            grid=grid_config,
+            renderer=renderer_config,
+        )
+
+    def with_dimensions(self, width: int, height: int) -> "ControllerConfig":
+        """Return new config with updated dimensions."""
+        from dataclasses import replace
+
+        dimensions = (width, height)
+        grid_config = self.grid.with_dimensions(width, height)
+        return replace(self, dimensions=dimensions, grid=grid_config)
 
 
 def initialize_game(
@@ -66,6 +108,7 @@ def initialize_game(
                 # Create new config with calculated dimensions
                 new_grid_config = config.grid.with_dimensions(width, height)
                 config = ControllerConfig(
+                    dimensions=(width, height),
                     grid=new_grid_config,
                     renderer=config.renderer,
                 )
@@ -136,8 +179,7 @@ def handle_viewport_resize(state: RendererState, expand: bool) -> RendererState:
     new_height = max(10, new_height)
 
     new_viewport = ViewportState(
-        width=new_width,
-        height=new_height,
+        dimensions=(new_width, new_height),
         offset_x=viewport.offset_x,
         offset_y=viewport.offset_y,
     )
@@ -177,8 +219,7 @@ def handle_viewport_pan(
     new_y = max(0, min(max_y_offset, viewport.offset_y + dy))
 
     new_viewport = ViewportState(
-        width=viewport.width,
-        height=viewport.height,
+        dimensions=viewport.dimensions,
         offset_x=new_x,
         offset_y=new_y,
     )

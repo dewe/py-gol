@@ -6,15 +6,15 @@ import numpy as np
 import pytest
 
 from gol.controller import (
+    BoundaryCondition,
     ControllerConfig,
     GridConfig,
-    RendererConfig,
     handle_viewport_pan,
     initialize_game,
     process_generation,
     resize_game,
 )
-from gol.grid import BoundaryCondition, create_grid
+from gol.grid import create_grid
 from gol.renderer import cleanup_terminal
 from gol.state import RendererState, ViewportState
 
@@ -22,14 +22,12 @@ from gol.state import RendererState, ViewportState
 @pytest.fixture
 def config() -> ControllerConfig:
     """Create test configuration."""
-    return ControllerConfig(
-        grid=GridConfig(
-            width=2,
-            height=2,
-            density=0.5,
-            boundary=BoundaryCondition.FINITE,
-        ),
-        renderer=RendererConfig(update_interval=100),
+    return ControllerConfig.create(
+        width=2,
+        height=2,
+        density=0.5,
+        boundary=BoundaryCondition.FINITE,
+        update_interval=100,
     )
 
 
@@ -74,11 +72,11 @@ def test_resize_game() -> None:
 
 def test_initialize_game_with_dimensions() -> None:
     """Test game initialization with explicit dimensions."""
-    config = ControllerConfig(
-        grid=GridConfig(width=30, height=20, density=0.3),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=30,
+        height=20,
+        density=0.3,
     )
-
     terminal, grid = initialize_game(config)
     try:
         assert grid.shape == (20, 30)  # Height, width
@@ -108,9 +106,10 @@ def test_initialize_game_auto_dimensions(mock_init_terminal: Mock) -> None:
     state = Mock()
     mock_init_terminal.return_value = (terminal, state)
 
-    config = ControllerConfig(
-        grid=GridConfig(width=30, height=20, density=0.3),  # Use valid dimensions
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=30,
+        height=20,
+        density=0.3,  # Use valid dimensions
     )
     grid = initialize_game(config)[1]
 
@@ -127,9 +126,10 @@ def test_initialize_game_minimum_dimensions(mock_init_terminal: Mock) -> None:
     state = Mock()
     mock_init_terminal.return_value = (terminal, state)
 
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.3),  # Use valid dimensions
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.3,  # Use valid dimensions
     )
     grid = initialize_game(config)[1]
 
@@ -175,8 +175,7 @@ def test_viewport_pan_boundaries() -> None:
     viewport_width, viewport_height = 20, 10
     initial_state = RendererState().with_viewport(
         ViewportState(
-            width=viewport_width,
-            height=viewport_height,
+            dimensions=(viewport_width, viewport_height),
             offset_x=0,
             offset_y=0,
         )
@@ -199,8 +198,7 @@ def test_viewport_pan_boundaries() -> None:
     # Test panning left to boundary
     state = initial_state.with_viewport(
         ViewportState(
-            width=viewport_width,
-            height=viewport_height,
+            dimensions=(viewport_width, viewport_height),
             offset_x=max_x_offset,
             offset_y=0,
         )
@@ -212,8 +210,7 @@ def test_viewport_pan_boundaries() -> None:
     # Test panning up to boundary
     state = initial_state.with_viewport(
         ViewportState(
-            width=viewport_width,
-            height=viewport_height,
+            dimensions=(viewport_width, viewport_height),
             offset_x=0,
             offset_y=max_y_offset,
         )
@@ -234,8 +231,7 @@ def test_viewport_pan_diagonal_boundaries() -> None:
     viewport_width, viewport_height = 20, 10
     initial_state = RendererState().with_viewport(
         ViewportState(
-            width=viewport_width,
-            height=viewport_height,
+            dimensions=(viewport_width, viewport_height),
             offset_x=0,
             offset_y=0,
         )
@@ -253,8 +249,7 @@ def test_viewport_pan_diagonal_boundaries() -> None:
     # Test panning to top-left corner
     state = initial_state.with_viewport(
         ViewportState(
-            width=viewport_width,
-            height=viewport_height,
+            dimensions=(viewport_width, viewport_height),
             offset_x=max_x_offset,
             offset_y=max_y_offset,
         )

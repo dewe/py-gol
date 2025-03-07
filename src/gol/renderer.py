@@ -277,23 +277,31 @@ def calculate_grid_position(
     Accounts for terminal dimensions, grid size, and necessary margins
     to ensure the grid fits within the visible area while maintaining
     proper spacing for status lines and borders.
+
+    Args:
+        terminal: Terminal interface for rendering
+        grid: Current grid state
+
+    Returns:
+        Tuple of (start_x, start_y) coordinates for grid rendering
     """
     grid_height, grid_width = grid.shape
-    total_width = grid_width * 2
+    cell_width = 2  # Each cell takes 2 characters (cell + spacing)
+    total_width = grid_width * cell_width
     total_height = grid_height
 
-    margin = 1
-    usable_height = terminal.height - 2
-    usable_width = terminal.width - (2 * margin)
+    # Reserve space for status line and ensure proper vertical spacing
+    usable_height = terminal.height - 3
 
-    center_x = (usable_width // 2) + margin
-    center_y = ((usable_height - 2) // 2) + margin
+    # Calculate start positions to center the grid
+    # For horizontal centering, we need to account for each cell being 2 chars wide
+    # We use terminal.width directly to ensure centering in full terminal width
+    start_x = (terminal.width - total_width) // 2
+    start_y = (usable_height - total_height) // 2 + 1
 
-    start_x = center_x - (total_width // 2)
-    start_y = center_y - (total_height // 2)
-
-    start_x = max(margin, min(start_x, terminal.width - total_width - margin))
-    start_y = max(margin, min(start_y, usable_height - total_height - margin))
+    # Ensure non-negative positions
+    start_x = max(0, start_x)
+    start_y = max(1, start_y)
 
     return start_x, start_y
 
@@ -493,17 +501,21 @@ def calculate_viewport_bounds(
     Returns:
         Tuple of (viewport_start_x, viewport_start_y, visible_width, visible_height)
     """
-    # Ensure viewport stays within grid bounds for toroidal grid
-    viewport_start_x = viewport.offset_x % grid_width
-    viewport_start_y = viewport.offset_y % grid_height
-
     # Calculate maximum visible area based on terminal constraints
-    max_visible_width = (terminal_width - start_x) // 2
-    max_visible_height = terminal_height - start_y - 2
+    max_visible_width = min((terminal_width - start_x) // 2, grid_width)
+    max_visible_height = min(terminal_height - start_y - 2, grid_height)
 
-    # Constrain visible area to both viewport size and terminal bounds
-    visible_width = min(viewport.width, max_visible_width, grid_width)
-    visible_height = min(viewport.height, max_visible_height, grid_height)
+    # Constrain visible area to viewport size
+    visible_width = min(viewport.width, max_visible_width)
+    visible_height = min(viewport.height, max_visible_height)
+
+    # Apply viewport offset directly
+    viewport_start_x = viewport.offset_x
+    viewport_start_y = viewport.offset_y
+
+    # Ensure viewport stays within grid bounds
+    viewport_start_x = max(0, min(viewport_start_x, grid_width - visible_width))
+    viewport_start_y = max(0, min(viewport_start_y, grid_height - visible_height))
 
     return viewport_start_x, viewport_start_y, visible_width, visible_height
 
@@ -585,8 +597,8 @@ def render_grid_to_terminal(
             x = (viewport_start_x + vx) % grid_width
             y = (viewport_start_y + vy) % grid_height
 
-            # Calculate screen position
-            screen_x = start_x + (vx * 2)
+            # Calculate screen position - ensure we account for cell width
+            screen_x = start_x + (vx * 2)  # Each cell is 2 chars wide
             screen_y = start_y + vy
 
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:

@@ -22,6 +22,11 @@ PatternGrid: TypeAlias = NDArray[np.bool_]  # Pattern definition grid
 ScreenPosition: TypeAlias = tuple[int, int]  # Terminal coordinates
 RenderGrid: TypeAlias = dict[ScreenPosition, bool]  # Sparse render grid
 
+# Game dimensions
+GameDimensions: TypeAlias = tuple[
+    int, int
+]  # (width, height) for both grid and viewport
+
 # Viewport types
 ViewportOffset: TypeAlias = tuple[int, int]  # (offset_x, offset_y)
 ViewportDimensions: TypeAlias = tuple[int, int]  # (width, height)

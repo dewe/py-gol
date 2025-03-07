@@ -5,36 +5,42 @@ from unittest.mock import Mock
 from blessed.keyboard import Keystroke
 
 from gol.controller import ControllerConfig
-from gol.grid import GridConfig, create_grid
+from gol.grid import create_grid
 from gol.main import run_game_loop
-from gol.renderer import RendererConfig
 from gol.state import RendererState
 
 
 def create_mock_terminal() -> Mock:
-    """Create a mock terminal with proper context manager support."""
+    """Creates a mock terminal for testing."""
     terminal = Mock()
     terminal.width = 80
     terminal.height = 24
+    terminal.normal = ""
+    terminal.dim = ""
+    terminal.white = ""
+    terminal.yellow = ""
+    terminal.blue = ""
+    terminal.move_xy = Mock(return_value="")
+    terminal.clear = Mock(return_value="")
+    terminal.normal_cursor = Mock(return_value="")
+    terminal.exit_ca_mode = Mock(return_value="")
+    terminal.exit_fullscreen = Mock(return_value="")
 
-    # Create a context manager mock
+    # Create a context manager mock for cbreak
     cbreak_context = Mock()
     cbreak_context.__enter__ = Mock(return_value=None)
     cbreak_context.__exit__ = Mock(return_value=None)
     terminal.cbreak = Mock(return_value=cbreak_context)
-
-    # Mock string operations
-    terminal.clear = Mock(return_value="")
-    terminal.move_xy = Mock(return_value="")
 
     return terminal
 
 
 def test_game_loop_pattern_mode() -> None:
     """Test pattern mode transitions in game loop."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(
@@ -56,9 +62,10 @@ def test_game_loop_pattern_mode() -> None:
 
 def test_game_loop_resize() -> None:
     """Test grid resizing in game loop."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(
@@ -79,9 +86,10 @@ def test_game_loop_resize() -> None:
 
 def test_game_loop_interval_adjustment() -> None:
     """Test update interval adjustment in game loop."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(
@@ -102,9 +110,10 @@ def test_game_loop_interval_adjustment() -> None:
 
 def test_game_loop_pattern_rotation() -> None:
     """Test pattern rotation in game loop."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(
@@ -128,9 +137,10 @@ def test_game_loop_pattern_rotation() -> None:
 
 def test_game_loop_config_immutability() -> None:
     """Test that configurations remain immutable during game loop."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(),
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(
@@ -162,9 +172,11 @@ def test_game_loop_config_immutability() -> None:
 
 def test_game_loop_config_updates() -> None:
     """Test that config updates create new instances."""
-    config = ControllerConfig(
-        grid=GridConfig(width=10, height=10, density=0.0),
-        renderer=RendererConfig(update_interval=100),  # Start with lower interval
+    config = ControllerConfig.create(
+        width=10,
+        height=10,
+        density=0.0,
+        update_interval=100,  # Start with lower interval
     )
     terminal = create_mock_terminal()
     terminal.inkey = Mock(

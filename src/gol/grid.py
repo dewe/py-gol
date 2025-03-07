@@ -212,3 +212,57 @@ def get_grid_section(
 
         section[section_y, section_x] = grid[valid_y, valid_x]
         return cast(Grid, section)
+
+
+def needs_boundary_expansion(grid: Grid) -> tuple[bool, bool, bool, bool]:
+    """Check if grid needs to expand in any direction.
+
+    Returns:
+        Tuple of booleans (expand_up, expand_right, expand_down, expand_left)
+        indicating which directions need expansion.
+    """
+    height, width = grid.shape
+
+    # Check each edge for live cells and convert to Python bool
+    expand_up = bool(np.any(grid[0]))  # Top row
+    expand_right = bool(np.any(grid[:, -1]))  # Rightmost column
+    expand_down = bool(np.any(grid[-1]))  # Bottom row
+    expand_left = bool(np.any(grid[:, 0]))  # Leftmost column
+
+    return (expand_up, expand_right, expand_down, expand_left)
+
+
+def expand_grid(
+    grid: Grid,
+    expand_up: bool = False,
+    expand_right: bool = False,
+    expand_down: bool = False,
+    expand_left: bool = False,
+) -> Grid:
+    """Expand grid in specified directions by one cell.
+
+    Args:
+        grid: Current grid state
+        expand_up: Add row at top
+        expand_right: Add column at right
+        expand_down: Add row at bottom
+        expand_left: Add column at left
+
+    Returns:
+        New grid with expanded dimensions
+    """
+    height, width = grid.shape
+    new_height = height + (1 if expand_up else 0) + (1 if expand_down else 0)
+    new_width = width + (1 if expand_left else 0) + (1 if expand_right else 0)
+
+    # Create new grid with expanded dimensions
+    new_grid = np.zeros((new_height, new_width), dtype=np.bool_)
+
+    # Calculate offsets for original grid placement
+    y_offset = 1 if expand_up else 0
+    x_offset = 1 if expand_left else 0
+
+    # Copy original grid content to new position
+    new_grid[y_offset : y_offset + height, x_offset : x_offset + width] = grid
+
+    return cast(Grid, new_grid)

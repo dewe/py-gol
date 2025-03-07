@@ -56,14 +56,12 @@ Grid expansion in INFINITE mode MUST occur at these specific points:
 
 The sequence in the game loop MUST be:
 
-```
 1. Process user input
 2. Check boundary conditions
 3. If INFINITE mode and live cells at boundary:
    - Perform grid expansion
 4. Calculate next generation
 5. Update display
-```
 
 ### Visual Examples
 
@@ -86,7 +84,8 @@ Example 2: Expansion NOT REQUIRED
 ```
 
 Pattern at corner - Expansion REQUIRED:
-```
+
+```text
 Before:          After:
 ┌─────┐         ┌───────┐
 │..x..│         │..x....│
@@ -110,4 +109,5 @@ Before:          After:
    - Consider using sparse matrix for large grids
 
 3. Viewport behavior:
-   - Viewport should remain fixed during expansion
+   - Viewport size should not change during expansion
+   - Viewport position should not change during expansion

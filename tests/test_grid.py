@@ -11,8 +11,10 @@ from gol.grid import (
     GridConfig,
     count_live_neighbors,
     create_grid,
+    expand_grid,
     get_grid_section,
     get_neighbors,
+    needs_boundary_expansion,
     resize_grid,
 )
 from gol.types import Grid, GridPosition, GridView, IntArray
@@ -321,3 +323,80 @@ def test_grid_config_boundary_updates() -> None:
     assert new_config is not config
     assert new_config.boundary == BoundaryCondition.TOROIDAL
     assert config.boundary == BoundaryCondition.FINITE  # Original unchanged
+
+
+class TestInfiniteBoundary:
+    """Tests for infinite boundary behavior."""
+
+    def test_detect_boundary_expansion_needed(self) -> None:
+        """Test detection of when grid expansion is needed."""
+        # Arrange
+        grid = create_test_grid(
+            [
+                [False, True, False],  # Live cell at top edge
+                [False, False, False],
+                [False, False, False],
+            ]
+        )
+
+        # Act
+        needs_expansion = needs_boundary_expansion(grid)
+
+        # Assert
+        assert needs_expansion == (True, False, False, False)  # (up, right, down, left)
+
+    def test_expand_grid_up(self) -> None:
+        """Test grid expansion upward."""
+        # Arrange
+        grid = create_test_grid(
+            [
+                [True, False, False],  # Live cell at top edge
+                [False, False, False],
+            ]
+        )
+        original_height, original_width = grid.shape
+
+        # Act
+        expanded = expand_grid(grid, expand_up=True)
+
+        # Assert
+        assert expanded.shape == (original_height + 1, original_width)
+        assert not expanded[0].any()  # New row is empty
+        assert np.array_equal(expanded[1:], grid)  # Original content preserved
+
+    def test_expand_grid_multiple_directions(self) -> None:
+        """Test grid expansion in multiple directions."""
+        # Arrange
+        grid = create_test_grid(
+            [
+                [True, False],  # Top edge
+                [False, True],  # Right edge
+            ]
+        )
+        original_height, original_width = grid.shape
+
+        # Act
+        expanded = expand_grid(grid, expand_up=True, expand_right=True)
+
+        # Assert
+        assert expanded.shape == (original_height + 1, original_width + 1)
+        assert not expanded[0, 1:].any()  # New top row is empty (except copied cell)
+        assert not expanded[1:, -1].any()  # New right column is empty
+        assert np.array_equal(expanded[1:, :-1], grid)  # Original content preserved
+
+    def test_no_expansion_needed(self) -> None:
+        """Test when no expansion is needed."""
+        # Arrange
+        grid = create_test_grid(
+            [
+                [False, False, False],
+                [False, True, False],  # Live cell not at edge
+                [False, False, False],
+            ]
+        )
+
+        # Act
+        needs_expansion = needs_boundary_expansion(grid)
+
+        # Assert
+        assert needs_expansion == (False, False, False, False)

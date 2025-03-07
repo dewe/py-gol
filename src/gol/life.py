@@ -3,8 +3,9 @@
 import numpy as np
 from scipy import signal
 
-from gol.grid import BoundaryCondition
 from gol.types import Grid, IntArray
+
+from .grid import BoundaryCondition, expand_grid, needs_boundary_expansion
 
 
 def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
@@ -27,6 +28,14 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
     Uses scipy's convolve2d for efficient neighbor counting, with different
     boundary handling strategies based on the boundary condition.
     """
+    if boundary == BoundaryCondition.INFINITE:
+        # Check if grid needs expansion
+        expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(
+            grid
+        )
+        if any([expand_up, expand_right, expand_down, expand_left]):
+            grid = expand_grid(grid, expand_up, expand_right, expand_down, expand_left)
+
     kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
 
     match boundary:
@@ -39,6 +48,8 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
                 grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
             )
         case _:  # INFINITE
-            live_counts = signal.convolve2d(grid.astype(np.int_), kernel, mode="same")
+            live_counts = signal.convolve2d(
+                grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
+            )
 
     return calculate_next_state(grid, live_counts)

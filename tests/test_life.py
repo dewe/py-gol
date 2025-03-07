@@ -138,3 +138,52 @@ class TestBoundaryBehavior:
         neighbors = get_neighbors(grid, pos, boundary)
         count = count_live_neighbors(grid, neighbors, boundary)
         assert count == expected_count
+
+    def test_infinite_boundary_expansion(self) -> None:
+        """Test grid expansion in INFINITE mode.
+
+        Given: A grid with live cells at the boundary
+        When: Calculating next generation with INFINITE boundary
+        Then: Grid should expand to accommodate the pattern
+        """
+        # Arrange
+        grid = create_test_grid(
+            [
+                [True, True, True],  # Glider at top edge
+                [False, False, False],
+                [False, False, False],
+            ]
+        )
+        original_height, original_width = grid.shape
+
+        # Act
+        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+
+        # Assert
+        assert next_grid.shape[0] > grid.shape[0]  # Grid should expand vertically
+        assert (
+            next_grid.shape[1] >= grid.shape[1]
+        )  # Grid width should be at least the same
+
+    def test_infinite_boundary_no_expansion(self) -> None:
+        """Test no expansion when not needed in INFINITE mode.
+
+        Given: A grid with no live cells at boundaries
+        When: Calculating next generation with INFINITE boundary
+        Then: Grid dimensions should remain unchanged
+        """
+        # Arrange
+        grid = create_test_grid(
+            [
+                [False, False, False],
+                [False, True, False],  # Live cell not at boundary
+                [False, False, False],
+            ]
+        )
+        original_shape = grid.shape
+
+        # Act
+        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+
+        # Assert
+        assert next_grid.shape == original_shape  # No expansion needed

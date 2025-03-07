@@ -19,13 +19,6 @@ graph TD
     state[gol.state]
     metrics[gol.metrics]
 
-    %% Test modules
-    test_grid[tests.test_grid]
-    test_life[tests.test_life]
-    test_controller[tests.test_controller]
-    test_renderer[tests.test_renderer]
-    test_patterns[tests.test_patterns]
-
     %% Core dependencies
     types --> blessed[blessed]
     types --> scipy[scipy]
@@ -48,24 +41,11 @@ graph TD
     state --> types
     state --> grid
 
-    %% Test dependencies
-    test_grid --> grid
-    test_life --> grid
-    test_life --> life
-    test_controller --> grid
-    test_controller --> controller
-    test_renderer --> grid
-    test_renderer --> renderer
-    test_patterns --> grid
-    test_patterns --> patterns
-
     %% Styling
     classDef core fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef test fill:#bbf,stroke:#333,stroke-width:1px;
     classDef external fill:#dfd,stroke:#333,stroke-width:1px;
     
     class grid,life,controller,main,renderer,patterns,types,state,metrics core;
-    class test_grid,test_life,test_controller,test_renderer,test_patterns test;
     class scipy,blessed external;
 ```
 
@@ -120,33 +100,6 @@ graph TD
   - Manages main game loop
   - Handles configuration and startup
   - Provides CLI interface using Blessed
-
-### Test Modules
-
-- **tests.test_grid**: Tests for grid operations
-  - Verifies SciPy array operations
-  - Tests boundary conditions
-  - Validates neighbor calculations
-
-- **tests.test_life**: Tests for game rules
-  - Tests game rule implementation
-  - Verifies state transitions
-  - Validates cell evolution
-
-- **tests.test_controller**: Tests for game state management
-  - Tests game state transitions
-  - Verifies configuration handling
-  - Validates game loop behavior
-
-- **tests.test_renderer**: Tests for display functionality
-  - Tests rendering operations
-  - Verifies pattern preview
-  - Validates user input handling
-
-- **tests.test_patterns**: Tests for pattern management
-  - Tests pattern loading and storage
-  - Verifies pattern transformations
-  - Validates pattern placement
 
 ## Key Dependencies
 

@@ -24,9 +24,15 @@
 | R           | Rotate pattern                 |
 | Space       | Place pattern                  |
 | Arrow keys  | Move cursor                    |
-| P           | Exit pattern mode              |
-| Q, Esc      | Quit game                      |
+| P, Esc      | Exit pattern mode              |
+| Q           | Quit game                      |
 
-## Important
+## Constraints
 
-Remove any key controls not specified here.
+- No unspecified controls allowed.
+- Max simulation speed: 10 generations/second.
+- Min simulation speed: 0.5 generations/second.
+- Simulation speed increased in steps inverse proportional to speed.
+- Interval value should be rounded to nearest 10 ms.
+- Pattern selection can be done repetedly.
+- Pattern mode can be exited with 'P' or ESC.

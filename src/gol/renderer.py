@@ -68,10 +68,10 @@ class RendererConfig:
     cell_alive: str = "■"
     cell_dead: str = "□"
     cell_spacing: str = " "
-    update_interval: int = 200
+    update_interval: int = 200  # Default 5 generations/second
     refresh_per_second: int = 5
-    min_interval: int = 10
-    max_interval: int = 1000
+    min_interval: int = 100  # Max speed: 10 generations/second
+    max_interval: int = 2000  # Min speed: 0.5 generations/second
     min_interval_step: int = 10
     interval_change_factor: float = 0.2
     selected_pattern: Optional[str] = None
@@ -84,26 +84,39 @@ class RendererConfig:
         )
 
     def _round_to_step(self, value: int) -> int:
+        """Round value to nearest step size."""
         return round(value / self.min_interval_step) * self.min_interval_step
 
     def with_increased_interval(self) -> "RendererConfig":
+        """Create new config with increased interval (slower speed).
+
+        Steps are proportional to current interval, making changes smaller
+        at higher speeds (lower intervals) and larger at lower speeds.
+        """
         from dataclasses import replace
 
-        change = max(
+        # Calculate step size based on current interval
+        step = max(
             self.min_interval_step,
             round(self.update_interval * self.interval_change_factor),
         )
-        new_interval = self._round_to_step(self.update_interval + change)
+        new_interval = self._round_to_step(self.update_interval + step)
         return replace(self, update_interval=min(new_interval, self.max_interval))
 
     def with_decreased_interval(self) -> "RendererConfig":
+        """Create new config with decreased interval (faster speed).
+
+        Steps are proportional to current interval, making changes smaller
+        at higher speeds (lower intervals) and larger at lower speeds.
+        """
         from dataclasses import replace
 
-        change = max(
+        # Calculate step size based on current interval
+        step = max(
             self.min_interval_step,
             round(self.update_interval * self.interval_change_factor),
         )
-        new_interval = self._round_to_step(self.update_interval - change)
+        new_interval = self._round_to_step(self.update_interval - step)
         return replace(self, update_interval=max(new_interval, self.min_interval))
 
     def with_pattern(
@@ -182,91 +195,66 @@ def handle_user_input(
     config: RendererConfig,
     state: RendererState,
 ) -> tuple[CommandType, RendererConfig]:
-    """Handles keyboard input from user."""
-    # Handle quit commands
-    if (
-        key.name in ("q", "Q", "^C")
-        or key == "\x03"
-        or key in ("q", "Q")
-        or (key.name == "KEY_ESCAPE" and not state.pattern_mode)
-        or (key == "\x1b" and not state.pattern_mode)
-    ):
-        return "quit", config
+    """Handle keyboard input from user.
 
-    # Handle pattern mode exit
-    if (key.name == "KEY_ESCAPE" or key == "\x1b") and state.pattern_mode:
-        return "exit_pattern", config
+    Returns:
+        Tuple of (command, updated_config)
+    """
+    # Quit commands
+    if str(key) == "q":
+        return "quit", config  # Always quit with 'q'
+    if str(key) == "\x1b" or key.name == "KEY_ESCAPE":
+        return ("quit", config) if not state.pattern_mode else ("exit_pattern", config)
 
-    # Handle restart/rotate
-    if key.name in ("r", "R") or key in ("r", "R"):
-        if state.pattern_mode:
-            new_config = config.with_pattern(
-                config.selected_pattern,
-                config.pattern_rotation.next_rotation(),
-            )
-            return "rotate_pattern", new_config
-        return "restart", config
-
-    # Handle pattern mode toggle
-    if key.name in ("p", "P") or key in ("p", "P"):
+    # Pattern mode toggle
+    if str(key) == "p":
         return "pattern", config
 
-    # Handle clear grid
-    if key.name in ("c", "C") or key in ("c", "C"):
+    # Grid commands
+    if str(key) == "c":
         return "clear_grid", config
-
-    # Handle boundary cycle
-    if key.name in ("b", "B") or key in ("b", "B"):
+    if str(key) == "b":
         return "cycle_boundary", config
-
-    # Handle resize commands
-    if key == "+" or key == "=":
-        if state.pattern_mode:
-            return "viewport_expand", config
+    if str(key) == "+":
         return "resize_larger", config
-    if key == "-":
-        if state.pattern_mode:
-            return "viewport_shrink", config
+    if str(key) == "-":
         return "resize_smaller", config
 
-    # Handle pattern selection
-    if key.isdigit():
-        patterns = list(BUILTIN_PATTERNS.keys()) + FilePatternStorage().list_patterns()
-        pattern_idx = int(str(key)) - 1  # Convert to string first
-        if 0 <= pattern_idx < len(patterns):
-            new_config = config.with_pattern(patterns[pattern_idx])
-            return "pattern", new_config
-        return "continue", config
-
-    # Handle cursor/viewport movement
-    if key.name == "KEY_LEFT":
-        if state.pattern_mode:
-            return "move_cursor_left", config
-        return "viewport_pan_left", config
-    elif key.name == "KEY_RIGHT":
-        if state.pattern_mode:
-            return "move_cursor_right", config
-        return "viewport_pan_right", config
-    elif key.name == "KEY_UP":
-        if state.pattern_mode:
-            return "move_cursor_up", config
-        return "viewport_pan_up", config
-    elif key.name == "KEY_DOWN":
-        if state.pattern_mode:
-            return "move_cursor_down", config
-        return "viewport_pan_down", config
-
-    # Handle speed adjustment
+    # Speed control
     if key.name == "KEY_SUP":
-        return "speed_up", config
-    elif key.name == "KEY_SDOWN":
-        return "speed_down", config
+        return "speed_up", config.with_decreased_interval()
+    if key.name == "KEY_SDOWN":
+        return "speed_down", config.with_increased_interval()
 
-    # Handle space key
-    if key == " " or key.name == "KEY_SPACE":
-        if state.pattern_mode:
-            return "place_pattern", config
-        return "toggle_simulation", config
+    # Movement keys
+    if key.name == "KEY_LEFT":
+        return (
+            "move_cursor_left" if state.pattern_mode else "viewport_pan_left"
+        ), config
+    if key.name == "KEY_RIGHT":
+        return (
+            "move_cursor_right" if state.pattern_mode else "viewport_pan_right"
+        ), config
+    if key.name == "KEY_UP":
+        return ("move_cursor_up" if state.pattern_mode else "viewport_pan_up"), config
+    if key.name == "KEY_DOWN":
+        return (
+            "move_cursor_down" if state.pattern_mode else "viewport_pan_down"
+        ), config
+
+    # Action keys
+    if str(key) in (" ", "KEY_SPACE"):
+        return ("place_pattern" if state.pattern_mode else "toggle_simulation"), config
+    if str(key) == "r":
+        return ("rotate_pattern" if state.pattern_mode else "restart"), config
+
+    # Pattern selection (1-9 in pattern mode)
+    if state.pattern_mode and str(key).isdigit():
+        pattern_num = int(str(key))
+        if 1 <= pattern_num <= 9:
+            patterns = list(BUILTIN_PATTERNS.keys())
+            if pattern_num <= len(patterns):
+                return "pattern", config.with_pattern(patterns[pattern_num - 1])
 
     return "continue", config
 

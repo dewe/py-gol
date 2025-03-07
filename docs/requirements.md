@@ -38,6 +38,7 @@ A terminal-based implementation of Conway's Game of Life using a pure functional
 - Full-screen terminal interface using Blessed library
 - Grid size determined by command-line argument
 - Clear visual distinction between live/dead cells
+- Visible grid always centered in terminal window
 - Configurable update interval (milliseconds)
 - Exit on 'q' or Ctrl-C
 - Fixed grid boundaries (no wrapping)

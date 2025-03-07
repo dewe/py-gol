@@ -334,7 +334,7 @@ def test_calculate_viewport_bounds_terminal_constraints() -> None:
         grid_width,
         grid_height,
     )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+    _, _, visible_width, visible_height = bounds
 
     # Then
     assert visible_width == (terminal_width - start_x) // 2  # Constrained by terminal

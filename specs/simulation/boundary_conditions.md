@@ -21,59 +21,88 @@ This document specifies the behavior of different boundary conditions in the Gam
 ### INFINITE
 
 - Grid simulates an infinite plane
-- When live cells approach boundaries, grid expands
+- Grid expands ONLY when live cells are directly adjacent to boundaries
 - Maintains original grid center position
 - Preserves pattern evolution as if on infinite plane
 
 ## INFINITE Mode Behavior
 
-### Grid Expansion
+### Grid Expansion Rules
 
-When live cells reach grid boundaries, the grid expands:
+The grid MUST expand if and ONLY if:
 
-1. Expansion occurs when live cells are within 1 cell of any edge
-2. Grid grows by adding cells in the direction of expansion
-3. Original grid center remains fixed
-4. All existing cell states are preserved
+- A live cell exists in the outermost row or column of the grid
+- No expansion occurs for any other condition
+
+Examples of when expansion MUST occur:
+
+- Live cell in the last row triggers downward expansion
+- Live cell in the first row triggers upward expansion
+- Live cell in the last column triggers rightward expansion
+- Live cell in the first column triggers leftward expansion
+
+Examples of when expansion MUST NOT occur:
+
+- Live cells exist near (but not adjacent to) boundaries
+- Only dead cells exist at boundaries
+
+### Game Loop Timing
+
+Grid expansion in INFINITE mode MUST occur at these specific points:
+
+1. BEFORE calculating the next generation
+2. AFTER user input processing
+3. ONLY ONCE per game loop iteration
+
+The sequence in the game loop MUST be:
+
+```
+1. Process user input
+2. Check boundary conditions
+3. If INFINITE mode and live cells at boundary:
+   - Perform grid expansion
+4. Calculate next generation
+5. Update display
+```
 
 ### Visual Examples
 
 Below are examples showing grid expansion in INFINITE mode:
 
-```
-Initial state (x = live cell, . = dead cell):
-┌───────┐
-│...x...│ 
-│...x...│ <- Live cells moving
-│...x...│    toward edge
-└───────┘
-
-After expansion (grid grows downward):
+```text
+Example 1: Expansion REQUIRED (x = live cell, . = dead cell)
 ┌───────┐
 │...x...│ 
 │...x...│
-│...x...│
-│.......│ <- New row added
+│...x...│ <- Live cell at boundary
+└───────┘
+
+Example 2: Expansion NOT REQUIRED
+┌───────┐
+│...x...│ 
+│...x...│ <- Live cells not at boundary
+│.......│    No expansion needed
 └───────┘
 ```
 
-Pattern reaching corner:
+Pattern at corner - Expansion REQUIRED:
 ```
 Before:          After:
 ┌─────┐         ┌───────┐
 │..x..│         │..x....│
 │...x.│   ->    │...x...|
-│....x│         │....x..│
-└─────┘         │.......│
+│....x│         │....x..│ <- Expansion required
+└─────┘         │.......│    due to corner cell
                 └───────┘
 ```
 
 ### Implementation Constraints
 
 1. Grid expansion:
-   - Minimum expansion: 1 row/column
-   - Maximum expansion: 10% of current grid size
-   - Expansion occurs before next generation calculation
+   - MUST ONLY occur when live cells are at grid boundaries
+   - MUST occur before next generation calculation
+   - MUST NOT occur multiple times in same game loop
+   - Expansion: 1 row/column
 
 2. Performance considerations:
    - Grid should not expand beyond available memory
@@ -82,4 +111,3 @@ Before:          After:
 
 3. Viewport behavior:
    - Viewport should remain fixed during expansion
-   - Maintain pattern visibility during expansion

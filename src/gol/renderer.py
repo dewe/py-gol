@@ -63,6 +63,13 @@ class RendererConfig:
     """Configuration for renderer.
 
     This class is immutable. All modifications return new instances.
+
+    Speed Control Constraints:
+    - Maximum speed: 10 generations/second (min_interval = 100ms)
+    - Minimum speed: 0.5 generations/second (max_interval = 2000ms)
+    - Speed adjustments are inverse proportional to current speed
+    - Interval values are rounded to nearest 10ms
+    - Speed changes use 20% of current interval as step size
     """
 
     cell_alive: str = "■"

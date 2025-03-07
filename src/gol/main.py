@@ -101,17 +101,32 @@ def parse_arguments() -> argparse.Namespace:
         Raw argument namespace for flexible dimension handling
     """
     parser = argparse.ArgumentParser(
-        description="Conway's Game of Life\n\n"
-        "Controls:\n"
-        "  - Press 'q' or Ctrl-C to quit the game\n"
-        "  - Press 'r' to restart with a new grid\n"
-        "  - Press 'p' to enter pattern mode\n"
-        "  - Press 'b' to cycle boundary conditions\n"
-        "  - Press '+'/'-' to resize grid (auto-fits to terminal with margins)\n"
-        "  - Press '['/']' to rotate pattern\n"
-        "  - Press Space to place pattern\n"
-        "  - Press Escape to exit pattern mode\n"
-        "  - Press ↑/↓ to adjust simulation speed"
+        description="Conway's Game of Life - Terminal Implementation\n\n"
+        "A functional implementation with pattern management and dynamic resizing.\n\n"
+        "Normal Mode Controls:\n"
+        "  Space       - Start/Stop simulation\n"
+        "  P           - Enter pattern mode\n"
+        "  C           - Clear grid\n"
+        "  R           - Restart with new grid\n"
+        "  B           - Cycle boundary conditions\n"
+        "  +           - Resize grid larger\n"
+        "  -           - Resize grid smaller\n"
+        "  Arrow keys  - Pan viewport\n"
+        "  Shift+Up    - Increase simulation speed\n"
+        "  Shift+Down  - Decrease simulation speed\n"
+        "  Q, Esc      - Quit game\n\n"
+        "Pattern Mode Controls:\n"
+        "  1-9         - Select pattern\n"
+        "  R           - Rotate pattern\n"
+        "  Space       - Place pattern\n"
+        "  Arrow keys  - Move cursor\n"
+        "  P, Esc      - Exit pattern mode\n"
+        "  Q           - Quit game\n\n"
+        "Speed Control:\n"
+        "  - Maximum speed: 10 generations/second\n"
+        "  - Minimum speed: 0.5 generations/second\n"
+        "  - Speed changes adapt to current speed\n"
+        "  - Default: 5 generations/second\n"
     )
 
     # Use more efficient default values
@@ -121,7 +136,7 @@ def parse_arguments() -> argparse.Namespace:
         default=0,  # Default to auto-size
         help=(
             "Width of the grid (auto-sized to terminal width if not specified "
-            "or set to 0, minimum 30)"
+            "or set to 0, minimum 10)"
         ),
     )
     parser.add_argument(

@@ -108,21 +108,61 @@ Run with auto-sized grid, fast updates, and toroidal boundaries:
 
 ## Game Controls
 
-- Press `q` or `Q` to quit the game
-- Press `Ctrl-C` to exit gracefully
-- Press `Escape` to exit
-- Press `r` to restart with a new grid
-- Press `+` to increase grid size (auto-fits to terminal with margins)
-- Press `-` to decrease grid size (auto-fits to terminal with margins)
-- Press `↑` to slow down the simulation
-- Press `↓` to speed up the simulation
-- Press `p` to enter pattern mode
-- Press `r` to rotate pattern (in pattern mode)
-- Press `Space` to place pattern
-- Press `Escape` to exit pattern mode
-- Press `1-9` to select patterns
-- Press `b` to cycle boundary conditions
-- Press `m` to toggle metrics display
+### Normal Mode
+
+| Key         | Action                         |
+|-------------|--------------------------------|
+| Space       | Start/Stop simulation          |
+| P           | Enter pattern mode             |
+| C           | Clear grid                     |
+| R           | Restart with new grid          |
+| B           | Cycle boundary conditions      |
+| +           | Resize grid larger             |
+| -           | Resize grid smaller            |
+| Arrow keys  | Pan viewport                   |
+| Shift+Up    | Increase simulation speed      |
+| Shift+Down  | Decrease simulation speed      |
+| Q, Esc      | Quit game                      |
+
+### Pattern Mode
+
+| Key         | Action                         |
+|-------------|--------------------------------|
+| 1-9         | Select pattern                 |
+| R           | Rotate pattern                 |
+| Space       | Place pattern                  |
+| Arrow keys  | Move cursor                    |
+| P, Esc      | Exit pattern mode              |
+| Q           | Quit game                      |
+
+### Speed Control
+
+The simulation speed can be adjusted using Shift+Up/Down keys:
+- Maximum speed: 10 generations/second (100ms interval)
+- Minimum speed: 0.5 generations/second (2000ms interval)
+- Speed adjustments are inverse proportional to current speed
+  - At lower speeds, changes are larger
+  - At higher speeds, changes are smaller
+- All interval values are rounded to nearest 10ms
+- Default speed: 5 generations/second (200ms interval)
+
+### Grid Constraints
+
+- Minimum grid size: 10×10 cells
+- Maximum grid size: 200×200 cells
+- Grid resize operations maintain aspect ratio
+- Viewport panning stops at grid boundaries
+- Viewport size adapts to terminal dimensions
+
+### Pattern Mode Features
+
+- Pattern rotation occurs in 90-degree increments
+- Patterns can be placed at grid boundaries
+- Cursor movement wraps around grid edges
+- Pattern selection can be done repeatedly
+- Pattern mode can be exited with 'P' or ESC
+- Pattern placement is allowed even if pattern extends beyond grid
+- Cursor position is preserved when exiting/entering pattern mode
 
 ## Pattern System
 

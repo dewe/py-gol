@@ -12,6 +12,8 @@ A terminal-based implementation of Conway's Game of Life with a focus on functio
 - **Dynamic Resizing**: Grid automatically fits terminal dimensions with proper margins (minimum 30×20)
 - **Adaptive Refresh**: Screen refresh rate automatically optimized based on update interval
 - **Multiple Boundary Types**: Support for finite, toroidal, and infinite boundaries
+- **Performance Metrics**: Built-in performance monitoring and optimization
+- **Type Safety**: Comprehensive type hints and static type checking
 
 ![demo](./docs/demo.gif)
 
@@ -25,6 +27,7 @@ The implementation follows a functional core/imperative shell architecture:
 - **Life Rules**: Pure functions implementing game rules
 - **State Transitions**: Immutable state updates
 - **Pattern Operations**: Pure pattern transformations
+- **Performance Metrics**: Pure metrics collection and analysis
 
 ### Impure Shell
 
@@ -32,7 +35,6 @@ The implementation follows a functional core/imperative shell architecture:
 - **File Operations**: Pattern storage and loading
 - **Signal Handling**: System signal management
 - **Game Loop**: State coordination and updates
-- **Metrics**: Performance monitoring
 
 ### Key Principles
 
@@ -40,15 +42,17 @@ The implementation follows a functional core/imperative shell architecture:
 - Immutable data structures for state management
 - Side effects isolated to specific modules
 - Type safety through static typing
-- Efficient updates through NumPy operations
+- Efficient updates through SciPy operations
+- Performance monitoring and optimization
 
 ## Architecture Diagrams
 
 The architecture of this project is documented with Mermaid diagrams in [docs/diagrams.md](docs/diagrams.md). The diagrams include:
 
-1. **Actor Communication Flow** - Shows how cell actors interact with neighbors, the renderer, and controller
-2. **Component Architecture** - Illustrates the relationships between major system components
-3. **Cell State Transitions** - Visualizes the rules of Conway's Game of Life as state transitions
+1. **Component Architecture** - Illustrates the relationships between major system components
+2. **Game Loop Flow** - Shows the main game loop and state transitions
+3. **Pattern System Flow** - Visualizes pattern management and placement
+4. **Renderer Update Sequence** - Details the rendering pipeline
 
 ## Installation
 
@@ -118,6 +122,7 @@ Run with auto-sized grid, fast updates, and toroidal boundaries:
 - Press `Escape` to exit pattern mode
 - Press `1-9` to select patterns
 - Press `b` to cycle boundary conditions
+- Press `m` to toggle metrics display
 
 ## Pattern System
 
@@ -128,6 +133,7 @@ The game includes a pattern system that allows you to place and manipulate prede
 - **Block**: A stable 2×2 square pattern
 - **Blinker**: A simple period-2 oscillator
 - **Glider**: A classic pattern that moves diagonally across the grid
+- **Gosper Glider Gun**: A pattern that continuously emits gliders
 
 ### Pattern Mode Controls
 
@@ -179,24 +185,31 @@ py-gol/
 ├── src/
 │   └── gol/
 │       ├── __init__.py
-│       ├── actor.py          # Cell actor implementation
 │       ├── controller.py     # Game controller
-│       ├── grid.py           # Grid management
-│       ├── main.py           # Main application
-│       ├── messaging.py      # Message queue system
-│       └── renderer.py       # Terminal renderer
+│       ├── grid.py          # Grid management
+│       ├── life.py          # Life rules
+│       ├── main.py          # Main application
+│       ├── metrics.py       # Performance metrics
+│       ├── patterns.py      # Pattern management
+│       ├── renderer.py      # Terminal renderer
+│       ├── state.py         # State management
+│       └── types.py         # Type definitions
 ├── tests/
 │   ├── __init__.py
-│   ├── test_actor.py        # Actor system tests
 │   ├── test_controller.py   # Game controller tests
-│   ├── test_grid.py         # Grid management tests
-│   ├── test_messaging.py    # Message system tests
-│   └── test_renderer.py     # Terminal UI tests
-├── game.py                  # Entry point script
-├── setup.py                 # Package setup
-├── pyproject.toml           # Project configuration
-├── Makefile                 # Build automation
-└── README.md                # This file
+│   ├── test_grid.py        # Grid management tests
+│   ├── test_life.py        # Life rules tests
+│   ├── test_patterns.py    # Pattern system tests
+│   └── test_renderer.py    # Terminal UI tests
+├── docs/
+│   ├── dependencies.md      # Module dependencies
+│   ├── diagrams.md         # Architecture diagrams
+│   └── demo.gif            # Demo animation
+├── game.py                 # Entry point script
+├── setup.py               # Package setup
+├── pyproject.toml        # Project configuration
+├── Makefile             # Build automation
+└── README.md            # This file
 ```
 
 ### Running Tests
@@ -205,7 +218,7 @@ Tests are organized to match the source code structure, with dedicated test file
 
 - Unit tests for individual components
 - Integration tests for component interactions
-- Thread safety tests for concurrent operations
+- Performance tests for optimization
 - Terminal rendering tests with mock terminal
 
 Run the full test suite with:
@@ -217,8 +230,8 @@ make test
 Or run specific test files:
 
 ```bash
-pytest tests/test_actor.py    # Test actor system only
 pytest tests/test_grid.py     # Test grid management only
+pytest tests/test_life.py     # Test life rules only
 ```
 
 ## License
@@ -228,6 +241,7 @@ pytest tests/test_grid.py     # Test grid management only
 ## Development Requirements
 
 - **blessed**: Terminal UI library for rendering and input handling
+- **scipy**: Scientific computing library for array operations
 - **pytest**: Testing framework for unit and integration tests
 - **mypy**: Static type checking
 - **ruff**: Fast Python linter
@@ -242,11 +256,12 @@ The implementation follows these architectural principles:
 - **Pattern Management**: Extensible pattern system with metadata
 - **Efficient Updates**: Differential rendering for performance
 - **Boundary Handling**: Multiple boundary condition support
+- **Performance Monitoring**: Built-in metrics collection and analysis
 
 ### Components
 
 - **Grid Management**: Handles the game grid with boundary conditions
 - **Pattern System**: Manages pattern storage, placement, and manipulation
 - **State Management**: Pure functions for game state transitions
-- **Renderer**: Terminal-based visualization with adaptive refresh
-- **Controller**: Game lifecycle and user input management
+- **Performance Metrics**: Tracks and analyzes system performance
+- **Terminal Renderer**: Efficient terminal display and user input

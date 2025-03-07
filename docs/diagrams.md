@@ -11,6 +11,7 @@ sequenceDiagram
     participant Terminal
     participant Grid
     participant State
+    participant Metrics
     
     Main->>Controller: parse_arguments()
     Controller->>Terminal: initialize_terminal()
@@ -19,6 +20,8 @@ sequenceDiagram
     Grid-->>Controller: return initial_grid
     Controller->>State: initialize_game()
     State-->>Controller: return game_state
+    Controller->>Metrics: initialize_metrics()
+    Metrics-->>Controller: return metrics_state
 ```
 
 ## 2. Game Loop and Pattern Management
@@ -30,11 +33,15 @@ sequenceDiagram
     participant Grid
     participant Patterns
     participant Renderer
+    participant State
+    participant Metrics
     
     Main->>Controller: run_game_loop()
     loop Game Loop
         Controller->>Grid: process_generation()
         Grid-->>Controller: return new_grid
+        Controller->>State: update_state()
+        State-->>Controller: return new_state
         alt pattern_mode
             Controller->>Patterns: get_centered_position()
             Patterns-->>Controller: return position
@@ -43,6 +50,7 @@ sequenceDiagram
         end
         Controller->>Renderer: render_grid()
         Renderer->>Renderer: update_display()
+        Controller->>Metrics: update_metrics()
         Controller->>Controller: handle_user_input()
     end
 ```
@@ -55,12 +63,15 @@ sequenceDiagram
     participant Patterns
     participant Storage
     participant Grid
+    participant State
     
     Controller->>Patterns: load_pattern()
     Patterns->>Storage: read_pattern_file()
     Storage-->>Patterns: return pattern_data
     Patterns->>Grid: place_pattern()
-    Grid-->>Controller: return updated_grid
+    Grid-->>Patterns: return updated_grid
+    Patterns->>State: update_state()
+    State-->>Controller: return updated_state
 ```
 
 ## 4. Renderer Update Sequence
@@ -71,6 +82,7 @@ sequenceDiagram
     participant Renderer
     participant Grid
     participant Terminal
+    participant Metrics
     
     Controller->>Renderer: render_grid()
     Renderer->>Grid: grid_to_dict()
@@ -80,6 +92,7 @@ sequenceDiagram
     end
     Renderer->>Terminal: update_display()
     Renderer->>Terminal: render_status_line()
+    Renderer->>Metrics: update_render_metrics()
 ```
 
 ## Key Architectural Features
@@ -92,6 +105,7 @@ The sequence diagrams highlight several important architectural features:
 4. **Type Safety**: Strong typing with Protocol classes
 5. **Boundary Handling**: Support for multiple boundary conditions
 6. **Efficient Updates**: Differential rendering for changed cells only
+7. **Performance Monitoring**: Metrics tracking for optimization
 
 The implementation follows functional programming principles with:
 
@@ -99,6 +113,7 @@ The implementation follows functional programming principles with:
 - Pure functions for state transitions
 - Type-safe operations through protocols
 - Pattern-based abstractions
+- Performance metrics collection
 
 ## Component Architecture
 
@@ -113,6 +128,7 @@ graph TD
         Life[Life Rules]
         State[State Transitions]
         Pattern[Pattern Operations]
+        Metrics[Performance Metrics]
     end
 
     %% Impure Shell
@@ -128,6 +144,7 @@ graph TD
     GameLoop --> Life
     GameLoop --> State
     GameLoop --> Pattern
+    GameLoop --> Metrics
     Terminal --> GameLoop
     FileIO --> Pattern
     Signals --> GameLoop
@@ -135,7 +152,7 @@ graph TD
     %% Styling
     classDef pure fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     classDef impure fill:#ffebee,stroke:#b71c1c,stroke-width:2px;
-    class Grid,Life,State,Pattern pure;
+    class Grid,Life,State,Pattern,Metrics pure;
     class Terminal,FileIO,Signals,GameLoop impure;
 ```
 

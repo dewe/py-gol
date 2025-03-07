@@ -167,6 +167,7 @@ CommandType = Literal[
     "toggle_simulation",
     "speed_up",
     "speed_down",
+    "select_pattern",
 ]
 
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
@@ -246,7 +247,13 @@ def handle_user_input(
     if str(key) in (" ", "KEY_SPACE"):
         return ("place_pattern" if state.pattern_mode else "toggle_simulation"), config
     if str(key) == "r":
-        return ("rotate_pattern" if state.pattern_mode else "restart"), config
+        if state.pattern_mode:
+            # Update pattern rotation
+            new_rotation = config.pattern_rotation.next_rotation()
+            return "rotate_pattern", config.with_pattern(
+                config.selected_pattern, new_rotation
+            )
+        return "restart", config
 
     # Pattern selection (1-9 in pattern mode)
     if state.pattern_mode and str(key).isdigit():
@@ -254,7 +261,7 @@ def handle_user_input(
         if 1 <= pattern_num <= 9:
             patterns = list(BUILTIN_PATTERNS.keys())
             if pattern_num <= len(patterns):
-                return "pattern", config.with_pattern(patterns[pattern_num - 1])
+                return "select_pattern", config.with_pattern(patterns[pattern_num - 1])
 
     return "continue", config
 

@@ -1,6 +1,6 @@
 """Game of Life controller implementation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional, Tuple
 
 from gol.grid import BoundaryCondition, GridConfig, create_grid, resize_grid
@@ -58,6 +58,10 @@ class ControllerConfig:
             grid=grid_config,
             renderer=renderer_config,
         )
+
+    def with_renderer(self, renderer: RendererConfig) -> "ControllerConfig":
+        """Create new config with updated renderer config."""
+        return replace(self, renderer=renderer)
 
     def with_dimensions(self, width: int, height: int) -> "ControllerConfig":
         """Return new config with updated dimensions."""

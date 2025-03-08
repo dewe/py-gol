@@ -11,7 +11,7 @@ from gol.controller import (
     GridConfig,
     handle_viewport_pan,
     initialize_game,
-    process_generation,
+    process_next_generation,
     resize_game,
 )
 from gol.grid import create_grid
@@ -152,9 +152,10 @@ def test_process_generation(config: ControllerConfig) -> None:
         ],
         dtype=np.bool_,
     )
+    state = RendererState()
 
     # Process one generation
-    new_grid = process_generation(grid, BoundaryCondition.FINITE)
+    new_grid, _ = process_next_generation(grid, BoundaryCondition.FINITE, state)
 
     # Check that blinker oscillates correctly
     assert not new_grid[0, 1]  # Top cell dies

@@ -19,7 +19,7 @@ from .patterns import (
     get_pattern_cells,
 )
 from .state import RendererState, ViewportState
-from .types import Grid, RenderGrid, ScreenPosition, ViewportBounds
+from .types import Grid, RenderGrid, ScreenPosition, TerminalPosition, ViewportBounds
 
 CellPos = ScreenPosition
 
@@ -308,22 +308,20 @@ def cleanup_terminal(terminal: TerminalProtocol) -> None:
         print(f"Error during terminal cleanup: {str(e)}", file=sys.stderr)
 
 
-def calculate_grid_position(
+def calculate_terminal_position(
     terminal: TerminalProtocol,
     grid: Grid,
-) -> tuple[int, int]:
-    """Calculates optimal centered position for grid display.
+) -> TerminalPosition:
+    """Calculate where in the terminal to render the viewport.
 
-    Accounts for terminal dimensions, grid size, and necessary margins
-    to ensure the grid fits within the visible area while maintaining
-    proper spacing for status lines and borders.
+    Only called on terminal resize or initial setup.
 
     Args:
         terminal: Terminal interface for rendering
         grid: Current grid state
 
     Returns:
-        Tuple of (start_x, start_y) coordinates for grid rendering
+        TerminalPosition for rendering the viewport
     """
     grid_height, grid_width = grid.shape
     cell_width = 2  # Each cell takes 2 characters (cell + spacing)
@@ -335,15 +333,55 @@ def calculate_grid_position(
 
     # Calculate start positions to center the grid
     # For horizontal centering, we need to account for each cell being 2 chars wide
-    # We use terminal.width directly to ensure centering in full terminal width
     start_x = (terminal.width - total_width) // 2
     start_y = (usable_height - total_height) // 2 + 1
 
     # Ensure non-negative positions
-    start_x = max(0, start_x)
-    start_y = max(1, start_y)
+    return TerminalPosition(x=max(0, start_x), y=max(1, start_y))
 
-    return start_x, start_y
+
+def calculate_viewport_bounds(
+    viewport: ViewportState,
+    terminal_width: int,
+    terminal_height: int,
+    terminal_pos: TerminalPosition,
+    grid_width: int,
+    grid_height: int,
+) -> ViewportBounds:
+    """Calculate which portion of grid is visible through viewport.
+
+    Args:
+        viewport: Current viewport state
+        terminal_width: Terminal width
+        terminal_height: Terminal height
+        terminal_pos: Position in terminal where viewport is rendered
+        grid_width: Grid width
+        grid_height: Grid height
+        boundary_condition: Current boundary condition
+
+    Returns:
+        ViewportBounds defining visible portion of grid
+    """
+    # Calculate maximum visible area based on terminal constraints
+    max_visible_width = min((terminal_width - terminal_pos.x) // 2, grid_width)
+    max_visible_height = min(terminal_height - terminal_pos.y - 2, grid_height)
+
+    # Constrain visible area to viewport size
+    visible_width = min(viewport.width, max_visible_width)
+    visible_height = min(viewport.height, max_visible_height)
+
+    # Get grid start position from viewport offset
+    grid_start_x = viewport.offset_x
+    grid_start_y = viewport.offset_y
+
+    # Ensure within grid bounds
+    grid_start_x = max(0, min(grid_start_x, grid_width - visible_width))
+    grid_start_y = max(0, min(grid_start_y, grid_height - visible_height))
+
+    return ViewportBounds(
+        grid_start=(grid_start_x, grid_start_y),
+        visible_dims=(visible_width, visible_height),
+    )
 
 
 def grid_to_dict(grid: Grid) -> RenderGrid:
@@ -518,57 +556,140 @@ def calculate_pattern_cells(
     }
 
 
-def calculate_viewport_bounds(
-    viewport: ViewportState,
-    terminal_width: int,
-    terminal_height: int,
-    start_x: int,
-    start_y: int,
-    grid_width: int,
-    grid_height: int,
-    boundary_condition: Optional[BoundaryCondition] = None,
-    grid_expansion: tuple[int, int, int, int] = (0, 0, 0, 0),  # (right, down, left, up)
-) -> ViewportBounds:
-    """Pure function to calculate viewport rendering bounds.
+@dataclass(frozen=True)
+class RenderInitialization:
+    """Initialization data for renderer.
+
+    Contains all data needed for initial rendering setup.
+    Immutable to prevent accidental state modifications.
+    """
+
+    terminal_pos: TerminalPosition
+    grid_dimensions: tuple[int, int]
+    terminal_dimensions: tuple[int, int]
+
+
+def initialize_render_state(
+    terminal: TerminalProtocol,
+    grid: Grid,
+    state: RendererState,
+) -> tuple[RenderInitialization, RendererState]:
+    """Pure function to initialize rendering state.
+
+    Calculates initial positions and dimensions without side effects.
+    Should be called once at startup before first render.
 
     Args:
-        viewport: Current viewport state
-        terminal_width: Terminal width
-        terminal_height: Terminal height
-        start_x: Grid start X position
-        start_y: Grid start Y position
-        grid_width: Grid width
-        grid_height: Grid height
-        boundary_condition: Current boundary condition
-        grid_expansion: Grid expansion in each direction (right, down, left, up)
+        terminal: Terminal interface for rendering
+        grid: Initial grid state
+        state: Current renderer state
 
     Returns:
-        Tuple of (viewport_start_x, viewport_start_y, visible_width, visible_height)
+        Tuple of (initialization data, updated state)
     """
-    # Calculate maximum visible area based on terminal constraints
-    max_visible_width = min((terminal_width - start_x) // 2, grid_width)
-    max_visible_height = min(terminal_height - start_y - 2, grid_height)
+    grid_height, grid_width = grid.shape
+    terminal_pos = calculate_terminal_position(terminal, grid)
 
-    # Constrain visible area to viewport size
-    visible_width = min(viewport.width, max_visible_width)
-    visible_height = min(viewport.height, max_visible_height)
+    new_state = state.with_terminal_position(terminal_pos).with_previous_grid(None)
 
-    # Calculate viewport offset considering grid expansion
-    viewport_start_x = viewport.offset_x
-    viewport_start_y = viewport.offset_y
+    init_data = RenderInitialization(
+        terminal_pos=terminal_pos,
+        grid_dimensions=(grid_width, grid_height),
+        terminal_dimensions=(terminal.width, terminal.height),
+    )
 
-    # Adjust viewport offset for INFINITE mode grid expansion
-    if boundary_condition == BoundaryCondition.INFINITE:
-        # Adjust for left expansion (shift viewport right)
-        viewport_start_x += grid_expansion[2]
-        # Adjust for up expansion (shift viewport down)
-        viewport_start_y += grid_expansion[3]
+    return init_data, new_state
 
-    # Ensure viewport stays within grid bounds while preserving visible area
-    viewport_start_x = max(0, min(viewport_start_x, grid_width - visible_width))
-    viewport_start_y = max(0, min(viewport_start_y, grid_height - visible_height))
 
-    return viewport_start_x, viewport_start_y, visible_width, visible_height
+def apply_initialization(
+    terminal: TerminalProtocol,
+    init: RenderInitialization,
+) -> None:
+    """Applies initialization by performing required side effects.
+
+    Contains all terminal side effects needed for initialization.
+    Should be called once after initialize_render_state.
+
+    Args:
+        terminal: Terminal interface for rendering
+        init: Initialization data from initialize_render_state
+    """
+    print(terminal.clear(), end="", flush=True)
+    print(terminal.move_xy(0, 0), end="", flush=True)
+    for y in range(init.terminal_dimensions[1]):
+        print(
+            terminal.move_xy(0, y) + " " * init.terminal_dimensions[0],
+            end="",
+            flush=True,
+        )
+    sys.stdout.flush()
+
+
+def calculate_cell_display(
+    x: int,
+    y: int,
+    current_grid: RenderGrid,
+    pattern_cells: set[tuple[int, int]],
+    cursor_pos: tuple[int, int],
+    pattern_mode: bool,
+    config: RendererConfig,
+    terminal: TerminalProtocol,
+) -> tuple[str, str]:
+    """Calculate display properties for a single cell.
+
+    Args:
+        x, y: Cell coordinates
+        current_grid: Current grid state
+        pattern_cells: Set of pattern preview cells
+        cursor_pos: Current cursor position
+        pattern_mode: Whether pattern mode is active
+        config: Renderer configuration
+        terminal: Terminal for color access
+
+    Returns:
+        Tuple of (character, color) to display
+    """
+    is_alive = current_grid.get((x, y), False)
+    is_pattern = (x, y) in pattern_cells
+    is_cursor = pattern_mode and x == cursor_pos[0] and y == cursor_pos[1]
+
+    if is_cursor:
+        return "+", terminal.yellow
+    if is_pattern:
+        return "◆", terminal.blue
+    if is_alive:
+        return config.cell_alive, terminal.white
+    return config.cell_dead, terminal.dim
+
+
+def render_cell(
+    terminal: TerminalProtocol,
+    screen_pos: tuple[int, int],
+    cell_char: str,
+    color: str,
+    config: RendererConfig,
+    is_highlighted: bool,
+) -> None:
+    """Render a single cell to the terminal.
+
+    Args:
+        terminal: Terminal interface
+        screen_pos: Screen coordinates (x, y)
+        cell_char: Character to display
+        color: Color to use
+        config: Renderer configuration
+        is_highlighted: Whether cell should be highlighted
+    """
+    print(
+        terminal.move_xy(screen_pos[0], screen_pos[1])
+        + color
+        + cell_char
+        + (terminal.normal if is_highlighted else terminal.dim)
+        + config.cell_spacing
+        + terminal.normal,
+        end="",
+        flush=True,
+    )
 
 
 def render_grid_to_terminal(
@@ -578,46 +699,10 @@ def render_grid_to_terminal(
     state: RendererState,
     metrics: Metrics,
 ) -> tuple[RendererState, Metrics]:
-    """Renders grid to terminal with side effects.
-
-    This function has the following side effects:
-    - Writes to terminal using print() and terminal control sequences
-    - Flushes stdout
-    - Updates terminal cursor position
-    - Modifies terminal colors and formatting
-
-    Uses pure helper functions for calculations while containing all side effects
-    to this single function.
-
-    Args:
-        terminal: Terminal interface for rendering
-        grid: Current grid state
-        config: Renderer configuration
-        state: Current renderer state
-        metrics: Current metrics state
-
-    Returns:
-        Tuple of (new_state, new_metrics)
-    """
+    """Renders grid to terminal with side effects."""
+    # Pure calculations
     grid_height, grid_width = grid.shape
     usable_height = terminal.height - 2
-    start_x, start_y = calculate_grid_position(terminal, grid)
-
-    dimensions_changed = (
-        start_x != state.start_x
-        or start_y != state.start_y
-        or state.previous_grid is None
-    )
-
-    if dimensions_changed:
-        state = state.with_grid_position(start_x, start_y).with_previous_grid(None)
-
-        print(terminal.clear(), end="", flush=True)
-        print(terminal.move_xy(0, 0), end="", flush=True)
-        for y in range(terminal.height):
-            print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
-        sys.stdout.flush()
-
     current_grid = grid_to_dict(grid)
     metrics = calculate_render_metrics(grid, current_grid, metrics)
 
@@ -629,83 +714,67 @@ def render_grid_to_terminal(
         config.pattern_rotation,
     )
 
-    # Convert pattern_cells to numpy array if needed
     pattern_cells_array = (
         np.zeros_like(grid) if pattern_cells is None else np.array(list(pattern_cells))
     )
 
-    viewport_start_x, viewport_start_y, visible_width, visible_height = (
-        calculate_viewport_bounds(
-            state.viewport,
-            terminal.width,
-            terminal.height,
-            start_x,
-            start_y,
-            grid_width,
-            grid_height,
-            config.boundary_condition,
-            (0, 0, 0, 0),  # Assuming no grid expansion
-        )
+    bounds = calculate_viewport_bounds(
+        state.viewport,
+        terminal.width,
+        terminal.height,
+        state.terminal_pos,
+        grid_width,
+        grid_height,
     )
 
-    # Render cells - this section contains necessary side effects for terminal output
-    for vy in range(visible_height):
-        for vx in range(visible_width):
-            # Convert viewport coordinates to grid coordinates
-            x = (viewport_start_x + vx) % grid_width
-            y = (viewport_start_y + vy) % grid_height
-
-            # Calculate screen position - ensure we account for cell width
-            screen_x = start_x + (vx * 2)  # Each cell is 2 chars wide
-            screen_y = start_y + vy
+    # Render cells
+    for vy in range(bounds.visible_dims[1]):
+        for vx in range(bounds.visible_dims[0]):
+            x = (bounds.grid_start[0] + vx) % grid_width
+            y = (bounds.grid_start[1] + vy) % grid_height
+            screen_x = state.terminal_pos.x + (vx * 2)
+            screen_y = state.terminal_pos.y + vy
 
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:
                 continue
 
-            is_alive = current_grid.get((x, y), False)
-            is_pattern = (x, y) in pattern_cells
-            is_cursor = (
-                state.pattern_mode and x == state.cursor_x and y == state.cursor_y
+            cell_char, color = calculate_cell_display(
+                x,
+                y,
+                current_grid,
+                pattern_cells,
+                (state.cursor_x, state.cursor_y),
+                state.pattern_mode,
+                config,
+                terminal,
             )
 
-            if is_cursor:
-                cell_char = "+"
-                color = terminal.yellow
-            elif is_pattern:
-                cell_char = "◆"
-                color = terminal.blue
-            else:
-                cell_char = config.cell_alive if is_alive else config.cell_dead
-                if is_alive:
-                    color = terminal.white
-                else:
-                    color = terminal.dim
-
-            print(
-                terminal.move_xy(screen_x, screen_y)
-                + color
-                + cell_char
-                + (
-                    terminal.normal
-                    if is_alive or is_cursor or is_pattern
-                    else terminal.dim
-                )
-                + config.cell_spacing
-                + terminal.normal,
-                end="",
-                flush=True,
+            is_highlighted = (
+                current_grid.get((x, y), False)
+                or (x, y) in pattern_cells
+                or (state.pattern_mode and x == state.cursor_x and y == state.cursor_y)
             )
 
+            render_cell(
+                terminal,
+                (screen_x, screen_y),
+                cell_char,
+                color,
+                config,
+                is_highlighted,
+            )
+
+    # Update state and metrics
     state = state.with_previous_grid(grid).with_pattern_cells(pattern_cells_array)
     metrics = update_frame_metrics(metrics)
 
+    # Render status
     if state.pattern_mode:
         print(render_pattern_menu(terminal), end="", flush=True)
     else:
         print(render_status_line(terminal, config, metrics), end="", flush=True)
 
     sys.stdout.flush()
-
     return state, metrics
 
 

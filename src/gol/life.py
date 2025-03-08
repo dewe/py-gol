@@ -1,8 +1,11 @@
 """Pure functional implementation of Conway's Game of Life."""
 
+from typing import Optional
+
 import numpy as np
 from scipy import signal
 
+from gol.state import ViewportState
 from gol.types import Grid, IntArray
 
 from .grid import BoundaryCondition, expand_grid, needs_boundary_expansion
@@ -22,7 +25,11 @@ def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
     return result
 
 
-def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
+def next_generation(
+    grid: Grid,
+    boundary: BoundaryCondition,
+    viewport_state: Optional[ViewportState] = None,
+) -> tuple[Grid, Optional[ViewportState]]:
     """Calculate the next generation using optimized convolution operations.
 
     Uses scipy's convolve2d for efficient neighbor counting, with different
@@ -33,6 +40,17 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
     - Expands grid only when live cells are at boundaries
     - Maintains pattern evolution as if on infinite plane
     - Preserves grid center position during expansion
+    - Adjusts viewport offset if needed to maintain view position
+
+    Args:
+        grid: Current grid state
+        boundary: Boundary condition to apply
+        viewport_state: Optional viewport state to adjust during expansion
+
+    Returns:
+        Tuple of:
+        - Next generation grid state
+        - Updated viewport state if provided and modified, None otherwise
     """
     kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
 
@@ -42,7 +60,12 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
             grid
         )
         if any([expand_up, expand_right, expand_down, expand_left]):
-            grid = expand_grid(grid, expand_up, expand_right, expand_down, expand_left)
+            grid, (dx, dy) = expand_grid(
+                grid, expand_up, expand_right, expand_down, expand_left
+            )
+            # Adjust viewport offset if provided
+            if viewport_state is not None:
+                viewport_state = viewport_state.with_adjusted_offset(dx, dy)
 
     # Calculate live neighbor counts based on boundary condition
     match boundary:
@@ -56,4 +79,5 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
                 grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
             )
 
-    return calculate_next_state(grid, live_counts)
+    next_grid = calculate_next_state(grid, live_counts)
+    return next_grid, viewport_state

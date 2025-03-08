@@ -238,7 +238,6 @@ def needs_boundary_expansion(grid: Grid) -> ExpansionFlags:
         Tuple of booleans (expand_up, expand_right, expand_down, expand_left)
         indicating which directions need expansion.
     """
-    height, width = cast(GridShape, grid.shape)
 
     # Check each edge for live cells and convert to Python bool
     expand_up = bool(np.any(grid[0]))  # Top row
@@ -255,7 +254,7 @@ def expand_grid(
     expand_right: bool = False,
     expand_down: bool = False,
     expand_left: bool = False,
-) -> Grid:
+) -> tuple[Grid, tuple[int, int]]:
     """Expand grid in specified directions by one cell.
 
     Args:
@@ -266,8 +265,10 @@ def expand_grid(
         expand_left: Add column at left
 
     Returns:
-        New grid with expanded dimensions. New rows/columns are always dead cells.
-        Original grid content is preserved in its new position.
+        Tuple of:
+        - New grid with expanded dimensions. New rows/columns are always dead cells.
+          Original grid content is preserved in its new position.
+        - Viewport offset adjustments (dx, dy) needed to maintain view position
     """
     height, width = cast(GridShape, grid.shape)
     new_height = height + (1 if expand_up else 0) + (1 if expand_down else 0)
@@ -283,4 +284,8 @@ def expand_grid(
     # Copy original grid content to new position
     new_grid[y_offset : y_offset + height, x_offset : x_offset + width] = grid
 
-    return cast(Grid, new_grid)
+    # Calculate viewport offset adjustments needed
+    dx = 1 if expand_left else 0
+    dy = 1 if expand_up else 0
+
+    return cast(Grid, new_grid), (dx, dy)

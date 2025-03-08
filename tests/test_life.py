@@ -10,6 +10,7 @@ from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
 from gol.life import calculate_next_state, next_generation
 from gol.types import Grid, GridPosition, IntArray, PatternGrid
 from tests.conftest import create_test_grid
+from tests.test_grid import assert_grid_matches_pattern
 
 # Load test patterns
 with open(Path(__file__).parent / "test_data" / "patterns.json") as f:
@@ -78,7 +79,7 @@ class TestPatternEvolution:
         Then: Should follow expected evolution rules
         """
         pattern: PatternGrid = create_test_grid(pattern_data["pattern"])
-        next_gen = next_generation(pattern, BoundaryCondition.FINITE)
+        next_gen, _ = next_generation(pattern, BoundaryCondition.FINITE)
 
         # Verify pattern behavior based on category
         category = pattern_data["category"]
@@ -87,7 +88,7 @@ class TestPatternEvolution:
             assert np.array_equal(next_gen, pattern)
         elif category == "OSCILLATOR":
             # Oscillator patterns should change but return to original
-            second_gen = next_generation(next_gen, BoundaryCondition.FINITE)
+            second_gen, _ = next_generation(next_gen, BoundaryCondition.FINITE)
             assert not np.array_equal(next_gen, pattern)
             assert np.array_equal(second_gen, pattern)
 
@@ -139,6 +140,39 @@ class TestBoundaryBehavior:
         count = count_live_neighbors(grid, neighbors, boundary)
         assert count == expected_count
 
+    def test_next_generation_finite(self) -> None:
+        """Test next generation calculation with FINITE boundary."""
+        # Arrange
+        pattern = create_test_grid(
+            [
+                [False, True, False],
+                [False, True, False],
+                [False, True, False],
+            ]
+        )
+
+        # Act
+        next_gen, _ = next_generation(pattern, BoundaryCondition.FINITE)
+        second_gen, _ = next_generation(next_gen, BoundaryCondition.FINITE)
+
+        # Assert
+        assert_grid_matches_pattern(
+            next_gen,
+            [
+                [False, False, False],
+                [True, True, True],
+                [False, False, False],
+            ],
+        )
+        assert_grid_matches_pattern(
+            second_gen,
+            [
+                [False, True, False],
+                [False, True, False],
+                [False, True, False],
+            ],
+        )
+
     def test_infinite_boundary_expansion(self) -> None:
         """Test grid expansion in INFINITE mode.
 
@@ -154,16 +188,17 @@ class TestBoundaryBehavior:
                 [False, False, False],
             ]
         )
-        original_height, original_width = grid.shape
 
         # Act
-        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+        next_grid, viewport_state = next_generation(grid, BoundaryCondition.INFINITE)
 
         # Assert
         assert next_grid.shape[0] > grid.shape[0]  # Grid should expand vertically
         assert (
             next_grid.shape[1] >= grid.shape[1]
         )  # Grid width should be at least the same
+        if viewport_state is not None:
+            assert viewport_state.offset_y > 0  # Viewport should shift down
 
     def test_infinite_boundary_no_expansion(self) -> None:
         """Test no expansion when not needed in INFINITE mode.
@@ -183,10 +218,12 @@ class TestBoundaryBehavior:
         original_shape = grid.shape
 
         # Act
-        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+        next_grid, viewport_state = next_generation(grid, BoundaryCondition.INFINITE)
 
         # Assert
         assert next_grid.shape == original_shape  # No expansion needed
+        if viewport_state is not None:
+            assert viewport_state.offset == (0, 0)  # No viewport adjustment needed
 
     def test_infinite_boundary_glider_evolution(self) -> None:
         """Test glider evolution with INFINITE boundary.
@@ -195,7 +232,7 @@ class TestBoundaryBehavior:
         When: Evolving through multiple generations
         Then: Grid should expand as needed while preserving pattern
         """
-        # Arrange - Create a glider at the top edge
+        # Arrange - Create a glider pattern at the top edge
         grid: Grid = create_test_grid(
             [
                 [True, True, True],  # Glider at top
@@ -206,9 +243,9 @@ class TestBoundaryBehavior:
         original_shape = grid.shape
 
         # Act - Evolve through multiple generations
-        gen1 = next_generation(grid, BoundaryCondition.INFINITE)
-        gen2 = next_generation(gen1, BoundaryCondition.INFINITE)
-        gen3 = next_generation(gen2, BoundaryCondition.INFINITE)
+        gen1, viewport1 = next_generation(grid, BoundaryCondition.INFINITE)
+        gen2, _ = next_generation(gen1, BoundaryCondition.INFINITE)
+        gen3, _ = next_generation(gen2, BoundaryCondition.INFINITE)
 
         # Assert
         # Grid should expand as needed
@@ -220,6 +257,10 @@ class TestBoundaryBehavior:
         assert np.sum(gen1) == 5
         assert np.sum(gen2) == 5
         assert np.sum(gen3) == 5
+
+        # Viewport should adjust for upward expansion
+        if viewport1 is not None:
+            assert viewport1.offset_y > 0
 
     def test_infinite_boundary_multi_direction_expansion(self) -> None:
         """Test expansion in multiple directions.
@@ -239,7 +280,7 @@ class TestBoundaryBehavior:
         original_shape = grid.shape
 
         # Act
-        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+        next_grid, _ = next_generation(grid, BoundaryCondition.INFINITE)
 
         # Assert
         assert next_grid.shape[0] > original_shape[0]  # Expanded vertically

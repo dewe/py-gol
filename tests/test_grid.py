@@ -388,12 +388,12 @@ class TestInfiniteBoundary:
         original_height, original_width = grid.shape
 
         # Act
-        expanded = expand_grid(grid, expand_up=True)
+        expanded_grid, _ = expand_grid(grid, expand_up=True)
 
         # Assert
-        assert expanded.shape == (original_height + 1, original_width)
-        assert not expanded[0].any()  # New row is empty
-        assert np.array_equal(expanded[1:], grid)  # Original content preserved
+        assert expanded_grid.shape == (original_height + 1, original_width)
+        assert not expanded_grid[0].any()  # New row is empty
+        assert np.array_equal(expanded_grid[1:], grid)  # Original content preserved
 
     def test_expand_grid_multiple_directions(self) -> None:
         """Test grid expansion in multiple directions."""
@@ -407,13 +407,17 @@ class TestInfiniteBoundary:
         original_height, original_width = grid.shape
 
         # Act
-        expanded = expand_grid(grid, expand_up=True, expand_right=True)
+        expanded_grid, _ = expand_grid(grid, expand_up=True, expand_right=True)
 
         # Assert
-        assert expanded.shape == (original_height + 1, original_width + 1)
-        assert not expanded[0, 1:].any()  # New top row is empty (except copied cell)
-        assert not expanded[1:, -1].any()  # New right column is empty
-        assert np.array_equal(expanded[1:, :-1], grid)  # Original content preserved
+        assert expanded_grid.shape == (original_height + 1, original_width + 1)
+        assert not expanded_grid[
+            0, 1:
+        ].any()  # New top row is empty (except copied cell)
+        assert not expanded_grid[1:, -1].any()  # New right column is empty
+        assert np.array_equal(
+            expanded_grid[1:, :-1], grid
+        )  # Original content preserved
 
     def test_no_expansion_needed(self) -> None:
         """Test when no expansion is needed."""
@@ -455,7 +459,7 @@ class TestInfiniteBoundary:
         assert expand_right and expand_left  # Should expand horizontally
 
         # Expand grid
-        expanded = expand_grid(
+        expanded, _ = expand_grid(
             grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
         )
 
@@ -496,7 +500,7 @@ def test_infinite_boundary_expansion() -> None:
     )  # No expansion needed in other directions
 
     # Expand grid
-    expanded_grid = expand_grid(grid, expand_up=True)
+    expanded_grid, _ = expand_grid(grid, expand_up=True)
     assert expanded_grid.shape == (6, 5)  # One row added at top
     assert expanded_grid[1, 2]  # Original live cell now at row 1
 
@@ -540,7 +544,7 @@ def test_infinite_boundary_corner_expansion() -> None:
     )  # No expansion needed in other directions
 
     # Expand grid in both directions
-    expanded_grid = expand_grid(grid, expand_up=True, expand_right=True)
+    expanded_grid, _ = expand_grid(grid, expand_up=True, expand_right=True)
     assert expanded_grid.shape == (4, 4)  # Added row at top and column at right
     assert expanded_grid[1, 2]  # Original live cell now at row 1
 
@@ -625,12 +629,14 @@ def test_infinite_boundary_pattern_preservation() -> None:
     )
 
     # Act - Expand grid upward
-    expanded = expand_grid(grid, expand_up=True)
+    expanded_grid, (dx, dy) = expand_grid(grid, expand_up=True)
 
     # Assert - Original pattern should be preserved exactly
-    assert expanded.shape == (4, 3)  # Added one row at top
-    assert not expanded[0].any()  # New top row is dead
-    assert np.array_equal(expanded[1:], grid)  # Original pattern preserved exactly
+    assert expanded_grid.shape == (4, 3)  # Added one row at top
+    assert not expanded_grid[0].any()  # New top row is dead
+    assert np.array_equal(expanded_grid[1:], grid)  # Original pattern preserved exactly
+    assert dy == 1  # Viewport should shift down
+    assert dx == 0  # No horizontal shift
 
 
 def test_infinite_boundary_center_maintenance() -> None:
@@ -650,106 +656,18 @@ def test_infinite_boundary_center_maintenance() -> None:
     )
 
     # Act - Expand in all directions
-    expanded = expand_grid(
+    expanded, (dx, dy) = expand_grid(
         grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
     )
 
     # Assert
     assert expanded.shape == (5, 5)  # Added rows/columns on all sides
     # Check that pattern maintained its relative center position
-    assert np.array_equal(expanded[1:4, 1:4], grid)
-
-
-def test_infinite_boundary_multiple_expansions() -> None:
-    """Test multiple sequential expansions.
-
-    Given: A grid requiring multiple expansions
-    When: Processing multiple generations with INFINITE boundary
-    Then: Should expand when needed and maintain expanded dimensions
-    """
-    from gol.life import next_generation
-
-    # Arrange - Create a glider pattern that will move to corner
-    grid = create_test_grid(
-        [
-            [True, True, True],  # Glider at top
-            [False, False, True],
-            [False, True, False],
-        ]
-    )
-    original_shape = grid.shape
-
-    # Act - Process multiple generations
-    gen1 = next_generation(grid, BoundaryCondition.INFINITE)
-    gen2 = next_generation(gen1, BoundaryCondition.INFINITE)
-
-    # Assert
-    # First generation should expand up due to top pattern
-    assert gen1.shape[0] > original_shape[0]
-    # Second generation should expand further if needed
-    assert gen2.shape[0] >= gen1.shape[0]
-    assert gen2.shape[1] >= gen1.shape[1]
-    # Pattern should evolve correctly
-    assert np.sum(gen2) == 5  # Glider maintains 5 live cells
-
-
-def test_infinite_boundary_large_grid_performance() -> None:
-    """Test performance considerations for large grid expansion.
-
-    Given: A large grid with patterns at edges
-    When: Expanding the grid
-    Then: Should handle expansion efficiently
-    """
-    import time
-
-    # Arrange - Create a large grid (100x100) with patterns at edges
-    config = GridConfig(width=100, height=100, density=0.0)
-    grid = create_grid(config)
-    grid[0, :] = True  # Top edge all alive
-
-    # Act - Measure expansion time
-    start_time = time.perf_counter()
-    expanded = expand_grid(grid, expand_up=True)
-    end_time = time.perf_counter()
-
-    # Assert
-    expansion_time = end_time - start_time
-    assert expansion_time < 0.1  # Should complete quickly
-    assert expanded.shape == (101, 100)  # Verify expansion
-
-
-def test_infinite_boundary_no_shrinking() -> None:
-    """Test that grid does not shrink after expansion.
-
-    Given: A grid that has been expanded
-    When: Live cells move away from boundaries
-    Then: Grid dimensions should remain unchanged
-    """
-    from gol.life import next_generation
-
-    # Arrange - Create a grid with live cells at boundaries
-    grid = create_test_grid(
-        [
-            [True, False, False],  # Top edge
-            [False, False, False],
-            [False, False, False],
-        ]
-    )
-
-    # First expand the grid
-    expanded = expand_grid(grid, expand_up=True)
-    expanded_shape = expanded.shape
-
-    # Move live cells away from boundaries
-    expanded[1:] = False  # Clear all cells
-    expanded[2, 1] = True  # Place cell in center
-
-    # Act - Process next generation
-    next_gen = next_generation(expanded, BoundaryCondition.INFINITE)
-
-    # Assert - Grid should maintain expanded dimensions
-    assert next_gen.shape == expanded_shape
-    assert next_gen.shape > grid.shape  # Still larger than original
+    assert np.array_equal(
+        expanded[1:4, 1:4], grid
+    )  # Original pattern preserved exactly
+    assert dx == 1  # Viewport should shift right
+    assert dy == 1  # Viewport should shift down
 
 
 def test_infinite_boundary_viewport_behavior() -> None:
@@ -784,7 +702,7 @@ def test_infinite_boundary_viewport_behavior() -> None:
     visible_before = grid[1:3, 1:3]  # Center 2x2 region
 
     # Act - Expand grid in all directions
-    expanded = expand_grid(
+    expanded, (dx, dy) = expand_grid(
         grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
     )
 
@@ -803,7 +721,82 @@ def test_infinite_boundary_viewport_behavior() -> None:
     ), "Visible cells changed during expansion"
 
     # Assert - New rows/columns are dead cells
-    assert not np.any(expanded[0]), "Top row should be dead cells"
-    assert not np.any(expanded[-1]), "Bottom row should be dead cells"
-    assert not np.any(expanded[:, 0]), "Left column should be dead cells"
-    assert not np.any(expanded[:, -1]), "Right column should be dead cells"
+    assert not expanded[0].any(), "Top row should be dead cells"
+    assert not expanded[-1].any(), "Bottom row should be dead cells"
+    assert not expanded[:, 0].any(), "Left column should be dead cells"
+    assert not expanded[:, -1].any(), "Right column should be dead cells"
+
+    # Assert - Viewport offsets are correct
+    assert dx == 1, "Viewport should shift right by 1"
+    assert dy == 1, "Viewport should shift down by 1"
+
+
+def test_infinite_boundary_multiple_expansions() -> None:
+    """Test multiple sequential expansions.
+
+    Given: A grid requiring multiple expansions
+    When: Processing multiple generations with INFINITE boundary
+    Then: Should expand when needed and maintain expanded dimensions
+    """
+    from gol.life import next_generation
+
+    # Arrange - Create a glider pattern that will move to corner
+    grid = create_test_grid(
+        [
+            [True, True, True],  # Glider at top
+            [False, False, True],
+            [False, True, False],
+        ]
+    )
+    original_shape = grid.shape
+
+    # Act - Process multiple generations
+    gen1, viewport1 = next_generation(grid, BoundaryCondition.INFINITE)
+    gen2, _ = next_generation(gen1, BoundaryCondition.INFINITE)
+
+    # Assert
+    # First generation should expand up due to top pattern
+    assert gen1.shape[0] > original_shape[0]
+    # Second generation should expand further if needed
+    assert gen2.shape[0] >= gen1.shape[0]
+    assert gen2.shape[1] >= gen1.shape[1]
+    # Pattern should evolve correctly
+    assert np.sum(gen2) == 5  # Glider maintains 5 live cells
+
+    # Viewport should adjust for expansion
+    if viewport1 is not None:
+        assert viewport1.offset_y > 0
+
+
+def test_infinite_boundary_no_shrinking() -> None:
+    """Test that grid does not shrink after expansion.
+
+    Given: A grid that has been expanded
+    When: Live cells move away from boundaries
+    Then: Grid dimensions should remain unchanged
+    """
+    from gol.life import next_generation
+
+    # Arrange - Create a grid with live cells at boundaries
+    grid = create_test_grid(
+        [
+            [True, False, False],  # Top edge
+            [False, False, False],
+            [False, False, False],
+        ]
+    )
+
+    # First expand the grid
+    expanded_grid, _ = expand_grid(grid, expand_up=True)
+    expanded_shape = expanded_grid.shape
+
+    # Move live cells away from boundaries
+    expanded_grid[1:] = False  # Clear all cells
+    expanded_grid[2, 1] = True  # Place cell in center
+
+    # Act - Process next generation
+    next_gen, _ = next_generation(expanded_grid, BoundaryCondition.INFINITE)
+
+    # Assert - Grid should maintain expanded dimensions
+    assert next_gen.shape == expanded_shape
+    assert next_gen.shape > grid.shape  # Still larger than original

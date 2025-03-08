@@ -3,15 +3,22 @@
 Tests viewport state management, resizing, panning and coordinate translation.
 """
 
+from typing import Any
 from unittest.mock import Mock, PropertyMock
 
+import numpy as np
 import pytest
+from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from gol.controller import handle_viewport_pan, handle_viewport_resize
-from gol.grid import BoundaryCondition
-from gol.renderer import TerminalProtocol, calculate_viewport_bounds
+from gol.renderer import (
+    TerminalProtocol,
+    calculate_terminal_position,
+    calculate_viewport_bounds,
+)
 from gol.state import RendererState, ViewportState
+from gol.types import TerminalPosition
 
 
 def create_mock_keystroke(name: str = "", value: str = "") -> Mock:
@@ -156,135 +163,143 @@ def test_viewport_pan_grid_boundaries() -> None:
 def test_viewport_bounds_basic() -> None:
     """Test basic viewport bounds calculation."""
     viewport = ViewportState(dimensions=(40, 30))
+    terminal_pos = TerminalPosition(x=0, y=0)
     bounds = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,
-        start_x=0,
-        start_y=0,
+        terminal_pos=terminal_pos,
         grid_width=100,
         grid_height=80,
     )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
-    assert viewport_start_x == 0
-    assert viewport_start_y == 0
-    assert visible_width <= viewport.width
-    assert visible_height <= viewport.height
+    assert bounds.grid_start == (0, 0)
+    assert bounds.visible_dims[0] <= viewport.width
+    assert bounds.visible_dims[1] <= viewport.height
 
 
 def test_viewport_bounds_with_offset() -> None:
     """Test viewport bounds calculation with offset."""
     viewport = ViewportState(dimensions=(40, 30), offset_x=20, offset_y=15)
+    terminal_pos = TerminalPosition(x=0, y=0)
     bounds = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,
-        start_x=0,
-        start_y=0,
+        terminal_pos=terminal_pos,
         grid_width=100,
         grid_height=80,
     )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
-    assert viewport_start_x == 20
-    assert viewport_start_y == 15
-    assert visible_width <= viewport.width
-    assert visible_height <= viewport.height
+    assert bounds.grid_start == (20, 15)
+    assert bounds.visible_dims[0] <= viewport.width
+    assert bounds.visible_dims[1] <= viewport.height
 
 
 def test_viewport_bounds_terminal_constraints() -> None:
     """Test viewport bounds respect terminal constraints."""
     viewport = ViewportState(dimensions=(60, 40))  # Larger than terminal
+    terminal_pos = TerminalPosition(x=5, y=2)
     bounds = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,
-        start_x=5,
-        start_y=2,
+        terminal_pos=terminal_pos,
         grid_width=100,
         grid_height=80,
     )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
 
-    # Terminal width - start_x - margins
-    max_visible_width = (80 - 5) // 2
-    # Terminal height - start_y - status lines
-    max_visible_height = 24 - 2 - 2
+    # Terminal width - terminal_pos.x - margins
+    max_visible_width = (80 - terminal_pos.x) // 2
+    # Terminal height - terminal_pos.y - status lines
+    max_visible_height = 24 - terminal_pos.y - 2
 
-    assert visible_width <= max_visible_width
-    assert visible_height <= max_visible_height
-
-
-def test_viewport_infinite_mode_expansion() -> None:
-    """Test viewport behavior during grid expansion in INFINITE mode."""
-    viewport = ViewportState(dimensions=(40, 30), offset_x=10, offset_y=10)
-
-    # Simulate grid expansion to the right
-    bounds = calculate_viewport_bounds(
-        viewport=viewport,
-        terminal_width=80,
-        terminal_height=24,
-        start_x=0,
-        start_y=0,
-        grid_width=100,
-        grid_height=80,
-        boundary_condition=BoundaryCondition.INFINITE,
-        grid_expansion=(1, 0, 0, 0),  # right expansion
-    )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
-
-    # Viewport position should remain stable relative to original cells
-    assert viewport_start_x == 10  # Original offset preserved
-    assert viewport_start_y == 10  # Original offset preserved
-    assert visible_width <= viewport.width
-    assert visible_height <= viewport.height
+    assert bounds.visible_dims[0] <= max_visible_width
+    assert bounds.visible_dims[1] <= max_visible_height
 
 
-def test_viewport_infinite_mode_multiple_expansion() -> None:
-    """Test viewport behavior during multiple grid expansions in INFINITE mode."""
-    viewport = ViewportState(dimensions=(40, 30), offset_x=20, offset_y=15)
+def test_terminal_position_calculation() -> None:
+    """Test terminal position calculation centers grid properly."""
 
-    # Simulate grid expansion in multiple directions
-    bounds = calculate_viewport_bounds(
-        viewport=viewport,
-        terminal_width=80,
-        terminal_height=24,
-        start_x=0,
-        start_y=0,
-        grid_width=120,
-        grid_height=100,
-        boundary_condition=BoundaryCondition.INFINITE,
-        grid_expansion=(1, 1, 1, 1),  # expansion in all directions
-    )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+    class MockTerminal(TerminalProtocol):
+        """Mock terminal for testing."""
 
-    # Viewport should maintain relative position to original cells
-    assert viewport_start_x == 21  # Original offset + right expansion
-    assert viewport_start_y == 16  # Original offset + down expansion
-    assert visible_width <= viewport.width
-    assert visible_height <= viewport.height
+        @property
+        def width(self) -> int:
+            return 100
 
+        @property
+        def height(self) -> int:
+            return 30
 
-def test_viewport_infinite_mode_no_expansion() -> None:
-    """Test viewport behavior with no grid expansion in INFINITE mode."""
-    viewport = ViewportState(dimensions=(40, 30), offset_x=5, offset_y=5)
+        @property
+        def dim(self) -> str:
+            return ""
 
-    bounds = calculate_viewport_bounds(
-        viewport=viewport,
-        terminal_width=80,
-        terminal_height=24,
-        start_x=0,
-        start_y=0,
-        grid_width=100,
-        grid_height=80,
-        boundary_condition=BoundaryCondition.INFINITE,
-        grid_expansion=(0, 0, 0, 0),  # no expansion
-    )
-    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+        @property
+        def normal(self) -> str:
+            return ""
 
-    # Viewport should maintain exact position when no expansion occurs
-    assert viewport_start_x == 5
-    assert viewport_start_y == 5
-    assert visible_width <= viewport.width
-    assert visible_height <= viewport.height
+        @property
+        def white(self) -> str:
+            return ""
+
+        @property
+        def blue(self) -> str:
+            return ""
+
+        @property
+        def green(self) -> str:
+            return ""
+
+        @property
+        def yellow(self) -> str:
+            return ""
+
+        @property
+        def magenta(self) -> str:
+            return ""
+
+        def move_xy(self, x: int, y: int) -> ParameterizingString:
+            return ParameterizingString("")
+
+        def exit_fullscreen(self) -> str:
+            return ""
+
+        def enter_fullscreen(self) -> str:
+            return ""
+
+        def hide_cursor(self) -> str:
+            return ""
+
+        def normal_cursor(self) -> str:
+            return ""
+
+        def clear(self) -> str:
+            return ""
+
+        def enter_ca_mode(self) -> str:
+            return ""
+
+        def exit_ca_mode(self) -> str:
+            return ""
+
+        def inkey(self, timeout: float = 0) -> Keystroke:
+            return Keystroke("")
+
+        def cbreak(self) -> Any:
+            return self
+
+    grid = np.zeros((40, 60), dtype=bool)  # 40 rows, 60 columns
+    terminal = MockTerminal()
+
+    pos = calculate_terminal_position(terminal, grid)
+
+    # Expected center position:
+    # Terminal width: 100, Grid display width: 60*2=120 chars
+    # Terminal height: 30, Grid height: 40, Status lines: 3
+    expected_x = (100 - (60 * 2)) // 2  # Center horizontally
+    expected_y = (27 - 40) // 2 + 1  # Center vertically with status line space
+
+    assert pos.x == max(0, expected_x)
+    assert pos.y == max(1, expected_y)

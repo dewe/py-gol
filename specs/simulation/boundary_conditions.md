@@ -152,6 +152,64 @@ Offset(0,0)      Offset(0,1)
 
 3. Viewport behavior:
    - Viewport size should not change during expansion
-   - Viewport position should not change during expansion
+   - Viewport position in terminal should not change during expansion
    - Same grid cells should be visible in the viewport after expansion
    - Expansion happens outside of the viewport
+   - Viewport offset MUST be adjusted:
+     - When expanding left: increase offset_x by 1
+     - When expanding up: increase offset_y by 1
+     - When expanding right/down: no offset adjustment needed
+   - This ensures viewport remains stationary in terminal while grid expands
+
+### Visual Examples
+
+Below are examples showing grid expansion in INFINITE mode:
+
+```text
+Example 1: Expansion REQUIRED (x = live cell, . = dead cell)
+┌───────┐
+│...x...│ 
+│...x...│
+│...x...│ <- Live cell at boundary
+└───────┘
+
+Example 2: Expansion NOT REQUIRED
+┌───────┐
+│...x...│ 
+│...x...│ <- Live cells not at boundary
+│.......│    No expansion needed
+└───────┘
+```
+
+Pattern at corner - Expansion REQUIRED:
+
+```text
+Before:          After:
+┌─────┐         ┌───────┐
+│..x..│         │..x....│
+│...x.│   ->    │...x...|
+│....x│         │....x..│ <- Expansion required
+└─────┘         │.......│    due to corner cell
+                └───────┘
+```
+
+Viewport behavior during expansion:
+
+```text
+Before:         Next generation:
+Grid:           Grid:
+┌───────┐       ┌───────┐
+│..xxx..│       │...x...│
+│.......│       │...x...│
+│.......│       │.......│
+└───────┘       │.......│
+                └───────┘
+       
+Viewport:       Viewport:
+┌───────┐       ┌───────┐
+│..xxx..│       │...x...│
+│.......│       │...x...│
+│.......│       │.......│
+└───────┘       └───────┘
+Offset(0,0)      Offset(0,1)
+```

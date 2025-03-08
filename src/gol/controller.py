@@ -150,9 +150,25 @@ def resize_game(
     return new_grid, new_config
 
 
-def process_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
-    """Process one generation of cell updates using the Game of Life rules."""
-    return next_generation(grid, boundary)
+def process_next_generation(
+    grid: Grid,
+    boundary: BoundaryCondition,
+    state: RendererState,
+) -> tuple[Grid, RendererState]:
+    """Process next generation of grid evolution.
+
+    Args:
+        grid: Current grid state
+        boundary: Boundary condition to apply
+        state: Current renderer state
+
+    Returns:
+        Tuple of (next grid state, updated renderer state)
+    """
+    next_grid, viewport_state = next_generation(grid, boundary, state.viewport)
+    if viewport_state is not None:
+        state = state.with_viewport(viewport_state)
+    return next_grid, state
 
 
 def cleanup_game(terminal: TerminalProtocol) -> None:

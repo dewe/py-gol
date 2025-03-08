@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-from gol.types import GameDimensions, ViewportOffset
+from gol.types import GameDimensions, TerminalPosition, ViewportOffset
 
 
 @dataclasses.dataclass(frozen=True)
@@ -62,19 +62,24 @@ class ViewportState:
 
 @dataclasses.dataclass(frozen=True)
 class RendererState:
-    """Immutable state for renderer configuration."""
+    """Immutable renderer state.
 
-    pattern_mode: bool = False
-    cursor_x: int = 0
+    Manages the current state of the renderer including viewport position,
+    cursor position, and pattern mode.
+    """
+
+    viewport: ViewportState = dataclasses.field(
+        default_factory=lambda: ViewportState(dimensions=(50, 30))
+    )
+    terminal_pos: TerminalPosition = dataclasses.field(
+        default_factory=lambda: TerminalPosition(x=0, y=0)
+    )
+    cursor_x: int = 0  # Cursor position in grid coordinates
     cursor_y: int = 0
+    pattern_mode: bool = False  # Whether pattern placement mode is active
     previous_grid: Optional[np.ndarray] = None
     pattern_cells: Optional[np.ndarray] = None
-    viewport: ViewportState = dataclasses.field(
-        default_factory=lambda: ViewportState.create((50, 30))
-    )
     paused: bool = False
-    start_x: int = 0
-    start_y: int = 0
 
     @classmethod
     def create(
@@ -87,8 +92,7 @@ class RendererState:
         pattern_cells: Optional[np.ndarray] = None,
         viewport: Optional[ViewportState] = None,
         paused: bool = False,
-        start_x: int = 0,
-        start_y: int = 0,
+        terminal_pos: Optional[TerminalPosition] = None,
     ) -> "RendererState":
         """Create a new renderer state with optional overrides."""
         return cls(
@@ -99,17 +103,20 @@ class RendererState:
             pattern_cells=pattern_cells,
             viewport=viewport or ViewportState.create(dimensions),
             paused=paused,
-            start_x=start_x,
-            start_y=start_y,
+            terminal_pos=terminal_pos or TerminalPosition(x=0, y=0),
         )
 
-    def with_pattern_mode(self, pattern_mode: bool) -> "RendererState":
-        """Create new state with updated pattern mode."""
-        return dataclasses.replace(self, pattern_mode=pattern_mode)
+    def with_viewport(self, viewport: ViewportState) -> "RendererState":
+        """Create new state with updated viewport."""
+        return dataclasses.replace(self, viewport=viewport)
 
-    def with_cursor_position(self, x: int, y: int) -> "RendererState":
+    def with_cursor(self, x: int, y: int) -> "RendererState":
         """Create new state with updated cursor position."""
         return dataclasses.replace(self, cursor_x=x, cursor_y=y)
+
+    def with_pattern_mode(self, enabled: bool) -> "RendererState":
+        """Create new state with updated pattern mode."""
+        return dataclasses.replace(self, pattern_mode=enabled)
 
     def with_previous_grid(self, grid: Optional[np.ndarray]) -> "RendererState":
         """Create new state with updated previous grid."""
@@ -118,10 +125,6 @@ class RendererState:
     def with_pattern_cells(self, cells: Optional[np.ndarray]) -> "RendererState":
         """Create new state with updated pattern cells."""
         return dataclasses.replace(self, pattern_cells=cells)
-
-    def with_viewport(self, viewport: ViewportState) -> "RendererState":
-        """Create new state with updated viewport."""
-        return dataclasses.replace(self, viewport=viewport)
 
     def with_paused(self, paused: bool) -> "RendererState":
         """Create new state with updated pause state."""
@@ -136,6 +139,6 @@ class RendererState:
             pattern_cells=None,
         )
 
-    def with_grid_position(self, x: int, y: int) -> "RendererState":
-        """Create new state with updated grid position."""
-        return dataclasses.replace(self, start_x=x, start_y=y)
+    def with_terminal_position(self, terminal_pos: TerminalPosition) -> "RendererState":
+        """Create new state with updated terminal position."""
+        return dataclasses.replace(self, terminal_pos=terminal_pos)

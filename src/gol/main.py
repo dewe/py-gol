@@ -46,7 +46,7 @@ from gol.controller import (
     ControllerConfig,
     handle_viewport_pan,
     handle_viewport_resize,
-    process_generation,
+    process_next_generation,
     resize_game,
 )
 from gol.grid import BoundaryCondition, GridConfig, create_grid
@@ -55,8 +55,10 @@ from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
 from gol.renderer import (
     RendererState,
     TerminalProtocol,
+    apply_initialization,
     cleanup_terminal,
     handle_user_input,
+    initialize_render_state,
     initialize_terminal,
     safe_render_grid,
 )
@@ -291,9 +293,7 @@ def run_game_loop(
                 renderer=new_renderer,
             )
             # Initialize cursor position to center of grid
-            state = state.with_cursor_position(
-                config.grid.width // 2, config.grid.height // 2
-            )
+            state = state.with_cursor(config.grid.width // 2, config.grid.height // 2)
         else:
             # Exiting pattern mode via ESC - unpause and clear pattern
             new_renderer = config.renderer.with_pattern(None)
@@ -344,19 +344,19 @@ def run_game_loop(
         nonlocal state
         if state.pattern_mode:
             if direction == "left":
-                state = state.with_cursor_position(
+                state = state.with_cursor(
                     (state.cursor_x - 1) % config.grid.width, state.cursor_y
                 )
             elif direction == "right":
-                state = state.with_cursor_position(
+                state = state.with_cursor(
                     (state.cursor_x + 1) % config.grid.width, state.cursor_y
                 )
             elif direction == "up":
-                state = state.with_cursor_position(
+                state = state.with_cursor(
                     state.cursor_x, (state.cursor_y - 1) % config.grid.height
                 )
             elif direction == "down":
-                state = state.with_cursor_position(
+                state = state.with_cursor(
                     state.cursor_x, (state.cursor_y + 1) % config.grid.height
                 )
 
@@ -558,7 +558,7 @@ def run_game_loop(
                 and not state.paused
                 and current_time - last_update >= config.renderer.update_interval / 1000
             ):
-                grid = process_generation(grid, config.grid.boundary)
+                grid, state = process_next_generation(grid, config.grid.boundary, state)
                 metrics = update_game_metrics(
                     metrics,
                     total_cells=grid.size,
@@ -594,8 +594,8 @@ def main() -> None:
         args = parse_arguments()
 
         # Initialize terminal to get dimensions
-        terminal, _ = initialize_terminal()
-        if terminal is None:
+        terminal, state = initialize_terminal()
+        if terminal is None or state is None:
             raise RuntimeError("Failed to initialize terminal")
 
         # Calculate grid dimensions based on terminal size
@@ -628,8 +628,10 @@ def main() -> None:
         # Set up signal handlers
         setup_signal_handlers(terminal)
 
-        # Initialize renderer state with same dimensions
+        # Initialize renderer state and apply initialization
         state = RendererState.create(dimensions=config.dimensions)
+        init_data, state = initialize_render_state(terminal, grid, state)
+        apply_initialization(terminal, init_data)
 
         # Run game loop
         run_game_loop(terminal, grid, config, state)

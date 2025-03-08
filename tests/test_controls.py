@@ -419,7 +419,7 @@ class TestPatternModeControls:
 
             # Test pattern placement at boundaries
             # Pattern should still be placeable at edges
-            state = state.with_cursor_position(x=0, y=0)  # Top-left corner
+            state = state.with_cursor(0, 0)  # Top-left corner
             key = Keystroke(name="KEY_SPACE", ucs=" ")
             cmd, _ = handle_user_input(key, config.renderer, state)
             assert cmd == "place_pattern"
@@ -427,7 +427,7 @@ class TestPatternModeControls:
             # Pattern should still be placeable at bottom-right
             max_x = config.dimensions[0] - 1
             max_y = config.dimensions[1] - 1
-            state = state.with_cursor_position(x=max_x, y=max_y)
+            state = state.with_cursor(max_x, max_y)
             key = Keystroke(name="KEY_SPACE", ucs=" ")
             cmd, _ = handle_user_input(key, config.renderer, state)
             assert cmd == "place_pattern"
@@ -447,7 +447,7 @@ class TestPatternModeControls:
         ]
 
         for key_name, x, y, expected_cmd in movement_tests:
-            state = state.with_cursor_position(x=x, y=y)
+            state = state.with_cursor(x, y)
             key = Keystroke(name=key_name)
             cmd, _ = handle_user_input(key, config.renderer, state)
             assert cmd == expected_cmd

@@ -40,6 +40,20 @@ class ViewportState:
         """Get viewport offset as (offset_x, offset_y)."""
         return (self.offset_x, self.offset_y)
 
+    def with_adjusted_offset(self, dx: int, dy: int) -> "ViewportState":
+        """Create new viewport state with adjusted offset for grid expansion.
+
+        Args:
+            dx: Horizontal offset adjustment
+            dy: Vertical offset adjustment
+
+        Returns:
+            New ViewportState with adjusted offset
+        """
+        return dataclasses.replace(
+            self, offset_x=self.offset_x + dx, offset_y=self.offset_y + dy
+        )
+
     @classmethod
     def create(cls, dimensions: tuple[int, int]) -> "ViewportState":
         """Create a new viewport state with specified dimensions."""

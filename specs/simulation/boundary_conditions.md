@@ -48,6 +48,15 @@ Examples of when expansion MUST NOT occur:
 - Live cells exist near (but not adjacent to) boundaries
 - Only dead cells exist at boundaries
 
+### Grid Expansion Behavior
+
+When grid expansion occurs:
+
+- New rows/columns MUST be initialized as dead cells
+- Original grid content MUST be preserved in its new position
+- No live cells are copied to expanded rows/columns
+- This ensures consistent pattern evolution at boundaries
+
 ### Grid Shrinking Behavior
 
 - Grid MUST NOT shrink during game loop
@@ -104,6 +113,27 @@ Before:          After:
                 └───────┘
 ```
 
+Viewport behavior during expansion:
+
+```text
+Before:         Next generation:
+Grid:           Grid:
+┌───────┐       ┌───────┐
+│..xxx..│       │...x...│
+│.......│       │...x...│
+│.......│       │.......│
+└───────┘       │.......│
+                └───────┘
+       
+Viewport:       Viewport:
+┌───────┐       ┌───────┐
+│..xxx..│       │...x...│
+│.......│       │...x...│
+│.......│       │.......│
+└───────┘       └───────┘
+Offset(0,0)      Offset(0,1)
+```
+
 ### Implementation Constraints
 
 1. Grid expansion:
@@ -112,6 +142,8 @@ Before:          After:
    - MUST NOT occur multiple times in same game loop
    - Expansion: 1 row/column
    - MUST NOT occur in pattern mode
+   - MUST initialize new rows/columns as dead cells
+   - MUST preserve original grid content in its new position
 
 2. Performance considerations:
    - Grid should not expand beyond available memory
@@ -121,3 +153,5 @@ Before:          After:
 3. Viewport behavior:
    - Viewport size should not change during expansion
    - Viewport position should not change during expansion
+   - Same grid cells should be visible in the viewport after expansion
+   - Expansion happens outside of the viewport

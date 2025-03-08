@@ -9,6 +9,7 @@ import pytest
 from blessed.keyboard import Keystroke
 
 from gol.controller import handle_viewport_pan, handle_viewport_resize
+from gol.grid import BoundaryCondition
 from gol.renderer import TerminalProtocol, calculate_viewport_bounds
 from gol.state import RendererState, ViewportState
 
@@ -213,3 +214,77 @@ def test_viewport_bounds_terminal_constraints() -> None:
 
     assert visible_width <= max_visible_width
     assert visible_height <= max_visible_height
+
+
+def test_viewport_infinite_mode_expansion() -> None:
+    """Test viewport behavior during grid expansion in INFINITE mode."""
+    viewport = ViewportState(dimensions=(40, 30), offset_x=10, offset_y=10)
+
+    # Simulate grid expansion to the right
+    bounds = calculate_viewport_bounds(
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=0,
+        start_y=0,
+        grid_width=100,
+        grid_height=80,
+        boundary_condition=BoundaryCondition.INFINITE,
+        grid_expansion=(1, 0, 0, 0),  # right expansion
+    )
+    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+
+    # Viewport position should remain stable relative to original cells
+    assert viewport_start_x == 10  # Original offset preserved
+    assert viewport_start_y == 10  # Original offset preserved
+    assert visible_width <= viewport.width
+    assert visible_height <= viewport.height
+
+
+def test_viewport_infinite_mode_multiple_expansion() -> None:
+    """Test viewport behavior during multiple grid expansions in INFINITE mode."""
+    viewport = ViewportState(dimensions=(40, 30), offset_x=20, offset_y=15)
+
+    # Simulate grid expansion in multiple directions
+    bounds = calculate_viewport_bounds(
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=0,
+        start_y=0,
+        grid_width=120,
+        grid_height=100,
+        boundary_condition=BoundaryCondition.INFINITE,
+        grid_expansion=(1, 1, 1, 1),  # expansion in all directions
+    )
+    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+
+    # Viewport should maintain relative position to original cells
+    assert viewport_start_x == 21  # Original offset + right expansion
+    assert viewport_start_y == 16  # Original offset + down expansion
+    assert visible_width <= viewport.width
+    assert visible_height <= viewport.height
+
+
+def test_viewport_infinite_mode_no_expansion() -> None:
+    """Test viewport behavior with no grid expansion in INFINITE mode."""
+    viewport = ViewportState(dimensions=(40, 30), offset_x=5, offset_y=5)
+
+    bounds = calculate_viewport_bounds(
+        viewport=viewport,
+        terminal_width=80,
+        terminal_height=24,
+        start_x=0,
+        start_y=0,
+        grid_width=100,
+        grid_height=80,
+        boundary_condition=BoundaryCondition.INFINITE,
+        grid_expansion=(0, 0, 0, 0),  # no expansion
+    )
+    viewport_start_x, viewport_start_y, visible_width, visible_height = bounds
+
+    # Viewport should maintain exact position when no expansion occurs
+    assert viewport_start_x == 5
+    assert viewport_start_y == 5
+    assert visible_width <= viewport.width
+    assert visible_height <= viewport.height

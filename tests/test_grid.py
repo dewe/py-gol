@@ -750,3 +750,60 @@ def test_infinite_boundary_no_shrinking() -> None:
     # Assert - Grid should maintain expanded dimensions
     assert next_gen.shape == expanded_shape
     assert next_gen.shape > grid.shape  # Still larger than original
+
+
+def test_infinite_boundary_viewport_behavior() -> None:
+    """Test viewport behavior during grid expansion.
+
+    Given: A grid with viewport and live cells at boundaries
+    When: Grid expands due to INFINITE boundary
+    Then: Should maintain viewport constraints:
+        1. Viewport size should not change during expansion
+        2. Viewport position should not change during expansion
+        3. Same grid cells should be visible in viewport after expansion
+        4. Expansion happens outside of the viewport with dead cells
+    """
+    from gol.state import RendererState, ViewportState
+
+    # Arrange - Create a grid with live cells at boundaries
+    grid = create_test_grid(
+        [
+            [True, False, True],  # Top edge
+            [False, True, False],  # Center
+            [True, False, True],  # Bottom edge
+        ]
+    )
+
+    # Create viewport showing center of grid
+    viewport = ViewportState(dimensions=(2, 2), offset_x=1, offset_y=1)
+    state = RendererState().with_viewport(viewport)
+
+    # Record viewport state and visible cells before expansion
+    initial_dimensions = state.viewport.dimensions
+    initial_offset = state.viewport.offset
+    visible_before = grid[1:3, 1:3]  # Center 2x2 region
+
+    # Act - Expand grid in all directions
+    expanded = expand_grid(
+        grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
+    )
+
+    # Assert - Viewport dimensions and position unchanged
+    assert (
+        state.viewport.dimensions == initial_dimensions
+    ), "Viewport size changed during expansion"
+    assert (
+        state.viewport.offset == initial_offset
+    ), "Viewport position changed during expansion"
+
+    # Assert - Same cells visible after expansion (accounting for expansion offset)
+    visible_after = expanded[2:4, 2:4]  # Center shifted by 1 due to expansion
+    assert np.array_equal(
+        visible_before, visible_after
+    ), "Visible cells changed during expansion"
+
+    # Assert - New rows/columns are dead cells
+    assert not np.any(expanded[0]), "Top row should be dead cells"
+    assert not np.any(expanded[-1]), "Bottom row should be dead cells"
+    assert not np.any(expanded[:, 0]), "Left column should be dead cells"
+    assert not np.any(expanded[:, -1]), "Right column should be dead cells"

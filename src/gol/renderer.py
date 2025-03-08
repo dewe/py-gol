@@ -526,6 +526,8 @@ def calculate_viewport_bounds(
     start_y: int,
     grid_width: int,
     grid_height: int,
+    boundary_condition: Optional[BoundaryCondition] = None,
+    grid_expansion: tuple[int, int, int, int] = (0, 0, 0, 0),  # (right, down, left, up)
 ) -> ViewportBounds:
     """Pure function to calculate viewport rendering bounds.
 
@@ -537,6 +539,8 @@ def calculate_viewport_bounds(
         start_y: Grid start Y position
         grid_width: Grid width
         grid_height: Grid height
+        boundary_condition: Current boundary condition
+        grid_expansion: Grid expansion in each direction (right, down, left, up)
 
     Returns:
         Tuple of (viewport_start_x, viewport_start_y, visible_width, visible_height)
@@ -549,11 +553,18 @@ def calculate_viewport_bounds(
     visible_width = min(viewport.width, max_visible_width)
     visible_height = min(viewport.height, max_visible_height)
 
-    # Apply viewport offset directly
+    # Calculate viewport offset considering grid expansion
     viewport_start_x = viewport.offset_x
     viewport_start_y = viewport.offset_y
 
-    # Ensure viewport stays within grid bounds
+    # Adjust viewport offset for INFINITE mode grid expansion
+    if boundary_condition == BoundaryCondition.INFINITE:
+        # Adjust for left expansion (shift viewport right)
+        viewport_start_x += grid_expansion[2]
+        # Adjust for up expansion (shift viewport down)
+        viewport_start_y += grid_expansion[3]
+
+    # Ensure viewport stays within grid bounds while preserving visible area
     viewport_start_x = max(0, min(viewport_start_x, grid_width - visible_width))
     viewport_start_y = max(0, min(viewport_start_y, grid_height - visible_height))
 
@@ -632,6 +643,8 @@ def render_grid_to_terminal(
             start_y,
             grid_width,
             grid_height,
+            config.boundary_condition,
+            (0, 0, 0, 0),  # Assuming no grid expansion
         )
     )
 

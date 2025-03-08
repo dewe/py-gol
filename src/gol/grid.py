@@ -266,13 +266,14 @@ def expand_grid(
         expand_left: Add column at left
 
     Returns:
-        New grid with expanded dimensions
+        New grid with expanded dimensions. New rows/columns are always dead cells.
+        Original grid content is preserved in its new position.
     """
     height, width = cast(GridShape, grid.shape)
     new_height = height + (1 if expand_up else 0) + (1 if expand_down else 0)
     new_width = width + (1 if expand_left else 0) + (1 if expand_right else 0)
 
-    # Create new grid with expanded dimensions
+    # Create new grid with expanded dimensions (all cells dead)
     new_grid = np.zeros((new_height, new_width), dtype=np.bool_)
 
     # Calculate offsets for original grid placement

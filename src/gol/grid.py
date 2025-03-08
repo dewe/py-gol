@@ -6,7 +6,18 @@ from typing import cast
 
 import numpy as np
 
-from .types import BoolArray, Grid, GridPosition, IntArray
+from .types import (
+    BoolArray,
+    ExpansionFlags,
+    Grid,
+    GridDimensions,
+    GridPadding,
+    GridPosition,
+    GridShape,
+    GridSlice,
+    GridView,
+    IntArray,
+)
 
 
 class BoundaryCondition(Enum):
@@ -28,6 +39,11 @@ class GridConfig:
     height: int
     density: float = 0.3
     boundary: BoundaryCondition = BoundaryCondition.FINITE
+
+    @property
+    def dimensions(self) -> GridDimensions:
+        """Get grid dimensions as (width, height)."""
+        return (self.width, self.height)
 
     def __post_init__(self) -> None:
         """Validate grid dimensions and density."""
@@ -106,7 +122,7 @@ def resize_grid(grid: Grid, new_width: int, new_height: int) -> Grid:
         Resized grid with preserved patterns
     """
     # Create the padding configuration
-    pad_width = (
+    pad_width: GridPadding = (
         (0, max(0, new_height - grid.shape[0])),
         (0, max(0, new_width - grid.shape[1])),
     )
@@ -123,7 +139,7 @@ def get_neighbors(
     grid: Grid, pos: GridPosition, boundary: BoundaryCondition
 ) -> IntArray:
     """Get valid neighbor positions as a 2xN array of coordinates."""
-    height, width = grid.shape
+    height, width = cast(GridShape, grid.shape)
     x, y = pos
 
     # Create all neighbor offsets as a 2x8 array with explicit dtype
@@ -161,7 +177,7 @@ def count_live_neighbors(
     if positions.size == 0:
         return 0
 
-    height, width = grid.shape
+    height, width = cast(GridShape, grid.shape)
     x_coords, y_coords = positions
 
     match boundary:
@@ -185,40 +201,44 @@ def get_grid_section(
     top_left: GridPosition,
     bottom_right: GridPosition,
     boundary: BoundaryCondition,
-) -> Grid:
+) -> GridView:
     """Get a section of the grid with boundary condition handling."""
     x1, y1 = top_left
     x2, y2 = bottom_right
 
     if boundary == BoundaryCondition.TOROIDAL:
-        height, width = grid.shape
+        height, width = cast(GridShape, grid.shape)
         y_indices = np.arange(y1, y2 + 1) % height
         x_indices = np.arange(x1, x2 + 1) % width
-        return cast(Grid, grid[np.ix_(y_indices, x_indices)])
+        return cast(GridView, grid[np.ix_(y_indices, x_indices)])
     else:  # FINITE or INFINITE
         section = np.zeros((y2 - y1 + 1, x2 - x1 + 1), dtype=np.bool_)
 
         # Calculate valid grid coordinates
-        valid_y = slice(max(0, y1), min(grid.shape[0], y2 + 1))
-        valid_x = slice(max(0, x1), min(grid.shape[1], x2 + 1))
+        valid_y: GridSlice = slice(max(0, y1), min(grid.shape[0], y2 + 1))
+        valid_x: GridSlice = slice(max(0, x1), min(grid.shape[1], x2 + 1))
 
         # Calculate corresponding section coordinates
-        section_y = slice(max(0, -y1), min(section.shape[0], grid.shape[0] - y1))
-        section_x = slice(max(0, -x1), min(section.shape[1], grid.shape[1] - x1))
+        section_y: GridSlice = slice(
+            max(0, -y1), min(section.shape[0], grid.shape[0] - y1)
+        )
+        section_x: GridSlice = slice(
+            max(0, -x1), min(section.shape[1], grid.shape[1] - x1)
+        )
 
         # Copy valid grid region to section
         section[section_y, section_x] = grid[valid_y, valid_x]
-        return cast(Grid, section)
+        return cast(GridView, section)
 
 
-def needs_boundary_expansion(grid: Grid) -> tuple[bool, bool, bool, bool]:
+def needs_boundary_expansion(grid: Grid) -> ExpansionFlags:
     """Check if grid needs to expand in any direction.
 
     Returns:
         Tuple of booleans (expand_up, expand_right, expand_down, expand_left)
         indicating which directions need expansion.
     """
-    height, width = grid.shape
+    height, width = cast(GridShape, grid.shape)
 
     # Check each edge for live cells and convert to Python bool
     expand_up = bool(np.any(grid[0]))  # Top row
@@ -248,7 +268,7 @@ def expand_grid(
     Returns:
         New grid with expanded dimensions
     """
-    height, width = grid.shape
+    height, width = cast(GridShape, grid.shape)
     new_height = height + (1 if expand_up else 0) + (1 if expand_down else 0)
     new_width = width + (1 if expand_left else 0) + (1 if expand_right else 0)
 

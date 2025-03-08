@@ -15,6 +15,17 @@ Grid: TypeAlias = NDArray[np.bool_]  # Main game grid
 GridView: TypeAlias = NDArray[np.bool_]  # View into a grid section
 GridIndex: TypeAlias = Union[int, slice]  # Grid indexing types
 
+# Grid dimensions
+GridShape: TypeAlias = tuple[int, int]  # (height, width) of grid
+GridDimensions: TypeAlias = tuple[int, int]  # (width, height) for grid creation
+GridPadding: TypeAlias = tuple[
+    tuple[int, int], tuple[int, int]
+]  # ((top, bottom), (left, right))
+GridSlice: TypeAlias = slice  # Type for grid slicing operations
+
+# Grid expansion
+ExpansionFlags: TypeAlias = tuple[bool, bool, bool, bool]  # (up, right, down, left)
+
 # Pattern types
 PatternGrid: TypeAlias = NDArray[np.bool_]  # Pattern definition grid
 

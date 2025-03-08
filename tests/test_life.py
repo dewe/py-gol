@@ -8,7 +8,7 @@ import pytest
 
 from gol.grid import BoundaryCondition, count_live_neighbors, get_neighbors
 from gol.life import calculate_next_state, next_generation
-from gol.types import Grid, GridPosition, IntArray
+from gol.types import Grid, GridPosition, IntArray, PatternGrid
 from tests.conftest import create_test_grid
 
 # Load test patterns
@@ -77,7 +77,7 @@ class TestPatternEvolution:
         When: Evolving the pattern for one generation
         Then: Should follow expected evolution rules
         """
-        pattern = create_test_grid(pattern_data["pattern"])
+        pattern: PatternGrid = create_test_grid(pattern_data["pattern"])
         next_gen = next_generation(pattern, BoundaryCondition.FINITE)
 
         # Verify pattern behavior based on category
@@ -147,7 +147,7 @@ class TestBoundaryBehavior:
         Then: Grid should expand to accommodate the pattern
         """
         # Arrange
-        grid = create_test_grid(
+        grid: Grid = create_test_grid(
             [
                 [True, True, True],  # Glider at top edge
                 [False, False, False],
@@ -173,7 +173,7 @@ class TestBoundaryBehavior:
         Then: Grid dimensions should remain unchanged
         """
         # Arrange
-        grid = create_test_grid(
+        grid: Grid = create_test_grid(
             [
                 [False, False, False],
                 [False, True, False],  # Live cell not at boundary
@@ -196,7 +196,7 @@ class TestBoundaryBehavior:
         Then: Grid should expand as needed while preserving pattern
         """
         # Arrange - Create a glider at the top edge
-        grid = create_test_grid(
+        grid: Grid = create_test_grid(
             [
                 [True, True, True],  # Glider at top
                 [False, False, True],
@@ -229,7 +229,7 @@ class TestBoundaryBehavior:
         Then: Grid should expand in all needed directions
         """
         # Arrange - Create pattern requiring multi-directional expansion
-        grid = create_test_grid(
+        grid: Grid = create_test_grid(
             [
                 [True, True, False],  # Top edge
                 [True, False, True],  # Right edge

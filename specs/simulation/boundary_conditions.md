@@ -1,6 +1,8 @@
 # Boundary Conditions
 
-This document specifies the behavior of different boundary conditions in the Game of Life implementation.
+This document specifies the behavior of different boundary conditions in the Game of Life implementation. 
+Boundary conditions describe what happens at grid edges during simulation. It is strictly about the life 
+simulation and not tied to viewports or pattern management.
 
 ## Types
 
@@ -45,6 +47,13 @@ Examples of when expansion MUST NOT occur:
 
 - Live cells exist near (but not adjacent to) boundaries
 - Only dead cells exist at boundaries
+
+### Grid Shrinking Behavior
+
+- Grid MUST NOT shrink during game loop
+- Once expanded, grid dimensions remain fixed
+- Empty regions at boundaries are preserved
+- This ensures stable viewport behavior and pattern evolution
 
 ### Game Loop Timing
 
@@ -102,6 +111,7 @@ Before:          After:
    - MUST occur before next generation calculation
    - MUST NOT occur multiple times in same game loop
    - Expansion: 1 row/column
+   - MUST NOT occur in pattern mode
 
 2. Performance considerations:
    - Grid should not expand beyond available memory

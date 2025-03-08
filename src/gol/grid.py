@@ -149,18 +149,15 @@ def get_neighbors(
             neighbors[0] %= width
             neighbors[1] %= height
             return cast(IntArray, neighbors)
-        case _:  # INFINITE
+        case BoundaryCondition.INFINITE:
+            # Return all neighbors, validity checked during counting
             return cast(IntArray, neighbors)
 
 
 def count_live_neighbors(
     grid: Grid, positions: IntArray, boundary: BoundaryCondition
 ) -> int:
-    """Count live neighbors using vectorized operations.
-
-    Handles different boundary conditions efficiently using NumPy operations
-    instead of iterating over positions.
-    """
+    """Count live neighbors using vectorized operations."""
     if positions.size == 0:
         return 0
 
@@ -172,7 +169,8 @@ def count_live_neighbors(
             x_coords %= width
             y_coords %= height
             return int(np.sum(grid[y_coords, x_coords]))
-        case _:  # FINITE or INFINITE
+        case BoundaryCondition.INFINITE | BoundaryCondition.FINITE:
+            # For both FINITE and INFINITE, cells outside grid are dead
             mask = (
                 (x_coords >= 0)
                 & (x_coords < width)
@@ -188,11 +186,7 @@ def get_grid_section(
     bottom_right: GridPosition,
     boundary: BoundaryCondition,
 ) -> Grid:
-    """Get a section of the grid with boundary condition handling.
-
-    For toroidal boundaries, wraps coordinates using modulo.
-    For finite/infinite boundaries, pads with dead cells beyond edges.
-    """
+    """Get a section of the grid with boundary condition handling."""
     x1, y1 = top_left
     x2, y2 = bottom_right
 
@@ -201,15 +195,18 @@ def get_grid_section(
         y_indices = np.arange(y1, y2 + 1) % height
         x_indices = np.arange(x1, x2 + 1) % width
         return cast(Grid, grid[np.ix_(y_indices, x_indices)])
-    else:
+    else:  # FINITE or INFINITE
         section = np.zeros((y2 - y1 + 1, x2 - x1 + 1), dtype=np.bool_)
 
+        # Calculate valid grid coordinates
         valid_y = slice(max(0, y1), min(grid.shape[0], y2 + 1))
         valid_x = slice(max(0, x1), min(grid.shape[1], x2 + 1))
 
+        # Calculate corresponding section coordinates
         section_y = slice(max(0, -y1), min(section.shape[0], grid.shape[0] - y1))
         section_x = slice(max(0, -x1), min(section.shape[1], grid.shape[1] - x1))
 
+        # Copy valid grid region to section
         section[section_y, section_x] = grid[valid_y, valid_x]
         return cast(Grid, section)
 

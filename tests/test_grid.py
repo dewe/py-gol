@@ -8,7 +8,9 @@ import pytest
 
 from gol.grid import (
     BoundaryCondition,
+    Grid,
     GridConfig,
+    GridPosition,
     count_live_neighbors,
     create_grid,
     expand_grid,
@@ -17,7 +19,7 @@ from gol.grid import (
     needs_boundary_expansion,
     resize_grid,
 )
-from gol.types import Grid, GridPosition, GridView, IntArray
+from gol.types import GridView, IntArray
 from tests.conftest import create_test_grid  # Add import from conftest
 
 # Type Aliases
@@ -237,6 +239,35 @@ class TestGridSections:
         assert not section[1][0]  # Wrapped bottom-left is dead
         assert section[1][1]  # Wrapped top-left is alive
 
+    def test_infinite_section_handles_out_of_bounds(self) -> None:
+        """
+        Given: A grid with infinite boundary
+        When: Getting a section partially outside grid bounds
+        Then: Should return section with dead cells for out-of-bounds positions
+        """
+        # Arrange
+        grid = create_test_grid([[True, True], [False, True]])
+
+        # Act
+        section: GridView = get_grid_section(
+            grid,
+            (-1, -1),  # Start outside
+            (1, 1),  # End inside
+            BoundaryCondition.INFINITE,
+        )
+
+        # Assert
+        assert section.shape == (3, 3)  # Requested height, width
+        assert not section[0][0]  # Outside position is dead
+        assert not section[0][1]  # Outside position is dead
+        assert not section[0][2]  # Outside position is dead
+        assert not section[1][0]  # Outside position is dead
+        assert section[1][1]  # Inside position matches grid[0,0]
+        assert section[1][2]  # Inside position matches grid[0,1]
+        assert not section[2][0]  # Outside position is dead
+        assert not section[2][1]  # Inside position matches grid[1,0]
+        assert section[2][2]  # Inside position matches grid[1,1]
+
 
 class TestNeighborCounting:
     """Tests for neighbor counting operations."""
@@ -400,3 +431,322 @@ class TestInfiniteBoundary:
 
         # Assert
         assert needs_expansion == (False, False, False, False)
+
+    def test_infinite_boundary_expansion_sequence(self) -> None:
+        """
+        Given: A grid with live cells at edges (not corners)
+        When: Checking expansion needs
+        Then: Should identify all directions needing expansion
+        And: Should expand grid correctly in sequence
+        """
+        grid = create_test_grid(
+            [
+                [False, True, False],  # Top edge (middle)
+                [True, False, True],  # Left and right edges
+                [False, True, False],  # Bottom edge (middle)
+            ]
+        )
+
+        # Check expansion needs
+        expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(
+            grid
+        )
+        assert expand_up and expand_down  # Should expand vertically
+        assert expand_right and expand_left  # Should expand horizontally
+
+        # Expand grid
+        expanded = expand_grid(
+            grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
+        )
+
+        # Verify dimensions
+        assert expanded.shape == (5, 5)  # Added rows/columns on all sides
+
+        # Verify new rows/columns are dead
+        assert not expanded[0].any()  # New top row
+        assert not expanded[-1].any()  # New bottom row
+        assert not expanded[:, 0].any()  # New left column
+        assert not expanded[:, -1].any()  # New right column
+
+        # Verify original pattern preserved in center
+        assert_grid_matches_pattern(
+            expanded[1:4, 1:4],
+            [[False, True, False], [True, False, True], [False, True, False]],
+        )
+
+
+def test_infinite_boundary_expansion() -> None:
+    """Test grid expansion with INFINITE boundary condition."""
+    config = GridConfig(
+        width=5,
+        height=5,
+        boundary=BoundaryCondition.INFINITE,
+        density=0.0,  # Start with all dead cells
+    )
+    grid = create_grid(config)
+
+    # Place single live cell at top edge
+    grid[0, 2] = True
+
+    # Check expansion needed
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert expand_up  # Should expand up due to live cell at top
+    assert not any(
+        [expand_right, expand_down, expand_left]
+    )  # No expansion needed in other directions
+
+    # Expand grid
+    expanded_grid = expand_grid(grid, expand_up=True)
+    assert expanded_grid.shape == (6, 5)  # One row added at top
+    assert expanded_grid[1, 2]  # Original live cell now at row 1
+
+
+def test_infinite_boundary_no_expansion() -> None:
+    """Test no expansion needed when live cells not at boundary."""
+    config = GridConfig(
+        width=5,
+        height=5,
+        boundary=BoundaryCondition.INFINITE,
+        density=0.0,  # Start with all dead cells
+    )
+    grid = create_grid(config)
+
+    # Place single live cell in center
+    grid[2, 2] = True
+
+    # Check no expansion needed
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert not any([expand_up, expand_right, expand_down, expand_left])
+
+
+def test_infinite_boundary_corner_expansion() -> None:
+    """Test corner expansion with INFINITE boundary condition."""
+    config = GridConfig(
+        width=3,
+        height=3,
+        boundary=BoundaryCondition.INFINITE,
+        density=0.0,  # Start with all dead cells
+    )
+    grid = create_grid(config)
+
+    # Place live cell at top-right corner
+    grid[0, 2] = True
+
+    # Check expansion needed in two directions
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert expand_up and expand_right  # Should expand up and right due to corner cell
+    assert (
+        not expand_down and not expand_left
+    )  # No expansion needed in other directions
+
+    # Expand grid in both directions
+    expanded_grid = expand_grid(grid, expand_up=True, expand_right=True)
+    assert expanded_grid.shape == (4, 4)  # Added row at top and column at right
+    assert expanded_grid[1, 2]  # Original live cell now at row 1
+
+
+def test_needs_boundary_expansion_corner() -> None:
+    """Test boundary expansion when corner cell is alive."""
+    grid = np.array(
+        [
+            [True, False, False],  # Corner cell alive
+            [False, False, False],
+            [False, False, False],
+        ],
+        dtype=np.bool_,
+    )
+
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert expand_up  # Should expand up due to top row
+    assert not expand_right
+    assert not expand_down
+    assert expand_left  # Should expand left due to first column
+
+    grid = np.array(
+        [
+            [False, False, True],  # Top-right corner
+            [False, False, False],
+            [False, False, False],
+        ],
+        dtype=np.bool_,
+    )
+
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert expand_up  # Should expand up
+    assert expand_right  # Should expand right
+    assert not expand_down
+    assert not expand_left
+
+
+def test_needs_boundary_expansion_no_expansion() -> None:
+    """Test no expansion needed when live cells not at boundary."""
+    # Test center cell
+    grid = np.array(
+        [
+            [False, False, False],
+            [False, True, False],  # Live cell in center
+            [False, False, False],
+        ],
+        dtype=np.bool_,
+    )
+
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert not any([expand_up, expand_right, expand_down, expand_left])
+
+    # Test cells near but not at boundary
+    grid = np.array(
+        [
+            [False, False, False, False],
+            [False, True, True, False],  # Live cells one cell away from boundary
+            [False, True, False, False],
+            [False, False, False, False],
+        ],
+        dtype=np.bool_,
+    )
+
+    expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(grid)
+    assert not any([expand_up, expand_right, expand_down, expand_left])
+
+
+def test_infinite_boundary_pattern_preservation() -> None:
+    """Test pattern preservation during grid expansion.
+
+    Given: A grid with a glider pattern at the edge
+    When: Grid expands due to INFINITE boundary
+    Then: Pattern should be preserved exactly
+    """
+    # Arrange - Create a glider pattern at the top edge
+    grid = create_test_grid(
+        [
+            [True, True, True],  # Glider at top
+            [False, False, True],
+            [False, True, False],
+        ]
+    )
+
+    # Act - Expand grid upward
+    expanded = expand_grid(grid, expand_up=True)
+
+    # Assert - Original pattern should be preserved exactly
+    assert expanded.shape == (4, 3)  # Added one row at top
+    assert not expanded[0].any()  # New top row is dead
+    assert np.array_equal(expanded[1:], grid)  # Original pattern preserved exactly
+
+
+def test_infinite_boundary_center_maintenance() -> None:
+    """Test that grid center position is maintained during expansion.
+
+    Given: A grid with a pattern in the center
+    When: Grid expands in all directions
+    Then: Pattern should maintain its relative center position
+    """
+    # Arrange - Create a pattern in the center
+    grid = create_test_grid(
+        [
+            [False, True, False],  # Top edge
+            [True, True, True],  # Center pattern
+            [False, True, False],  # Bottom edge
+        ]
+    )
+
+    # Act - Expand in all directions
+    expanded = expand_grid(
+        grid, expand_up=True, expand_right=True, expand_down=True, expand_left=True
+    )
+
+    # Assert
+    assert expanded.shape == (5, 5)  # Added rows/columns on all sides
+    # Check that pattern maintained its relative center position
+    assert np.array_equal(expanded[1:4, 1:4], grid)
+
+
+def test_infinite_boundary_multiple_expansions() -> None:
+    """Test multiple sequential expansions.
+
+    Given: A grid requiring multiple expansions
+    When: Processing multiple generations with INFINITE boundary
+    Then: Should expand when needed and maintain expanded dimensions
+    """
+    from gol.life import next_generation
+
+    # Arrange - Create a glider pattern that will move to corner
+    grid = create_test_grid(
+        [
+            [True, True, True],  # Glider at top
+            [False, False, True],
+            [False, True, False],
+        ]
+    )
+    original_shape = grid.shape
+
+    # Act - Process multiple generations
+    gen1 = next_generation(grid, BoundaryCondition.INFINITE)
+    gen2 = next_generation(gen1, BoundaryCondition.INFINITE)
+
+    # Assert
+    # First generation should expand up due to top pattern
+    assert gen1.shape[0] > original_shape[0]
+    # Second generation should expand further if needed
+    assert gen2.shape[0] >= gen1.shape[0]
+    assert gen2.shape[1] >= gen1.shape[1]
+    # Pattern should evolve correctly
+    assert np.sum(gen2) == 5  # Glider maintains 5 live cells
+
+
+def test_infinite_boundary_large_grid_performance() -> None:
+    """Test performance considerations for large grid expansion.
+
+    Given: A large grid with patterns at edges
+    When: Expanding the grid
+    Then: Should handle expansion efficiently
+    """
+    import time
+
+    # Arrange - Create a large grid (100x100) with patterns at edges
+    config = GridConfig(width=100, height=100, density=0.0)
+    grid = create_grid(config)
+    grid[0, :] = True  # Top edge all alive
+
+    # Act - Measure expansion time
+    start_time = time.perf_counter()
+    expanded = expand_grid(grid, expand_up=True)
+    end_time = time.perf_counter()
+
+    # Assert
+    expansion_time = end_time - start_time
+    assert expansion_time < 0.1  # Should complete quickly
+    assert expanded.shape == (101, 100)  # Verify expansion
+
+
+def test_infinite_boundary_no_shrinking() -> None:
+    """Test that grid does not shrink after expansion.
+
+    Given: A grid that has been expanded
+    When: Live cells move away from boundaries
+    Then: Grid dimensions should remain unchanged
+    """
+    from gol.life import next_generation
+
+    # Arrange - Create a grid with live cells at boundaries
+    grid = create_test_grid(
+        [
+            [True, False, False],  # Top edge
+            [False, False, False],
+            [False, False, False],
+        ]
+    )
+
+    # First expand the grid
+    expanded = expand_grid(grid, expand_up=True)
+    expanded_shape = expanded.shape
+
+    # Move live cells away from boundaries
+    expanded[1:] = False  # Clear all cells
+    expanded[2, 1] = True  # Place cell in center
+
+    # Act - Process next generation
+    next_gen = next_generation(expanded, BoundaryCondition.INFINITE)
+
+    # Assert - Grid should maintain expanded dimensions
+    assert next_gen.shape == expanded_shape
+    assert next_gen.shape > grid.shape  # Still larger than original

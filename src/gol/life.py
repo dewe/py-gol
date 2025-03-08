@@ -27,7 +27,15 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
 
     Uses scipy's convolve2d for efficient neighbor counting, with different
     boundary handling strategies based on the boundary condition.
+
+    For INFINITE boundary:
+    - Checks if grid needs expansion before calculating next state
+    - Expands grid only when live cells are at boundaries
+    - Maintains pattern evolution as if on infinite plane
+    - Preserves grid center position during expansion
     """
+    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
+
     if boundary == BoundaryCondition.INFINITE:
         # Check if grid needs expansion
         expand_up, expand_right, expand_down, expand_left = needs_boundary_expansion(
@@ -36,18 +44,14 @@ def next_generation(grid: Grid, boundary: BoundaryCondition) -> Grid:
         if any([expand_up, expand_right, expand_down, expand_left]):
             grid = expand_grid(grid, expand_up, expand_right, expand_down, expand_left)
 
-    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int_)
-
+    # Calculate live neighbor counts based on boundary condition
     match boundary:
         case BoundaryCondition.TOROIDAL:
             live_counts = signal.convolve2d(
                 grid.astype(np.int_), kernel, mode="same", boundary="wrap"
             )
-        case BoundaryCondition.FINITE:
-            live_counts = signal.convolve2d(
-                grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
-            )
-        case _:  # INFINITE
+        case BoundaryCondition.FINITE | BoundaryCondition.INFINITE:
+            # Both FINITE and INFINITE treat cells outside grid as dead
             live_counts = signal.convolve2d(
                 grid.astype(np.int_), kernel, mode="same", boundary="fill", fillvalue=0
             )

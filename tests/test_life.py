@@ -187,3 +187,62 @@ class TestBoundaryBehavior:
 
         # Assert
         assert next_grid.shape == original_shape  # No expansion needed
+
+    def test_infinite_boundary_glider_evolution(self) -> None:
+        """Test glider evolution with INFINITE boundary.
+
+        Given: A glider pattern at grid edge
+        When: Evolving through multiple generations
+        Then: Grid should expand as needed while preserving pattern
+        """
+        # Arrange - Create a glider at the top edge
+        grid = create_test_grid(
+            [
+                [True, True, True],  # Glider at top
+                [False, False, True],
+                [False, True, False],
+            ]
+        )
+        original_shape = grid.shape
+
+        # Act - Evolve through multiple generations
+        gen1 = next_generation(grid, BoundaryCondition.INFINITE)
+        gen2 = next_generation(gen1, BoundaryCondition.INFINITE)
+        gen3 = next_generation(gen2, BoundaryCondition.INFINITE)
+
+        # Assert
+        # Grid should expand as needed
+        assert gen1.shape[0] > original_shape[0]  # Should expand up
+        assert gen2.shape[0] >= gen1.shape[0]  # Should maintain or expand height
+        assert gen3.shape[0] >= gen2.shape[0]  # Should maintain or expand height
+
+        # Pattern should maintain 5 live cells and move correctly
+        assert np.sum(gen1) == 5
+        assert np.sum(gen2) == 5
+        assert np.sum(gen3) == 5
+
+    def test_infinite_boundary_multi_direction_expansion(self) -> None:
+        """Test expansion in multiple directions.
+
+        Given: A pattern requiring expansion in multiple directions
+        When: Evolving to next generation
+        Then: Grid should expand in all needed directions
+        """
+        # Arrange - Create pattern requiring multi-directional expansion
+        grid = create_test_grid(
+            [
+                [True, True, False],  # Top edge
+                [True, False, True],  # Right edge
+                [False, True, True],  # Bottom edge
+            ]
+        )
+        original_shape = grid.shape
+
+        # Act
+        next_grid = next_generation(grid, BoundaryCondition.INFINITE)
+
+        # Assert
+        assert next_grid.shape[0] > original_shape[0]  # Expanded vertically
+        assert next_grid.shape[1] > original_shape[1]  # Expanded horizontally
+        # Pattern evolution should be correct despite expansion
+        assert np.sum(next_grid) > 0  # Pattern survives

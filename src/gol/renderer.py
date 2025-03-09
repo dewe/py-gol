@@ -208,67 +208,95 @@ def handle_user_input(
     Returns:
         Tuple of (command, updated_config)
     """
-    # Quit commands
+    # Global commands that work in both modes
     if str(key) == "q":
-        return "quit", config  # Always quit with 'q'
-    if str(key) == "\x1b" or key.name == "KEY_ESCAPE":
-        return ("quit", config) if not state.pattern_mode else ("exit_pattern", config)
-
-    # Pattern mode toggle
+        return "quit", config
     if str(key) == "p":
         return "pattern", config
 
-    # Grid commands
-    if str(key) == "c":
-        return "clear_grid", config
-    if str(key) == "b":
-        return "cycle_boundary", config
-    if str(key) == "+":
-        return "resize_larger", config
-    if str(key) == "-":
-        return "resize_smaller", config
+    # Pattern mode specific commands
+    if state.pattern_mode:
+        return handle_pattern_mode_input(key, config)
 
-    # Speed control
-    if key.name == "KEY_SUP":
-        return "speed_up", config.with_decreased_interval()
-    if key.name == "KEY_SDOWN":
-        return "speed_down", config.with_increased_interval()
+    # Normal mode specific commands
+    return handle_normal_mode_input(key, config)
 
-    # Movement keys
-    if key.name == "KEY_LEFT":
-        return (
-            "move_cursor_left" if state.pattern_mode else "viewport_pan_left"
-        ), config
-    if key.name == "KEY_RIGHT":
-        return (
-            "move_cursor_right" if state.pattern_mode else "viewport_pan_right"
-        ), config
-    if key.name == "KEY_UP":
-        return ("move_cursor_up" if state.pattern_mode else "viewport_pan_up"), config
-    if key.name == "KEY_DOWN":
-        return (
-            "move_cursor_down" if state.pattern_mode else "viewport_pan_down"
-        ), config
 
-    # Action keys
-    if str(key) in (" ", "KEY_SPACE"):
-        return ("place_pattern" if state.pattern_mode else "toggle_simulation"), config
+def handle_pattern_mode_input(
+    key: Keystroke, config: RendererConfig
+) -> tuple[CommandType, RendererConfig]:
+    """Handle keyboard input when in pattern mode."""
+    if str(key) == "\x1b" or key.name == "KEY_ESCAPE":
+        return "exit_pattern", config
+
     if str(key) == "r":
-        if state.pattern_mode:
-            # Update pattern rotation
-            new_rotation = config.pattern_rotation.next_rotation()
-            return "rotate_pattern", config.with_pattern(
-                config.selected_pattern, new_rotation
-            )
-        return "restart", config
+        new_rotation = config.pattern_rotation.next_rotation()
+        return "rotate_pattern", config.with_pattern(
+            config.selected_pattern, new_rotation
+        )
 
-    # Pattern selection (1-9 in pattern mode)
-    if state.pattern_mode and str(key).isdigit():
+    if str(key).isdigit():
         pattern_num = int(str(key))
         if 1 <= pattern_num <= 9:
             patterns = list(BUILTIN_PATTERNS.keys())
             if pattern_num <= len(patterns):
                 return "select_pattern", config.with_pattern(patterns[pattern_num - 1])
+
+    # Movement and action keys in pattern mode
+    match key.name:
+        case "KEY_LEFT":
+            return "move_cursor_left", config
+        case "KEY_RIGHT":
+            return "move_cursor_right", config
+        case "KEY_UP":
+            return "move_cursor_up", config
+        case "KEY_DOWN":
+            return "move_cursor_down", config
+        case _ if str(key) in (" ", "KEY_SPACE"):
+            return "place_pattern", config
+
+    return "continue", config
+
+
+def handle_normal_mode_input(
+    key: Keystroke, config: RendererConfig
+) -> tuple[CommandType, RendererConfig]:
+    """Handle keyboard input when in normal mode."""
+    if str(key) == "\x1b" or key.name == "KEY_ESCAPE":
+        return "quit", config
+
+    # Grid commands
+    match str(key):
+        case "c":
+            return "clear_grid", config
+        case "b":
+            return "cycle_boundary", config
+        case "+":
+            return "resize_larger", config
+        case "-":
+            return "resize_smaller", config
+        case "r":
+            return "restart", config
+        case _ if str(key) in (" ", "KEY_SPACE"):
+            return "toggle_simulation", config
+
+    # Speed control
+    match key.name:
+        case "KEY_SUP":
+            return "speed_up", config.with_decreased_interval()
+        case "KEY_SDOWN":
+            return "speed_down", config.with_increased_interval()
+
+    # Viewport movement
+    match key.name:
+        case "KEY_LEFT":
+            return "viewport_pan_left", config
+        case "KEY_RIGHT":
+            return "viewport_pan_right", config
+        case "KEY_UP":
+            return "viewport_pan_up", config
+        case "KEY_DOWN":
+            return "viewport_pan_down", config
 
     return "continue", config
 

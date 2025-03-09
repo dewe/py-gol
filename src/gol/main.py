@@ -217,7 +217,7 @@ def run_game_loop(
     terminal: TerminalProtocol,
     grid: Grid,
     config: ControllerConfig,
-    initial_state: RendererState,
+    render_state: RendererState,
 ) -> None:
     """Main game loop implementing Conway's Game of Life rules.
 
@@ -225,49 +225,45 @@ def run_game_loop(
     performance optimizations like frame rate limiting and efficient
     terminal updates.
     """
-    # Track timing for performance optimization
     last_frame = time.time()
     last_update = time.time()
-
-    # Initialize state and metrics
-    state = initial_state
     metrics = create_metrics()
 
     # Command handlers
-    def handle_quit() -> tuple[Grid, ControllerConfig, bool]:
-        return grid, config, True
+    def handle_quit(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+        return grid, config, render_state, True
 
-    def handle_restart() -> tuple[Grid, ControllerConfig, bool]:
+    def handle_restart(
+        _: Grid,
+        config: ControllerConfig,
+        render_state: RendererState,
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         new_grid = create_grid(config.grid)
         nonlocal metrics
-        metrics = create_metrics()  # Reset metrics on restart
-        return new_grid, config, False
+        metrics = create_metrics()  # Create new metrics instead of modifying
+        return new_grid, config, render_state, False
 
-    def handle_pattern_mode() -> tuple[Grid, ControllerConfig, bool]:
-        """Toggle pattern mode with state preservation.
+    def handle_pattern_mode(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+        """Toggle pattern mode with state preservation."""
+        new_render_state = render_state.with_pattern_mode(not render_state.pattern_mode)
 
-        Manages mode transitions while preserving pattern selection and
-        ensuring proper cursor positioning for pattern placement.
-        """
-        nonlocal state
-        # Toggle pattern mode
-        state = state.with_pattern_mode(not state.pattern_mode)
-
-        if state.pattern_mode:
-            # Entering pattern mode - keep current pattern if set
+        if new_render_state.pattern_mode:
             new_renderer = config.renderer.with_pattern(
-                config.renderer.selected_pattern
-                or "glider"  # Use existing pattern or default to glider
+                config.renderer.selected_pattern or "glider"
             )
             new_config = ControllerConfig(
                 dimensions=config.dimensions,
                 grid=config.grid,
                 renderer=new_renderer,
             )
-            # Initialize cursor position to center of grid
-            state = state.with_cursor(config.grid.width // 2, config.grid.height // 2)
+            new_render_state = new_render_state.with_cursor(
+                config.grid.width // 2, config.grid.height // 2
+            )
         else:
-            # Exiting pattern mode via ESC - unpause and clear pattern
             new_renderer = config.renderer.with_pattern(None)
             new_config = ControllerConfig(
                 dimensions=config.dimensions,
@@ -275,23 +271,30 @@ def run_game_loop(
                 renderer=new_renderer,
             )
 
-        return grid, new_config, False
+        return grid, new_config, new_render_state, False
 
-    def handle_clear_grid() -> tuple[Grid, ControllerConfig, bool]:
+    def handle_clear_grid(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Clear the grid by creating a new empty grid."""
         new_grid = np.zeros_like(grid)
-        return new_grid, config, False
+        return new_grid, config, render_state, False
 
-    def handle_toggle_simulation() -> tuple[Grid, ControllerConfig, bool]:
+    def handle_toggle_simulation(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Toggle simulation pause state."""
-        nonlocal state
-        state = state.with_paused(not state.paused)
-        return grid, config, False
+        new_render_state = render_state.with_paused(not render_state.paused)
+        return grid, config, new_render_state, False
 
-    def handle_speed_adjustment(increase: bool) -> tuple[Grid, ControllerConfig, bool]:
+    def handle_speed_adjustment(
+        grid: Grid,
+        config: ControllerConfig,
+        render_state: RendererState,
+        increase: bool,
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Adjust simulation speed."""
         current_interval = config.renderer.update_interval
-        # Adjust by 20% of current interval, min 50ms, max 2000ms
         delta = max(current_interval * 0.2, 50)
         new_interval = round(
             max(
@@ -309,133 +312,114 @@ def run_game_loop(
             grid=config.grid,
             renderer=new_renderer,
         )
-        return grid, new_config, False
+        return grid, new_config, render_state, False
 
-    def handle_cursor_movement(direction: str) -> tuple[Grid, ControllerConfig, bool]:
+    def handle_cursor_movement(
+        grid: Grid,
+        config: ControllerConfig,
+        render_state: RendererState,
+        direction: str,
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Handle wrapped cursor movement within grid bounds."""
-        nonlocal state
-        if state.pattern_mode:
-            if direction == "left":
-                state = state.with_cursor(
-                    (state.cursor_x - 1) % config.grid.width, state.cursor_y
-                )
-            elif direction == "right":
-                state = state.with_cursor(
-                    (state.cursor_x + 1) % config.grid.width, state.cursor_y
-                )
-            elif direction == "up":
-                state = state.with_cursor(
-                    state.cursor_x, (state.cursor_y - 1) % config.grid.height
-                )
-            elif direction == "down":
-                state = state.with_cursor(
-                    state.cursor_x, (state.cursor_y + 1) % config.grid.height
-                )
+        if not render_state.pattern_mode:
+            return grid, config, render_state, False
 
-        return grid, config, False
+        new_x, new_y = render_state.cursor_x, render_state.cursor_y
+        if direction == "left":
+            new_x = (render_state.cursor_x - 1) % config.grid.width
+        elif direction == "right":
+            new_x = (render_state.cursor_x + 1) % config.grid.width
+        elif direction == "up":
+            new_y = (render_state.cursor_y - 1) % config.grid.height
+        elif direction == "down":
+            new_y = (render_state.cursor_y + 1) % config.grid.height
 
-    def handle_place_pattern() -> tuple[Grid, ControllerConfig, bool]:
-        """Handle pattern placement in pattern mode.
+        new_render_state = render_state.with_cursor(new_x, new_y)
+        return grid, config, new_render_state, False
 
-        Returns:
-            Tuple of (grid, config, should_quit)
-        """
-        nonlocal state
-        if state.pattern_mode and config.renderer.selected_pattern:
-            pattern = BUILTIN_PATTERNS.get(
-                config.renderer.selected_pattern
-            ) or FilePatternStorage().load_pattern(config.renderer.selected_pattern)
+    def handle_place_pattern(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+        """Handle pattern placement in pattern mode."""
+        if not (render_state.pattern_mode and config.renderer.selected_pattern):
+            return grid, config, render_state, False
 
-            if pattern:
-                # Use place_pattern with centering enabled
-                new_grid = place_pattern(
-                    grid,
-                    pattern,
-                    (state.cursor_x, state.cursor_y),
-                    config.renderer.pattern_rotation,
-                    centered=True,
-                )
-                # Keep pattern mode active and clear selected pattern
-                new_renderer = config.renderer.with_pattern(None)
-                new_config = ControllerConfig(
-                    dimensions=config.dimensions,
-                    grid=config.grid,
-                    renderer=new_renderer,
-                )
-                return new_grid, new_config, False
+        pattern = BUILTIN_PATTERNS.get(
+            config.renderer.selected_pattern
+        ) or FilePatternStorage().load_pattern(config.renderer.selected_pattern)
 
-        return grid, config, False
+        if not pattern:
+            return grid, config, render_state, False
 
-    def handle_rotate_pattern() -> tuple[Grid, ControllerConfig, bool]:
-        """Handle pattern rotation in pattern mode.
+        new_grid = place_pattern(
+            grid,
+            pattern,
+            (render_state.cursor_x, render_state.cursor_y),
+            config.renderer.pattern_rotation,
+            centered=True,
+        )
+        new_renderer = config.renderer.with_pattern(None)
+        new_config = ControllerConfig(
+            dimensions=config.dimensions,
+            grid=config.grid,
+            renderer=new_renderer,
+        )
+        return new_grid, new_config, render_state, False
 
-        Returns:
-            Tuple of (grid, config, should_quit)
-        """
-        # No need to update rotation here since it's already handled in renderer
-        return grid, config, False
+    def handle_rotate_pattern(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+        """Handle pattern rotation in pattern mode."""
+        return grid, config, render_state, False
 
-    def handle_resize(larger: bool) -> tuple[Grid, ControllerConfig, bool]:
-        """Resize grid while preserving content and preventing artifacts.
-
-        Implements smooth resize operation with:
-        - Terminal dimension constraints
-        - Artifact prevention
-        - State preservation
-        - Proper redraw triggering
-        """
-        nonlocal state
-        # Calculate max dimensions based on terminal size
-        # Each cell takes 2 characters width due to spacing
-        # Reserve 2 lines at bottom for status/menu
-        # Add margin of 4 characters on each side for better display
+    def handle_resize(
+        grid: Grid,
+        config: ControllerConfig,
+        render_state: RendererState,
+        terminal: TerminalProtocol,
+        larger: bool,
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+        """Resize grid while preserving content."""
         margin = 4
-        max_width = (
-            terminal.width - (2 * margin)
-        ) // 2  # Each cell is 2 chars wide with spacing
-        max_height = terminal.height - 2  # Reserve bottom lines for status/menu
+        max_width = (terminal.width - (2 * margin)) // 2
+        max_height = terminal.height - 2
 
-        # Calculate new dimensions
         factor = 1.2 if larger else 0.8
         requested_width = int(config.grid.width * factor)
         requested_height = int(config.grid.height * factor)
 
-        # Enforce minimum and maximum dimensions
-        # If requested size exceeds terminal, force it to fit
         new_width = max(10, min(max_width, requested_width))
         new_height = max(10, min(max_height, requested_height))
 
-        # Only resize if dimensions actually changed
-        if new_width != config.grid.width or new_height != config.grid.height:
-            # Clear screen before resize to prevent artifacts
-            print(terminal.clear(), end="", flush=True)
-            print(terminal.move_xy(0, 0), end="", flush=True)
+        if new_width == config.grid.width and new_height == config.grid.height:
+            return grid, config, render_state, False
 
-            # Clear any remaining artifacts
-            for y in range(terminal.height):
-                print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
-            sys.stdout.flush()
+        # Clear screen and handle artifacts
+        print(terminal.clear(), end="", flush=True)
+        print(terminal.move_xy(0, 0), end="", flush=True)
+        for y in range(terminal.height):
+            print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
+        sys.stdout.flush()
 
-            # Force full redraw by clearing renderer state
-            state = state.with_previous_grid(None)
-            state = state.with_pattern_cells(None)
+        # Create new render state with cleared caches
+        new_render_state = render_state.with_previous_grid(None).with_pattern_cells(
+            None
+        )
 
-            # Resize grid and update config
-            new_grid, new_grid_config = resize_game(
-                grid, new_width, new_height, config.grid
-            )
+        # Resize grid and update configs
+        new_grid, new_grid_config = resize_game(
+            grid, new_width, new_height, config.grid
+        )
+        new_config = ControllerConfig(
+            dimensions=(new_width, new_height),
+            grid=new_grid_config,
+            renderer=config.renderer,
+        )
+        return new_grid, new_config, new_render_state, False
 
-            # Create new controller config
-            new_config = ControllerConfig(
-                dimensions=(new_width, new_height),
-                grid=new_grid_config,
-                renderer=config.renderer,
-            )
-            return new_grid, new_config, False
-
-        return grid, config, False
-
-    def handle_cycle_boundary() -> tuple[Grid, ControllerConfig, bool]:
+    def handle_cycle_boundary(
+        grid: Grid, config: ControllerConfig, render_state: RendererState
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Cycle through available boundary conditions."""
         current = config.grid.boundary
         new_boundary = {
@@ -445,7 +429,6 @@ def run_game_loop(
         }[current]
 
         new_grid_config = config.grid.with_boundary(new_boundary)
-        # Update renderer config with new boundary condition
         new_renderer_config = dataclasses.replace(
             config.renderer, boundary_condition=new_boundary
         )
@@ -454,52 +437,68 @@ def run_game_loop(
             grid=new_grid_config,
             renderer=new_renderer_config,
         )
-        return grid, new_config, False
+        return grid, new_config, render_state, False
 
     def handle_viewport_resize_command(
-        expand: bool,
-    ) -> tuple[Grid, ControllerConfig, bool]:
+        grid: Grid, config: ControllerConfig, render_state: RendererState, expand: bool
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Handle viewport resize while preserving content."""
-        nonlocal state
-        state = handle_viewport_resize(state, expand)
-        return grid, config, False
+        new_render_state = handle_viewport_resize(render_state, expand)
+        return grid, config, new_render_state, False
 
     def handle_viewport_pan_command(
-        dx: int, dy: int
-    ) -> tuple[Grid, ControllerConfig, bool]:
+        grid: Grid,
+        config: ControllerConfig,
+        render_state: RendererState,
+        dx: int,
+        dy: int,
+    ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
         """Handle viewport panning."""
-        nonlocal state
-        state = handle_viewport_pan(state, dx, dy)
-        return grid, config, False
+        new_render_state = handle_viewport_pan(render_state, dx, dy)
+        return grid, config, new_render_state, False
 
-    # Command map
-    command_map: Dict[
-        CommandType, Callable[[], Tuple[Grid, ControllerConfig, bool]]
-    ] = {
+    # Command map type definition
+    CommandHandler = Callable[
+        [Grid, ControllerConfig, RendererState],
+        Tuple[Grid, ControllerConfig, RendererState, bool],
+    ]
+
+    # Command map with proper handler signatures
+    command_map: Dict[CommandType, CommandHandler] = {
         "quit": handle_quit,
-        "restart": handle_restart,
+        "restart": lambda g, c, r: handle_restart(g, c, r),  # Pass metrics from closure
         "pattern": handle_pattern_mode,
-        "select_pattern": lambda: (grid, config, False),
-        "move_cursor_left": lambda: handle_cursor_movement("left"),
-        "move_cursor_right": lambda: handle_cursor_movement("right"),
-        "move_cursor_up": lambda: handle_cursor_movement("up"),
-        "move_cursor_down": lambda: handle_cursor_movement("down"),
+        "select_pattern": lambda g, c, r: (g, c, r, False),  # Simple pass-through
+        "move_cursor_left": lambda g, c, r: handle_cursor_movement(g, c, r, "left"),
+        "move_cursor_right": lambda g, c, r: handle_cursor_movement(g, c, r, "right"),
+        "move_cursor_up": lambda g, c, r: handle_cursor_movement(g, c, r, "up"),
+        "move_cursor_down": lambda g, c, r: handle_cursor_movement(g, c, r, "down"),
         "place_pattern": handle_place_pattern,
         "rotate_pattern": handle_rotate_pattern,
         "cycle_boundary": handle_cycle_boundary,
-        "resize_larger": lambda: handle_resize(True),
-        "resize_smaller": lambda: handle_resize(False),
-        "exit_pattern": handle_pattern_mode,
-        "viewport_expand": lambda: handle_viewport_resize_command(True),
-        "viewport_shrink": lambda: handle_viewport_resize_command(False),
-        "viewport_pan_left": lambda: handle_viewport_pan_command(-1, 0),
-        "viewport_pan_right": lambda: handle_viewport_pan_command(1, 0),
-        "viewport_pan_up": lambda: handle_viewport_pan_command(0, -1),
-        "viewport_pan_down": lambda: handle_viewport_pan_command(0, 1),
+        "resize_larger": lambda g, c, r: handle_resize(
+            g, c, r, terminal, True
+        ),  # Pass terminal from closure
+        "resize_smaller": lambda g, c, r: handle_resize(g, c, r, terminal, False),
+        "exit_pattern": handle_pattern_mode,  # Reuse pattern mode handler
+        "viewport_expand": lambda g, c, r: handle_viewport_resize_command(
+            g, c, r, True
+        ),
+        "viewport_shrink": lambda g, c, r: handle_viewport_resize_command(
+            g, c, r, False
+        ),
+        "viewport_pan_left": lambda g, c, r: handle_viewport_pan_command(
+            g, c, r, -1, 0
+        ),
+        "viewport_pan_right": lambda g, c, r: handle_viewport_pan_command(
+            g, c, r, 1, 0
+        ),
+        "viewport_pan_up": lambda g, c, r: handle_viewport_pan_command(g, c, r, 0, -1),
+        "viewport_pan_down": lambda g, c, r: handle_viewport_pan_command(g, c, r, 0, 1),
         "clear_grid": handle_clear_grid,
         "toggle_simulation": handle_toggle_simulation,
-        "speed_up": lambda: handle_speed_adjustment(True),
-        "speed_down": lambda: handle_speed_adjustment(False),
+        "speed_up": lambda g, c, r: handle_speed_adjustment(g, c, r, True),
+        "speed_down": lambda g, c, r: handle_speed_adjustment(g, c, r, False),
     }
 
     # Main loop with terminal in raw mode
@@ -511,7 +510,9 @@ def run_game_loop(
             # Handle user input
             key = terminal.inkey(timeout=0.001)
             if key:
-                command, new_renderer = handle_user_input(key, config.renderer, state)
+                command, new_renderer = handle_user_input(
+                    key, config.renderer, render_state
+                )
                 if command:
                     # Update config with new renderer state if changed
                     if new_renderer is not config.renderer:
@@ -522,15 +523,19 @@ def run_game_loop(
                         )
                     handler = command_map.get(command)
                     if handler:
-                        grid, config, should_quit = handler()
+                        grid, config, render_state, should_quit = handler(
+                            grid, config, render_state
+                        )
 
             # Update game state if not paused
             if (
-                not state.pattern_mode
-                and not state.paused
+                not render_state.pattern_mode
+                and not render_state.paused
                 and current_time - last_update >= config.renderer.update_interval / 1000
             ):
-                grid, state = process_next_generation(grid, config.grid.boundary, state)
+                grid, render_state = process_next_generation(
+                    grid, config.grid.boundary, render_state
+                )
                 metrics = update_game_metrics(
                     metrics,
                     total_cells=grid.size,
@@ -549,8 +554,8 @@ def run_game_loop(
                         renderer_config, boundary_condition=config.grid.boundary
                     )
 
-                state, metrics = safe_render_grid(
-                    terminal, grid, renderer_config, state, metrics
+                render_state, metrics = safe_render_grid(
+                    terminal, grid, renderer_config, render_state, metrics
                 )
                 last_frame = current_time
 

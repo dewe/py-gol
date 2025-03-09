@@ -5,7 +5,7 @@ rendering, and NumPy array operations used throughout the codebase.
 """
 
 import dataclasses
-from typing import TypeAlias, Union
+from typing import Literal, TypeAlias, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,6 +42,35 @@ GameDimensions: TypeAlias = tuple[
 # Viewport types
 ViewportOffset: TypeAlias = tuple[int, int]  # (offset_x, offset_y)
 ViewportDimensions: TypeAlias = tuple[int, int]  # (width, height)
+
+# Command types
+CommandType: TypeAlias = Literal[
+    "continue",
+    "quit",
+    "restart",
+    "pattern",
+    "select_pattern",
+    "move_cursor_left",
+    "move_cursor_right",
+    "move_cursor_up",
+    "move_cursor_down",
+    "place_pattern",
+    "rotate_pattern",
+    "cycle_boundary",
+    "resize_larger",
+    "resize_smaller",
+    "exit_pattern",
+    "viewport_expand",
+    "viewport_shrink",
+    "viewport_pan_left",
+    "viewport_pan_right",
+    "viewport_pan_up",
+    "viewport_pan_down",
+    "clear_grid",
+    "toggle_simulation",
+    "speed_up",
+    "speed_down",
+]
 
 
 @dataclasses.dataclass(frozen=True)

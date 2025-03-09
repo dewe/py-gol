@@ -2,7 +2,7 @@
 
 import sys
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Protocol, Tuple, runtime_checkable
+from typing import Any, Optional, Protocol, Tuple, runtime_checkable
 
 import numpy as np
 from blessed import Terminal
@@ -19,7 +19,14 @@ from .patterns import (
     get_pattern_cells,
 )
 from .state import RendererState, ViewportState
-from .types import Grid, RenderGrid, ScreenPosition, TerminalPosition, ViewportBounds
+from .types import (
+    CommandType,
+    Grid,
+    RenderGrid,
+    ScreenPosition,
+    TerminalPosition,
+    ViewportBounds,
+)
 
 CellPos = ScreenPosition
 
@@ -148,34 +155,6 @@ class RendererConfig:
 
         return replace(self, update_interval=interval)
 
-
-CommandType = Literal[
-    "continue",
-    "quit",
-    "restart",
-    "pattern",
-    "move_cursor_left",
-    "move_cursor_right",
-    "move_cursor_up",
-    "move_cursor_down",
-    "place_pattern",
-    "rotate_pattern",
-    "cycle_boundary",
-    "resize_larger",
-    "resize_smaller",
-    "exit_pattern",
-    "viewport_expand",
-    "viewport_shrink",
-    "viewport_pan_left",
-    "viewport_pan_right",
-    "viewport_pan_up",
-    "viewport_pan_down",
-    "clear_grid",
-    "toggle_simulation",
-    "speed_up",
-    "speed_down",
-    "select_pattern",
-]
 
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 

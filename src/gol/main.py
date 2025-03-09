@@ -38,7 +38,7 @@ import dataclasses
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, Literal, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 
@@ -62,35 +62,7 @@ from gol.renderer import (
     initialize_terminal,
     safe_render_grid,
 )
-from gol.types import Grid
-
-CommandType = Literal[
-    "continue",
-    "quit",
-    "restart",
-    "pattern",
-    "select_pattern",
-    "move_cursor_left",
-    "move_cursor_right",
-    "move_cursor_up",
-    "move_cursor_down",
-    "place_pattern",
-    "rotate_pattern",
-    "cycle_boundary",
-    "resize_larger",
-    "resize_smaller",
-    "exit_pattern",
-    "viewport_expand",
-    "viewport_shrink",
-    "viewport_pan_left",
-    "viewport_pan_right",
-    "viewport_pan_up",
-    "viewport_pan_down",
-    "clear_grid",
-    "toggle_simulation",
-    "speed_up",
-    "speed_down",
-]
+from gol.types import CommandType, Grid
 
 
 def parse_arguments() -> argparse.Namespace:

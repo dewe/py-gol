@@ -4,6 +4,7 @@ import dataclasses
 import sys
 
 import numpy as np
+from blessed.keyboard import Keystroke
 
 from gol.controller import (
     ControllerConfig,
@@ -13,8 +14,8 @@ from gol.controller import (
 )
 from gol.grid import BoundaryCondition, create_grid
 from gol.patterns import BUILTIN_PATTERNS, FilePatternStorage, place_pattern
-from gol.renderer import RendererState, TerminalProtocol
-from gol.types import Grid
+from gol.renderer import RendererConfig, RendererState, TerminalProtocol
+from gol.types import CommandType, Grid
 
 
 def handle_quit(
@@ -252,3 +253,56 @@ def handle_viewport_pan_command(
         render_state, dx, dy, grid_width, grid_height
     )
     return grid, config, new_render_state, False
+
+
+def handle_toggle_debug(
+    grid: Grid, config: ControllerConfig, render_state: RendererState
+) -> tuple[Grid, ControllerConfig, RendererState, bool]:
+    """Toggle debug mode."""
+    new_render_state = render_state.with_debug_mode(not render_state.debug_mode)
+    return grid, config, new_render_state, False
+
+
+def handle_normal_mode_input(
+    key: Keystroke, config: RendererConfig
+) -> tuple[CommandType, RendererConfig]:
+    """Handle keyboard input when in normal mode."""
+    if str(key) == "\x1b" or key.name == "KEY_ESCAPE":
+        return "quit", config
+
+    # Grid commands
+    match str(key):
+        case "c":
+            return "clear_grid", config
+        case "b":
+            return "cycle_boundary", config
+        case "+":
+            return "resize_larger", config
+        case "-":
+            return "resize_smaller", config
+        case "r":
+            return "restart", config
+        case "d":
+            return "toggle_debug", config
+        case _ if str(key) in (" ", "KEY_SPACE"):
+            return "toggle_simulation", config
+
+    # Speed control
+    match key.name:
+        case "KEY_SUP":
+            return "speed_up", config.with_decreased_interval()
+        case "KEY_SDOWN":
+            return "speed_down", config.with_increased_interval()
+
+    # Viewport movement
+    match key.name:
+        case "KEY_LEFT":
+            return "viewport_pan_left", config
+        case "KEY_RIGHT":
+            return "viewport_pan_right", config
+        case "KEY_UP":
+            return "viewport_pan_up", config
+        case "KEY_DOWN":
+            return "viewport_pan_down", config
+
+    return "continue", config

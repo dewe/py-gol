@@ -80,6 +80,7 @@ class RendererState:
     previous_grid: Optional[np.ndarray] = None
     pattern_cells: Optional[np.ndarray] = None
     paused: bool = False
+    debug_mode: bool = False  # Whether debug info should be shown
 
     @classmethod
     def create(
@@ -142,3 +143,7 @@ class RendererState:
     def with_terminal_position(self, terminal_pos: TerminalPosition) -> "RendererState":
         """Create new state with updated terminal position."""
         return dataclasses.replace(self, terminal_pos=terminal_pos)
+
+    def with_debug_mode(self, enabled: bool) -> "RendererState":
+        """Create new state with updated debug mode."""
+        return dataclasses.replace(self, debug_mode=enabled)

@@ -70,6 +70,7 @@ CommandType: TypeAlias = Literal[
     "toggle_simulation",
     "speed_up",
     "speed_down",
+    "toggle_debug",
 ]
 
 

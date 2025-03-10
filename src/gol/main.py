@@ -53,6 +53,7 @@ from gol.commands import (
     handle_restart,
     handle_rotate_pattern,
     handle_speed_adjustment,
+    handle_toggle_debug,
     handle_toggle_simulation,
     handle_viewport_pan_command,
     handle_viewport_resize_command,
@@ -278,6 +279,7 @@ def run_game_loop(
         "toggle_simulation": handle_toggle_simulation,
         "speed_up": lambda g, c, r: handle_speed_adjustment(g, c, r, True),
         "speed_down": lambda g, c, r: handle_speed_adjustment(g, c, r, False),
+        "toggle_debug": handle_toggle_debug,
     }
 
     # Main loop with terminal in raw mode

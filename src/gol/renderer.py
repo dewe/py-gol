@@ -256,6 +256,8 @@ def handle_normal_mode_input(
             return "resize_smaller", config
         case "r":
             return "restart", config
+        case "d":
+            return "toggle_debug", config
         case _ if str(key) in (" ", "KEY_SPACE"):
             return "toggle_simulation", config
 
@@ -699,6 +701,58 @@ def render_cell(
     )
 
 
+def render_debug_status_line(
+    terminal: TerminalProtocol,
+    grid: Grid,
+    state: RendererState,
+) -> str:
+    """Renders debug status line with grid and viewport information."""
+    grid_height, grid_width = grid.shape
+    viewport = state.viewport
+    bounds = calculate_viewport_bounds(
+        viewport,
+        terminal.width,
+        terminal.height,
+        state.terminal_pos,
+        grid_width,
+        grid_height,
+    )
+
+    # Format each part separately to keep lines under length limit
+    grid_info = f"{terminal.blue}Grid: {terminal.normal}{grid_width}x{grid_height}"
+    viewport_info = (
+        f"{terminal.green}Viewport: {terminal.normal}"
+        f"{viewport.width}x{viewport.height}"
+    )
+    offset_info = (
+        f"{terminal.magenta}Offset: {terminal.normal}"
+        f"{viewport.offset_x},{viewport.offset_y}"
+    )
+    visible_info = (
+        f"{terminal.yellow}Visible: {terminal.normal}"
+        f"{bounds.visible_dims[0]}x{bounds.visible_dims[1]}"
+    )
+    visible_coords = (
+        f"{terminal.white}Area: {terminal.normal}"
+        f"({bounds.grid_start[0]},{bounds.grid_start[1]})-"
+        f"({bounds.grid_start[0]+bounds.visible_dims[0]-1},"
+        f"{bounds.grid_start[1]+bounds.visible_dims[1]-1})"
+    )
+
+    debug_info = f"{grid_info} | {viewport_info} | {offset_info} | {visible_info} | {visible_coords}"
+
+    true_length = len(debug_info) - len(terminal.blue + terminal.normal) * 5
+    y = terminal.height - 2
+    x = max(0, (terminal.width - true_length) // 2)
+
+    return (
+        terminal.move_xy(0, y)
+        + " " * terminal.width
+        + terminal.move_xy(x, y)
+        + debug_info
+    )
+
+
 def render_grid_to_terminal(
     terminal: TerminalProtocol,
     grid: Grid,
@@ -709,7 +763,7 @@ def render_grid_to_terminal(
     """Renders grid to terminal with side effects."""
     # Pure calculations
     grid_height, grid_width = grid.shape
-    usable_height = terminal.height - 2
+    usable_height = terminal.height - (3 if state.debug_mode else 2)
     current_grid = grid_to_dict(grid)
     metrics = calculate_render_metrics(grid, current_grid, metrics)
 
@@ -775,10 +829,12 @@ def render_grid_to_terminal(
     state = state.with_previous_grid(grid).with_pattern_cells(pattern_cells_array)
     metrics = update_frame_metrics(metrics)
 
-    # Render status
+    # Render status lines
     if state.pattern_mode:
         print(render_pattern_menu(terminal), end="", flush=True)
     else:
+        if state.debug_mode:
+            print(render_debug_status_line(terminal, grid, state), end="", flush=True)
         print(render_status_line(terminal, config, metrics), end="", flush=True)
 
     sys.stdout.flush()

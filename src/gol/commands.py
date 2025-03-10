@@ -247,5 +247,8 @@ def handle_viewport_pan_command(
     dy: int,
 ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
     """Handle viewport panning."""
-    new_render_state = handle_viewport_pan(render_state, dx, dy)
+    grid_width, grid_height = grid.shape
+    new_render_state = handle_viewport_pan(
+        render_state, dx, dy, grid_width, grid_height
+    )
     return grid, config, new_render_state, False

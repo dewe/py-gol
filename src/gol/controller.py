@@ -210,8 +210,8 @@ def handle_viewport_pan(
     state: RendererState,
     dx: int,
     dy: int,
-    grid_width: int = 50,  # Default grid dimensions for backward compatibility
-    grid_height: int = 30,
+    grid_width: int,
+    grid_height: int,
 ) -> RendererState:
     """Pure function to handle viewport panning.
 

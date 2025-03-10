@@ -302,3 +302,39 @@ def test_terminal_position_calculation() -> None:
 
     assert pos.x == max(0, expected_x)
     assert pos.y == max(1, expected_y)
+
+
+def test_viewport_pan_boundaries() -> None:
+    """
+    Given: A grid and viewport of known dimensions
+    When: Panning the viewport in different directions
+    Then: Should stop at grid boundaries
+    """
+    # Create initial state with viewport smaller than grid
+    grid_width, grid_height = 50, 30
+    viewport_width, viewport_height = 20, 10
+    initial_state = RendererState().with_viewport(
+        ViewportState(
+            dimensions=(viewport_width, viewport_height),
+            offset_x=0,
+            offset_y=0,
+        )
+    )
+
+    # Test panning right to boundary
+    max_x_offset = grid_width - viewport_width
+    state = initial_state
+    for _ in range(max_x_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, 1, 0, grid_width, grid_height)
+    assert state.viewport.offset_x == max_x_offset  # Should stop at boundary
+    # Verify viewport right edge aligns with grid right edge
+    assert state.viewport.offset_x + viewport_width == grid_width
+
+    # Test panning down to boundary
+    max_y_offset = grid_height - viewport_height
+    state = initial_state
+    for _ in range(max_y_offset + 5):  # Try to pan beyond boundary
+        state = handle_viewport_pan(state, 0, 1, grid_width, grid_height)
+    assert state.viewport.offset_y == max_y_offset  # Should stop at boundary
+    # Verify viewport bottom edge aligns with grid bottom edge
+    assert state.viewport.offset_y + viewport_height == grid_height

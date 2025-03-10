@@ -5,10 +5,12 @@ Focus on impure functions that handle terminal I/O and state management.
 
 import dataclasses
 import re
+from typing import Any, List
 from unittest.mock import Mock, PropertyMock
 
 import pytest
 from blessed import Terminal
+from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from gol.metrics import create_metrics
@@ -19,6 +21,7 @@ from gol.renderer import (
     cleanup_terminal,
     handle_resize_event,
     initialize_terminal,
+    render_grid_to_terminal,
     render_pattern_menu,
     render_status_line,
 )
@@ -33,30 +36,109 @@ def strip_ansi(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
+class MockTerminal(TerminalProtocol):
+    """Mock terminal for testing that implements TerminalProtocol."""
+
+    def __init__(self) -> None:
+        self._width = 80
+        self._height = 24
+        self._move_xy_calls: List[tuple[int, int]] = []
+        self._mock_calls: List[str] = []
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    @property
+    def dim(self) -> str:
+        return ""
+
+    @property
+    def normal(self) -> str:
+        return ""
+
+    @property
+    def white(self) -> str:
+        return ""
+
+    @property
+    def blue(self) -> str:
+        return ""
+
+    @property
+    def green(self) -> str:
+        return ""
+
+    @property
+    def yellow(self) -> str:
+        return ""
+
+    @property
+    def magenta(self) -> str:
+        return ""
+
+    def move_xy(self, x: int, y: int) -> ParameterizingString:
+        self._move_xy_calls.append((x, y))
+        return ParameterizingString("")
+
+    def exit_fullscreen(self) -> str:
+        self._mock_calls.append("exit_fullscreen")
+        return ""
+
+    def enter_fullscreen(self) -> str:
+        self._mock_calls.append("enter_fullscreen")
+        return ""
+
+    def hide_cursor(self) -> str:
+        self._mock_calls.append("hide_cursor")
+        return ""
+
+    def normal_cursor(self) -> str:
+        self._mock_calls.append("normal_cursor")
+        return ""
+
+    def clear(self) -> str:
+        self._mock_calls.append("clear")
+        return ""
+
+    def enter_ca_mode(self) -> str:
+        self._mock_calls.append("enter_ca_mode")
+        return ""
+
+    def exit_ca_mode(self) -> str:
+        self._mock_calls.append("exit_ca_mode")
+        return ""
+
+    def inkey(self, timeout: float = 0) -> Keystroke:
+        return Keystroke("")
+
+    def cbreak(self) -> Any:
+        return self
+
+    def set_dimensions(self, width: int, height: int) -> None:
+        """Test helper to simulate terminal resize."""
+        self._width = width
+        self._height = height
+
+    @property
+    def move_xy_calls(self) -> List[tuple[int, int]]:
+        """Test helper to verify move_xy calls."""
+        return self._move_xy_calls
+
+    @property
+    def mock_calls(self) -> List[str]:
+        """Test helper to verify method calls."""
+        return self._mock_calls
+
+
 @pytest.fixture
-def mock_terminal() -> TerminalProtocol:
+def mock_terminal() -> MockTerminal:
     """Create a mock terminal for testing."""
-    terminal = Mock(spec=TerminalProtocol)
-    type(terminal).width = PropertyMock(return_value=80)
-    type(terminal).height = PropertyMock(return_value=24)
-    terminal.clear.return_value = ""
-    terminal.move_xy.return_value = ""
-    terminal.hide_cursor.return_value = ""
-    terminal.normal_cursor.return_value = ""
-    terminal.enter_fullscreen.return_value = ""
-    terminal.exit_fullscreen.return_value = ""
-    terminal.enter_ca_mode.return_value = ""
-    terminal.exit_ca_mode.return_value = ""
-    type(terminal).normal = PropertyMock(return_value="")
-    type(terminal).dim = PropertyMock(return_value="")
-    type(terminal).white = PropertyMock(return_value="")
-    type(terminal).blue = PropertyMock(return_value="")
-    type(terminal).green = PropertyMock(return_value="")
-    type(terminal).yellow = PropertyMock(return_value="")
-    type(terminal).magenta = PropertyMock(return_value="")
-    terminal.inkey.return_value = Keystroke("")
-    terminal.cbreak.return_value = terminal
-    return terminal
+    return MockTerminal()
 
 
 @pytest.fixture
@@ -190,3 +272,55 @@ def test_render_status_line(
     assert "Births/s:" in stripped_text
     assert "Deaths/s:" in stripped_text
     assert "Interval:" in stripped_text
+
+
+def test_debug_status_bar_clearing(mock_terminal: MockTerminal) -> None:
+    """Test that debug status bar is properly cleared when debug mode changes."""
+    # Create test grid
+    import numpy as np
+
+    grid = np.zeros((10, 10), dtype=bool)
+
+    # Create initial state with debug mode on
+    state = RendererState.create(dimensions=(10, 10)).with_debug_mode(True)
+    config = RendererConfig()
+    metrics = create_metrics()
+
+    # First render with debug mode on
+    state, _ = render_grid_to_terminal(mock_terminal, grid, config, state, metrics)
+
+    # Verify debug line was rendered
+    debug_line_y = mock_terminal.height - 2
+    debug_line_calls = [
+        pos for pos in mock_terminal.move_xy_calls if pos[1] == debug_line_y
+    ]
+    assert (
+        len(debug_line_calls) > 0
+    ), "Debug line should be rendered when debug mode is on"
+
+    # Toggle debug mode off
+    state = state.with_debug_mode(False)
+
+    # Clear mock call history
+    mock_terminal._move_xy_calls.clear()
+
+    # Second render with debug mode off
+    state, _ = render_grid_to_terminal(mock_terminal, grid, config, state, metrics)
+
+    # Verify debug line was cleared
+    debug_line_calls = [
+        pos for pos in mock_terminal.move_xy_calls if pos[1] == debug_line_y
+    ]
+    assert any(
+        pos[0] == 0 for pos in debug_line_calls
+    ), "Debug line should be cleared when debug mode is off"
+
+    # Verify no debug info was printed after clearing
+    debug_info_calls = [
+        pos
+        for pos in mock_terminal.move_xy_calls
+        if pos[1] == debug_line_y and pos[0] > 1  # More than just spaces
+    ]
+    assert (
+        not debug_info_calls
+    ), "No debug info should be printed when debug mode is off"

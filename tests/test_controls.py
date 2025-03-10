@@ -103,15 +103,15 @@ class TestNormalModeControls:
         cmd, _ = handle_user_input(key, config, state)
         assert cmd == "cycle_boundary"
 
-        # + - Resize grid larger
+        # + - Expand viewport
         key = Keystroke(ucs="+")
         cmd, _ = handle_user_input(key, config, state)
-        assert cmd == "resize_larger"
+        assert cmd == "viewport_expand"
 
-        # - - Resize grid smaller
+        # - - Shrink viewport
         key = Keystroke(ucs="-")
         cmd, _ = handle_user_input(key, config, state)
-        assert cmd == "resize_smaller"
+        assert cmd == "viewport_shrink"
 
     def test_speed_controls(self) -> None:
         """Test simulation speed controls."""
@@ -493,27 +493,42 @@ class TestPatternModeControls:
             assert rotations[3] != rotations[2], "Last rotation should be different"
 
     def test_grid_size_limits(self) -> None:
-        """Test grid resize limits."""
+        """Test viewport resize limits."""
         config = ControllerConfig.create(width=50, height=30)
         state = RendererState()
 
-        # Test minimum grid size
+        # Test minimum viewport size
         for _ in range(20):  # Try many times to ensure we hit the limit
             key = Keystroke(ucs="-")
             cmd, new_config = handle_user_input(key, config.renderer, state)
-            assert cmd == "resize_smaller"
-            # Grid should not become too small to be usable
-            assert config.dimensions[0] >= 10, "Grid width should not go below 10"
-            assert config.dimensions[1] >= 10, "Grid height should not go below 10"
-            config = config.with_renderer(new_config)
+            assert cmd == "viewport_shrink"
 
-        # Test maximum grid size
-        config = ControllerConfig.create(width=50, height=30)  # Reset to default
-        for _ in range(20):  # Try many times to ensure we hit the limit
             key = Keystroke(ucs="+")
             cmd, new_config = handle_user_input(key, config.renderer, state)
-            assert cmd == "resize_larger"
-            # Grid should not become too large to be manageable
-            assert config.dimensions[0] <= 200, "Grid width should not exceed 200"
-            assert config.dimensions[1] <= 200, "Grid height should not exceed 200"
-            config = config.with_renderer(new_config)
+            assert cmd == "viewport_expand"
+
+    def test_viewport_resize(self) -> None:
+        """Test viewport resizing behavior."""
+        config = RendererConfig()
+        state = RendererState.create(
+            dimensions=(50, 30),
+            viewport=ViewportState(dimensions=(30, 20), offset_x=10, offset_y=5),
+        )
+
+        # Test viewport expansion
+        key = Keystroke(ucs="+")
+        cmd, _ = handle_user_input(key, config, state)
+        assert cmd == "viewport_expand"
+
+        # Test viewport shrinking
+        key = Keystroke(ucs="-")
+        cmd, _ = handle_user_input(key, config, state)
+        assert cmd == "viewport_shrink"
+
+        # Test minimum viewport size
+        state = state.with_viewport(ViewportState(dimensions=(22, 12)))
+        key = Keystroke(ucs="-")
+        cmd, _ = handle_user_input(key, config, state)
+        assert cmd == "viewport_shrink"
+        assert state.viewport.width >= 20  # Minimum width
+        assert state.viewport.height >= 10  # Minimum height

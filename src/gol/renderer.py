@@ -251,9 +251,9 @@ def handle_normal_mode_input(
         case "b":
             return "cycle_boundary", config
         case "+":
-            return "resize_larger", config
+            return "viewport_expand", config
         case "-":
-            return "resize_smaller", config
+            return "viewport_shrink", config
         case "r":
             return "restart", config
         case "d":
@@ -356,7 +356,7 @@ def calculate_viewport_bounds(
     terminal_pos: TerminalPosition,
     grid_width: int,
     grid_height: int,
-) -> ViewportBounds:
+) -> tuple[ViewportBounds, TerminalPosition]:
     """Calculate which portion of grid is visible through viewport.
 
     Args:
@@ -366,18 +366,33 @@ def calculate_viewport_bounds(
         terminal_pos: Position in terminal where viewport is rendered
         grid_width: Grid width
         grid_height: Grid height
-        boundary_condition: Current boundary condition
 
     Returns:
-        ViewportBounds defining visible portion of grid
+        Tuple of (ViewportBounds defining visible portion of grid,
+        updated terminal position)
     """
     # Calculate maximum visible area based on terminal constraints
-    max_visible_width = min((terminal_width - terminal_pos.x) // 2, grid_width)
-    max_visible_height = min(terminal_height - terminal_pos.y - 2, grid_height)
+    max_visible_width = min(
+        (terminal_width - terminal_pos.x - 4) // 2, grid_width
+    )  # Account for borders and terminal position
+    max_visible_height = min(
+        terminal_height - terminal_pos.y - 4, grid_height
+    )  # Account for status lines and terminal position
 
     # Constrain visible area to viewport size
     visible_width = min(viewport.width, max_visible_width)
     visible_height = min(viewport.height, max_visible_height)
+
+    # Calculate terminal position to center the viewport
+    terminal_start_x = (
+        terminal_width - (visible_width * 2)
+    ) // 2  # Each cell is 2 chars
+    terminal_start_y = (terminal_height - visible_height - 3) // 2 + 1  # Status lines
+
+    # Update terminal position
+    updated_terminal_pos = TerminalPosition(
+        x=max(0, terminal_start_x), y=max(1, terminal_start_y)
+    )
 
     # Get grid start position from viewport offset
     grid_start_x = viewport.offset_x
@@ -387,10 +402,11 @@ def calculate_viewport_bounds(
     grid_start_x = max(0, min(grid_start_x, grid_width - visible_width))
     grid_start_y = max(0, min(grid_start_y, grid_height - visible_height))
 
-    return ViewportBounds(
+    bounds = ViewportBounds(
         grid_start=(grid_start_x, grid_start_y),
         visible_dims=(visible_width, visible_height),
     )
+    return bounds, updated_terminal_pos
 
 
 def grid_to_dict(grid: Grid) -> RenderGrid:
@@ -709,7 +725,7 @@ def render_debug_status_line(
     """Renders debug status line with grid and viewport information."""
     grid_height, grid_width = grid.shape
     viewport = state.viewport
-    bounds = calculate_viewport_bounds(
+    bounds, _ = calculate_viewport_bounds(
         viewport,
         terminal.width,
         terminal.height,
@@ -739,7 +755,10 @@ def render_debug_status_line(
         f"{bounds.grid_start[1]+bounds.visible_dims[1]-1})"
     )
 
-    debug_info = f"{grid_info} | {viewport_info} | {offset_info} | {visible_info} | {visible_coords}"
+    debug_info = (
+        f"{grid_info} | {viewport_info} | {offset_info} | {visible_info} | "
+        f"{visible_coords}"
+    )
 
     true_length = len(debug_info) - len(terminal.blue + terminal.normal) * 5
     y = terminal.height - 2
@@ -767,6 +786,53 @@ def render_grid_to_terminal(
     current_grid = grid_to_dict(grid)
     metrics = calculate_render_metrics(grid, current_grid, metrics)
 
+    # Get current viewport bounds first
+    viewport_bounds, updated_terminal_pos = calculate_viewport_bounds(
+        state.viewport,
+        terminal.width,
+        terminal.height,
+        state.terminal_pos,
+        grid_width,
+        grid_height,
+    )
+
+    # Get previous viewport bounds if available
+    prev_viewport_bounds = None
+    if state.previous_viewport is not None:
+        prev_viewport_bounds, _ = calculate_viewport_bounds(
+            state.previous_viewport,
+            terminal.width,
+            terminal.height,
+            state.terminal_pos,
+            grid_width,
+            grid_height,
+        )
+
+    # Clear previous area if viewport changed
+    if prev_viewport_bounds is not None:
+        # Calculate screen coordinates for both previous and current viewports
+        prev_screen_coords = {
+            (state.terminal_pos.x + (vx * 2), state.terminal_pos.y + vy)
+            for vy in range(prev_viewport_bounds.visible_dims[1])
+            for vx in range(prev_viewport_bounds.visible_dims[0])
+        }
+        current_screen_coords = {
+            (updated_terminal_pos.x + (vx * 2), updated_terminal_pos.y + vy)
+            for vy in range(viewport_bounds.visible_dims[1])
+            for vx in range(viewport_bounds.visible_dims[0])
+        }
+
+        # Clear cells that were in previous viewport but not in current viewport
+        cells_to_clear = prev_screen_coords - current_screen_coords
+        for screen_x, screen_y in cells_to_clear:
+            if screen_x >= terminal.width - 1 or screen_y >= usable_height:
+                continue
+            print(
+                terminal.move_xy(screen_x, screen_y) + "  ",
+                end="",
+                flush=True,
+            )
+
     pattern_cells = calculate_pattern_cells(
         grid_width,
         grid_height,
@@ -779,22 +845,13 @@ def render_grid_to_terminal(
         np.zeros_like(grid) if pattern_cells is None else np.array(list(pattern_cells))
     )
 
-    bounds = calculate_viewport_bounds(
-        state.viewport,
-        terminal.width,
-        terminal.height,
-        state.terminal_pos,
-        grid_width,
-        grid_height,
-    )
-
     # Render cells
-    for vy in range(bounds.visible_dims[1]):
-        for vx in range(bounds.visible_dims[0]):
-            x = (bounds.grid_start[0] + vx) % grid_width
-            y = (bounds.grid_start[1] + vy) % grid_height
-            screen_x = state.terminal_pos.x + (vx * 2)
-            screen_y = state.terminal_pos.y + vy
+    for vy in range(viewport_bounds.visible_dims[1]):
+        for vx in range(viewport_bounds.visible_dims[0]):
+            x = (viewport_bounds.grid_start[0] + vx) % grid_width
+            y = (viewport_bounds.grid_start[1] + vy) % grid_height
+            screen_x = updated_terminal_pos.x + (vx * 2)
+            screen_y = updated_terminal_pos.y + vy
 
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:
                 continue
@@ -826,13 +883,25 @@ def render_grid_to_terminal(
             )
 
     # Update state and metrics
-    state = state.with_previous_grid(grid).with_pattern_cells(pattern_cells_array)
+    state = (
+        state.with_previous_grid(grid)
+        .with_pattern_cells(pattern_cells_array)
+        .with_previous_viewport(state.viewport)
+        .with_terminal_position(updated_terminal_pos)
+    )
     metrics = update_frame_metrics(metrics)
 
     # Render status lines
     if state.pattern_mode:
         print(render_pattern_menu(terminal), end="", flush=True)
     else:
+        # Always clear the debug line position
+        print(
+            terminal.move_xy(0, terminal.height - 2) + " " * terminal.width,
+            end="",
+            flush=True,
+        )
+
         if state.debug_mode:
             print(render_debug_status_line(terminal, grid, state), end="", flush=True)
         print(render_status_line(terminal, config, metrics), end="", flush=True)

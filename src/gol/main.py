@@ -262,10 +262,10 @@ def run_game_loop(
         "resize_smaller": lambda g, c, r: handle_resize(g, c, r, terminal, False),
         "exit_pattern": handle_pattern_mode,
         "viewport_expand": lambda g, c, r: handle_viewport_resize_command(
-            g, c, r, True
+            g, c, r, True, terminal
         ),
         "viewport_shrink": lambda g, c, r: handle_viewport_resize_command(
-            g, c, r, False
+            g, c, r, False, terminal
         ),
         "viewport_pan_left": lambda g, c, r: handle_viewport_pan_command(
             g, c, r, -1, 0

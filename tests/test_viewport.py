@@ -163,7 +163,7 @@ def test_viewport_bounds_basic() -> None:
     """Test basic viewport bounds calculation."""
     viewport = ViewportState(dimensions=(40, 30))
     terminal_pos = TerminalPosition(x=0, y=0)
-    bounds = calculate_viewport_bounds(
+    bounds, _ = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,
@@ -181,7 +181,7 @@ def test_viewport_bounds_with_offset() -> None:
     """Test viewport bounds calculation with offset."""
     viewport = ViewportState(dimensions=(40, 30), offset_x=20, offset_y=15)
     terminal_pos = TerminalPosition(x=0, y=0)
-    bounds = calculate_viewport_bounds(
+    bounds, _ = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,
@@ -199,7 +199,7 @@ def test_viewport_bounds_terminal_constraints() -> None:
     """Test viewport bounds respect terminal constraints."""
     viewport = ViewportState(dimensions=(60, 40))  # Larger than terminal
     terminal_pos = TerminalPosition(x=5, y=2)
-    bounds = calculate_viewport_bounds(
+    bounds, _ = calculate_viewport_bounds(
         viewport=viewport,
         terminal_width=80,
         terminal_height=24,

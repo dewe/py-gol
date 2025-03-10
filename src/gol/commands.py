@@ -233,10 +233,57 @@ def handle_cycle_boundary(
 
 
 def handle_viewport_resize_command(
-    grid: Grid, config: ControllerConfig, render_state: RendererState, expand: bool
+    grid: Grid,
+    config: ControllerConfig,
+    render_state: RendererState,
+    expand: bool,
+    terminal: TerminalProtocol,
 ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
-    """Handle viewport resize while preserving content."""
+    """Handle viewport resize while preserving content.
+
+    For FINITE and TOROIDAL boundary conditions, the grid is resized to exactly match
+    the viewport dimensions. For INFINITE boundary condition, only the viewport is
+    resized.
+    """
+    # First resize the viewport
     new_render_state = handle_viewport_resize(render_state, expand)
+
+    # Clear screen and handle artifacts
+    print(terminal.clear(), end="", flush=True)
+    print(terminal.move_xy(0, 0), end="", flush=True)
+    for y in range(terminal.height):
+        print(terminal.move_xy(0, y) + " " * terminal.width, end="", flush=True)
+    sys.stdout.flush()
+
+    # Clear the previous render state to force complete redraw
+    new_render_state = new_render_state.with_previous_grid(None).with_pattern_cells(
+        None
+    )
+
+    # Only resize grid for FINITE and TOROIDAL boundaries
+    if config.grid.boundary in (
+        BoundaryCondition.FINITE,
+        BoundaryCondition.TOROIDAL,
+    ):
+        # Get new viewport dimensions
+        viewport = new_render_state.viewport
+        new_width = viewport.width
+        new_height = viewport.height
+
+        # Always resize to match viewport exactly
+        new_grid, new_grid_config = resize_game(
+            grid,
+            new_width,
+            new_height,
+            config.grid,
+        )
+        new_config = ControllerConfig(
+            dimensions=(new_width, new_height),
+            grid=new_grid_config,
+            renderer=config.renderer,
+        )
+        return new_grid, new_config, new_render_state, False
+
     return grid, config, new_render_state, False
 
 

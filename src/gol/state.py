@@ -71,6 +71,7 @@ class RendererState:
     viewport: ViewportState = dataclasses.field(
         default_factory=lambda: ViewportState(dimensions=(50, 30))
     )
+    previous_viewport: Optional[ViewportState] = None  # Track previous viewport state
     terminal_pos: TerminalPosition = dataclasses.field(
         default_factory=lambda: TerminalPosition(x=0, y=0)
     )
@@ -147,3 +148,7 @@ class RendererState:
     def with_debug_mode(self, enabled: bool) -> "RendererState":
         """Create new state with updated debug mode."""
         return dataclasses.replace(self, debug_mode=enabled)
+
+    def with_previous_viewport(self, viewport: ViewportState) -> "RendererState":
+        """Create new state with updated previous viewport."""
+        return dataclasses.replace(self, previous_viewport=viewport)

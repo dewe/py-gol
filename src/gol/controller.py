@@ -229,15 +229,16 @@ def handle_viewport_pan(
         New renderer state with updated viewport offset
     """
     viewport = state.viewport
-
-    new_viewport = viewport.with_adjusted_offset(dx, dy)
     max_x_offset = grid_width - viewport.width
     max_y_offset = grid_height - viewport.height
 
-    if new_viewport.offset_x < 0 or new_viewport.offset_y < 0:
-        return state
+    # Calculate new offsets with boundary clamping
+    new_x = max(0, min(viewport.offset_x + dx, max_x_offset))
+    new_y = max(0, min(viewport.offset_y + dy, max_y_offset))
 
-    if new_viewport.offset_x > max_x_offset or new_viewport.offset_y > max_y_offset:
-        return state
-
+    new_viewport = ViewportState(
+        dimensions=viewport.dimensions,
+        offset_x=new_x,
+        offset_y=new_y,
+    )
     return state.with_viewport(new_viewport)

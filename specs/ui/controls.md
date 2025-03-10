@@ -9,8 +9,8 @@
 | C           | Clear grid                     |
 | R           | Restart with new grid          |
 | B           | Cycle boundary conditions      |
-| +           | Resize grid larger             |
-| -           | Resize grid smaller            |
+| +           | Expand viewport                |
+| -           | Shrink viewport                |
 | Arrow keys  | Pan viewport                   |
 | Shift+Up    | Increase simulation speed      |
 | Shift+Down  | Decrease simulation speed      |
@@ -42,7 +42,7 @@
 
 - Minimum grid size: 10x10 cells
 - Maximum grid size: 200x200 cells
-- Grid resize operations (+/-) maintain aspect ratio
+- Grid resize operations maintain aspect ratio
 - Viewport panning stops at grid boundaries
 - Viewport size adapts to terminal dimensions
 

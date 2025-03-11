@@ -6,7 +6,7 @@ Focus on impure functions that handle terminal I/O and state management.
 import dataclasses
 import re
 from typing import Any, List
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 from blessed import Terminal
@@ -14,7 +14,7 @@ from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
 from gol.metrics import create_metrics
-from gol.patterns import PatternTransform
+from gol.patterns import FilePatternStorage, PatternCategory, PatternTransform
 from gol.renderer import (
     RendererConfig,
     TerminalProtocol,
@@ -250,13 +250,74 @@ def test_handle_resize_event(
 
 def test_render_pattern_menu(mock_terminal: TerminalProtocol) -> None:
     """Test pattern menu rendering."""
-    menu_text = render_pattern_menu(mock_terminal)
+    config = RendererConfig()
+    menu_text = render_pattern_menu(mock_terminal, config)
     stripped_text = strip_ansi(menu_text)
+
+    # Basic menu elements
     assert "Pattern Mode" in stripped_text
     assert "Select:" in stripped_text
     assert "rotate" in stripped_text
     assert "place" in stripped_text
     assert "exit" in stripped_text
+
+    # Category navigation
+    assert "Tab: next" in stripped_text
+    assert "(1/" in stripped_text  # Category counter
+
+    # Pattern category name
+    assert any(
+        cat.name.replace("_", " ").title() in stripped_text for cat in PatternCategory
+    )
+
+
+def test_pattern_menu_category_cycling(mock_terminal: TerminalProtocol) -> None:
+    """Test cycling through pattern categories."""
+    config = RendererConfig()
+
+    # Get initial category
+    menu_text = render_pattern_menu(mock_terminal, config)
+    initial_category = next(
+        cat.name
+        for cat in PatternCategory
+        if cat.name.replace("_", " ").title() in strip_ansi(menu_text)
+    )
+
+    # Cycle to next category
+    config = config.with_pattern_category_idx(1)
+    menu_text = render_pattern_menu(mock_terminal, config)
+    next_category = next(
+        cat.name
+        for cat in PatternCategory
+        if cat.name.replace("_", " ").title() in strip_ansi(menu_text)
+    )
+
+    assert initial_category != next_category
+    assert "(2/" in strip_ansi(menu_text)
+
+
+def test_pattern_menu_custom_patterns(mock_terminal: TerminalProtocol) -> None:
+    """Test menu with custom patterns."""
+    config = RendererConfig()
+
+    # Mock custom patterns
+    with patch.object(
+        FilePatternStorage, "list_patterns", return_value=["custom1", "custom2"]
+    ):
+        menu_text = render_pattern_menu(mock_terminal, config)
+        stripped_text = strip_ansi(menu_text)
+
+        # Find Custom category
+        custom_idx = next(
+            i for i, cat in enumerate(PatternCategory) if cat == PatternCategory.CUSTOM
+        )
+        config = config.with_pattern_category_idx(custom_idx)
+        menu_text = render_pattern_menu(mock_terminal, config)
+        stripped_text = strip_ansi(menu_text)
+
+        assert "Custom" in stripped_text
+        assert "custom1" in stripped_text
+        assert "custom2" in stripped_text
 
 
 def test_render_status_line(

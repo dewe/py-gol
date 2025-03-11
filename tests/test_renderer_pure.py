@@ -97,9 +97,10 @@ def test_calculate_render_metrics_frame_tracking() -> None:
     # Then
     assert metrics.game.total_cells == 4
     assert metrics.game.active_cells == 2
-    assert metrics.game.generation_count == 5  # Generation count is updated each frame
-    assert metrics.game.births_this_second == 0  # No births without previous state
-    assert metrics.game.deaths_this_second == 0  # No deaths without previous state
+    # Generation count should not increment during rendering
+    assert metrics.game.generation_count == 0
+    # Frame metrics should be updated
+    assert metrics.perf.frames_this_second > 0
 
 
 def test_calculate_pattern_cells_no_pattern() -> None:

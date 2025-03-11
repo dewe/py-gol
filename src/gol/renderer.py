@@ -2,7 +2,7 @@
 
 import sys
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol, Tuple, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 
 import numpy as np
 from blessed import Terminal
@@ -14,6 +14,8 @@ from .metrics import Metrics, update_frame_metrics, update_game_metrics
 from .patterns import (
     BUILTIN_PATTERNS,
     FilePatternStorage,
+    Pattern,
+    PatternCategory,
     PatternTransform,
     get_centered_position,
     get_pattern_cells,
@@ -91,6 +93,7 @@ class RendererConfig:
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
     boundary_condition: Optional[BoundaryCondition] = None
+    pattern_category_idx: int = 0
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -155,6 +158,19 @@ class RendererConfig:
 
         return replace(self, update_interval=interval)
 
+    def with_pattern_category_idx(self, idx: int) -> "RendererConfig":
+        """Create new config with updated pattern category index.
+
+        Args:
+            idx: New pattern category index
+
+        Returns:
+            New config with updated pattern category index
+        """
+        from dataclasses import replace
+
+        return replace(self, pattern_category_idx=idx)
+
 
 TerminalResult = Tuple[Optional[TerminalProtocol], Optional[RendererState]]
 
@@ -214,12 +230,38 @@ def handle_pattern_mode_input(
             config.selected_pattern, new_rotation
         )
 
+    if str(key) == "\t":  # Tab key
+        current_idx = getattr(config, "pattern_category_idx", 0)
+        new_idx = current_idx + 1
+        config = config.with_pattern_category_idx(new_idx)
+        return "continue", config
+
     if str(key).isdigit():
         pattern_num = int(str(key))
         if 1 <= pattern_num <= 9:
-            patterns = list(BUILTIN_PATTERNS.keys())
-            if pattern_num <= len(patterns):
-                return "select_pattern", config.with_pattern(patterns[pattern_num - 1])
+            # Get patterns for current category
+            patterns_by_category: Dict[PatternCategory, List[str]] = {}
+            for name, pattern in BUILTIN_PATTERNS.items():
+                category = pattern.metadata.category
+                if category not in patterns_by_category:
+                    patterns_by_category[category] = []
+                patterns_by_category[category].append(name)
+
+            # Add custom patterns
+            custom_patterns = FilePatternStorage().list_patterns()
+            if custom_patterns:
+                patterns_by_category[PatternCategory.CUSTOM] = custom_patterns
+
+            # Get current category patterns
+            categories = list(patterns_by_category.keys())
+            current_category_idx = getattr(config, "pattern_category_idx", 0)
+            current_category = categories[current_category_idx % len(categories)]
+            current_patterns = patterns_by_category[current_category]
+
+            if pattern_num <= len(current_patterns):
+                return "select_pattern", config.with_pattern(
+                    current_patterns[pattern_num - 1]
+                )
 
     # Movement and action keys in pattern mode
     match key.name:
@@ -474,15 +516,47 @@ def render_status_line(
 
 def render_pattern_menu(
     terminal: TerminalProtocol,
+    config: RendererConfig,
 ) -> str:
-    """Renders pattern selection menu."""
-    patterns = list(BUILTIN_PATTERNS.keys()) + FilePatternStorage().list_patterns()
-    pattern_list = ", ".join(f"{i+1}:{name}" for i, name in enumerate(patterns))
-    menu_text = (
-        f"Pattern Mode - Select: {pattern_list} | R: rotate | Space: place | ESC: exit"
+    """Renders pattern selection menu with categories."""
+    # Group patterns by category
+    patterns_by_category: Dict[PatternCategory, List[Tuple[str, Optional[Pattern]]]] = (
+        {}
+    )
+    for name, pattern in BUILTIN_PATTERNS.items():
+        category = pattern.metadata.category
+        if category not in patterns_by_category:
+            patterns_by_category[category] = []
+        patterns_by_category[category].append((name, pattern))
+
+    # Add custom patterns
+    custom_patterns = FilePatternStorage().list_patterns()
+    if custom_patterns:
+        patterns_by_category[PatternCategory.CUSTOM] = [
+            (name, None) for name in custom_patterns
+        ]
+
+    # Get current category and patterns
+    categories = list(patterns_by_category.keys())
+    current_category_idx = getattr(config, "pattern_category_idx", 0)
+    current_category = categories[current_category_idx % len(categories)]
+    current_patterns = patterns_by_category[current_category]
+
+    # Format pattern list for current category
+    pattern_list = ", ".join(
+        f"{i+1}:{name}" for i, (name, _) in enumerate(current_patterns[:9])
     )
 
-    true_length = len(menu_text)
+    # Build menu text
+    category_name = current_category.name.replace("_", " ").title()
+    menu_text = (
+        f"Pattern Mode - {category_name} "
+        f"({current_category_idx + 1}/{len(categories)})\n"
+        f"Select: {pattern_list}\n"
+        f"Tab: next | R: rotate | Space: place | ESC: exit"
+    )
+
+    true_length = len(menu_text.replace("\n", " "))
     y = terminal.height - 1
     x = (terminal.width - true_length) // 2
     x = max(0, x)
@@ -492,7 +566,7 @@ def render_pattern_menu(
         + " " * terminal.width
         + terminal.move_xy(x, y)
         + terminal.blue
-        + menu_text
+        + menu_text.replace("\n", " ")
         + terminal.normal
     )
 
@@ -537,6 +611,9 @@ def calculate_render_metrics(
             deaths=np.count_nonzero(deaths),
             increment_generation=False,  # Don't increment generation during rendering
         )
+
+    # Update frame metrics
+    metrics = update_frame_metrics(metrics)
 
     return metrics
 
@@ -895,7 +972,7 @@ def render_grid_to_terminal(
 
     # Render status lines
     if state.pattern_mode:
-        print(render_pattern_menu(terminal), end="", flush=True)
+        print(render_pattern_menu(terminal, config), end="", flush=True)
     else:
         # Always clear the debug line position
         print(

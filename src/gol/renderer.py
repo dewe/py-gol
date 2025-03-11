@@ -518,6 +518,7 @@ def calculate_render_metrics(
         active_cells=np.count_nonzero(grid),
         births=0,
         deaths=0,
+        increment_generation=False,  # Don't increment generation during rendering
     )
 
     if previous_grid is not None:
@@ -534,6 +535,7 @@ def calculate_render_metrics(
             active_cells=np.count_nonzero(grid),
             births=np.count_nonzero(births),
             deaths=np.count_nonzero(deaths),
+            increment_generation=False,  # Don't increment generation during rendering
         )
 
     return metrics

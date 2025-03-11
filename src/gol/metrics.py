@@ -46,6 +46,7 @@ def update_game_metrics(
     active_cells: int,
     births: int,
     deaths: int,
+    increment_generation: bool = False,
 ) -> Metrics:
     """Update game metrics with new values.
 
@@ -55,6 +56,7 @@ def update_game_metrics(
         active_cells: Number of active cells
         births: Number of births in this update
         deaths: Number of deaths in this update
+        increment_generation: Whether to increment the generation counter
 
     Returns:
         New metrics instance with updated values
@@ -82,7 +84,7 @@ def update_game_metrics(
     # Create new game metrics
     game = replace(
         game,
-        generation_count=game.generation_count + 1,
+        generation_count=game.generation_count + (1 if increment_generation else 0),
         total_cells=total_cells,
         active_cells=active_cells,
         births_this_second=births_this_second,

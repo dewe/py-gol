@@ -323,6 +323,7 @@ def run_game_loop(
                     active_cells=np.count_nonzero(grid),
                     births=0,  # Will be updated in render_grid
                     deaths=0,  # Will be updated in render_grid
+                    increment_generation=True,  # Increment generation counter
                 )
                 last_update = current_time
 

@@ -49,6 +49,7 @@ def test_game_loop_pattern_mode() -> None:
             Keystroke("1"),  # Select first pattern
             Keystroke("\x1b"),  # Exit pattern mode
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -57,7 +58,7 @@ def test_game_loop_pattern_mode() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 4  # All inputs should be processed
+    assert terminal.inkey.call_count == 5  # All inputs should be processed
 
 
 def test_game_loop_resize() -> None:
@@ -73,6 +74,7 @@ def test_game_loop_resize() -> None:
             Keystroke("+"),  # Resize larger
             Keystroke("-"),  # Resize smaller
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -81,7 +83,7 @@ def test_game_loop_resize() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 3
+    assert terminal.inkey.call_count == 4
 
 
 def test_game_loop_interval_adjustment() -> None:
@@ -97,6 +99,7 @@ def test_game_loop_interval_adjustment() -> None:
             Keystroke("KEY_UP"),  # Increase interval
             Keystroke("KEY_DOWN"),  # Decrease interval
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -105,7 +108,7 @@ def test_game_loop_interval_adjustment() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 3
+    assert terminal.inkey.call_count == 4
 
 
 def test_game_loop_pattern_rotation() -> None:
@@ -124,6 +127,7 @@ def test_game_loop_pattern_rotation() -> None:
             Keystroke(" "),  # Place pattern
             Keystroke("\x1b"),  # Exit pattern mode
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -132,7 +136,7 @@ def test_game_loop_pattern_rotation() -> None:
 
     run_game_loop(terminal, grid, config, state)
 
-    assert terminal.inkey.call_count == 6  # All inputs should be processed
+    assert terminal.inkey.call_count == 7  # All inputs should be processed
 
 
 def test_game_loop_config_immutability() -> None:
@@ -153,6 +157,7 @@ def test_game_loop_config_immutability() -> None:
             Keystroke("+"),  # Resize larger
             Keystroke("KEY_UP"),  # Increase interval
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -183,6 +188,7 @@ def test_game_loop_config_updates() -> None:
         side_effect=[
             Keystroke("KEY_UP"),  # Increase interval
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 

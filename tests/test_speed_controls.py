@@ -93,8 +93,8 @@ def test_speed_control_in_game_loop() -> None:
 
     # Create mock terminal
     terminal = Mock()
-    terminal.width = PropertyMock(return_value=80)
-    terminal.height = PropertyMock(return_value=24)
+    type(terminal).width = PropertyMock(return_value=80)
+    type(terminal).height = PropertyMock(return_value=24)
     terminal.normal = ""
     terminal.dim = ""
     terminal.white = ""
@@ -119,6 +119,7 @@ def test_speed_control_in_game_loop() -> None:
             Keystroke(name="KEY_SUP"),  # Speed up again
             Keystroke(name="KEY_SDOWN"),  # Speed down
             Keystroke("q"),  # Quit
+            None,  # Return None when no more keystrokes
         ]
     )
 
@@ -133,7 +134,7 @@ def test_speed_control_in_game_loop() -> None:
     run_game_loop(terminal, grid, config, state)
 
     # Verify all keys were processed
-    assert terminal.inkey.call_count == 4, "Not all speed control keys were processed"
+    assert terminal.inkey.call_count == 5, "Not all speed control keys were processed"
 
 
 def test_speed_interval_rounding() -> None:

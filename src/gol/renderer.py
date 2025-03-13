@@ -92,7 +92,7 @@ class RendererConfig:
     interval_change_factor: float = 0.2
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
-    boundary_condition: Optional[BoundaryCondition] = None
+    boundary_condition: BoundaryCondition = BoundaryCondition.FINITE
     pattern_category_idx: int = 0
 
     def __post_init__(self) -> None:
@@ -469,17 +469,13 @@ def render_status_line(
     plain_deaths = f"Deaths/s: {metrics.game.death_rate:.1f}"
     plain_interval = f"Interval: {config.update_interval}ms"
 
-    # Add boundary condition if available
-    boundary_text = ""
-    if config.boundary_condition:
-        plain_boundary = f"Boundary: {config.boundary_condition.name}"
-        boundary_text = (
-            f" | {terminal.green}Boundary: {terminal.normal}"
-            f"{config.boundary_condition.name}"
-        )
-        plain_boundary_len = len(plain_boundary) + len(" | ")
-    else:
-        plain_boundary_len = 0
+    # Add boundary condition
+    plain_boundary = f"Boundary: {config.boundary_condition.name}"
+    boundary_text = (
+        f" | {terminal.green}Boundary: {terminal.normal}"
+        f"{config.boundary_condition.name}"
+    )
+    plain_boundary_len = len(plain_boundary) + len(" | ")
 
     true_length = (
         len(plain_pop)
@@ -624,6 +620,7 @@ def calculate_pattern_cells(
     pattern_name: Optional[str],
     cursor_pos: tuple[int, int],
     rotation: PatternTransform,
+    boundary_condition: BoundaryCondition = BoundaryCondition.FINITE,
 ) -> set[tuple[int, int]]:
     """Pure function to calculate pattern preview cell positions.
 
@@ -633,6 +630,7 @@ def calculate_pattern_cells(
         pattern_name: Name of the selected pattern
         cursor_pos: Current cursor position (x, y)
         rotation: Pattern rotation state
+        boundary_condition: Current boundary condition
 
     Returns:
         Set of (x, y) coordinates for pattern cells
@@ -653,11 +651,14 @@ def calculate_pattern_cells(
     # Calculate center position for pattern placement
     preview_pos = get_centered_position(pattern, cursor_pos, rotation=rotation)
 
-    # Apply grid wrapping to each cell position
-    return {
-        ((preview_pos[0] + dx) % grid_width, (preview_pos[1] + dy) % grid_height)
-        for dx, dy in cells
-    }
+    # Handle coordinates based on boundary condition
+    if boundary_condition in (BoundaryCondition.FINITE, BoundaryCondition.TOROIDAL):
+        return {
+            ((preview_pos[0] + dx) % grid_width, (preview_pos[1] + dy) % grid_height)
+            for dx, dy in cells
+        }
+    else:  # INFINITE boundary
+        return {(preview_pos[0] + dx, preview_pos[1] + dy) for dx, dy in cells}
 
 
 @dataclass(frozen=True)
@@ -913,11 +914,12 @@ def render_grid_to_terminal(
             )
 
     pattern_cells = calculate_pattern_cells(
-        grid_width,
-        grid_height,
+        viewport_bounds.visible_dims[0],  # Use viewport dimensions for pattern calc
+        viewport_bounds.visible_dims[1],
         config.selected_pattern if state.pattern_mode else None,
-        (state.cursor_x, state.cursor_y),
+        (state.cursor_x, state.cursor_y),  # Use actual cursor position
         config.pattern_rotation,
+        config.boundary_condition,
     )
 
     pattern_cells_array = (
@@ -927,20 +929,42 @@ def render_grid_to_terminal(
     # Render cells
     for vy in range(viewport_bounds.visible_dims[1]):
         for vx in range(viewport_bounds.visible_dims[0]):
-            x = (viewport_bounds.grid_start[0] + vx) % grid_width
-            y = (viewport_bounds.grid_start[1] + vy) % grid_height
+            # Calculate grid coordinates based on boundary condition
+            if config.boundary_condition in (
+                BoundaryCondition.FINITE,
+                BoundaryCondition.TOROIDAL,
+            ):
+                x = (viewport_bounds.grid_start[0] + vx) % grid_width
+                y = (viewport_bounds.grid_start[1] + vy) % grid_height
+            else:  # INFINITE boundary
+                x = viewport_bounds.grid_start[0] + vx
+                y = viewport_bounds.grid_start[1] + vy
+
             screen_x = updated_terminal_pos.x + (vx * 2)
             screen_y = updated_terminal_pos.y + vy
 
             if screen_x >= terminal.width - 1 or screen_y >= usable_height:
                 continue
 
+            # Check grid bounds for live cells in INFINITE mode
+            if config.boundary_condition == BoundaryCondition.INFINITE:
+                if x < 0 or x >= grid_width or y < 0 or y >= grid_height:
+                    # Still show cursor and pattern cells outside grid
+                    is_cursor = (
+                        state.pattern_mode
+                        and x == state.cursor_x
+                        and y == state.cursor_y
+                    )
+                    is_pattern = (x, y) in pattern_cells
+                    if not (is_cursor or is_pattern):
+                        continue
+
             cell_char, color = calculate_cell_display(
                 x,
                 y,
                 current_grid,
                 pattern_cells,
-                (state.cursor_x, state.cursor_y),
+                (state.cursor_x, state.cursor_y),  # Use actual cursor position
                 state.pattern_mode,
                 config,
                 terminal,
@@ -985,7 +1009,6 @@ def render_grid_to_terminal(
             print(render_debug_status_line(terminal, grid, state), end="", flush=True)
         print(render_status_line(terminal, config, metrics), end="", flush=True)
 
-    sys.stdout.flush()
     return state, metrics
 
 

@@ -880,6 +880,38 @@ def place_pattern(
     pattern_y_start = max(0, -y)
     pattern_x_start = max(0, -x)
 
+    # If pattern is completely outside grid bounds, expand grid
+    if x_end <= x_start or y_end <= y_start:
+        # Calculate required expansion
+        expand_left = x < 0
+        expand_right = x + pattern_width > width
+        expand_up = y < 0
+        expand_down = y + pattern_height > height
+
+        # Expand grid if needed
+        if any([expand_up, expand_right, expand_down, expand_left]):
+            from gol.grid import expand_grid
+
+            new_grid, (dx, dy) = expand_grid(
+                new_grid,
+                expand_up=expand_up,
+                expand_right=expand_right,
+                expand_down=expand_down,
+                expand_left=expand_left,
+            )
+            # Adjust pattern position for grid expansion
+            x += dx
+            y += dy
+            # Recalculate intersection
+            height, width = new_grid.shape
+            y_start = max(0, y)
+            y_end = min(height, y + pattern_height)
+            x_start = max(0, x)
+            x_end = min(width, x + pattern_width)
+            pattern_y_start = max(0, -y)
+            pattern_x_start = max(0, -x)
+
+    # Place pattern in valid intersection area
     new_grid[y_start:y_end, x_start:x_end] |= rotated_cells[
         pattern_y_start : pattern_y_start + (y_end - y_start),
         pattern_x_start : pattern_x_start + (x_end - x_start),

@@ -48,9 +48,12 @@ def handle_pattern_mode(
             grid=config.grid,
             renderer=new_renderer,
         )
-        new_render_state = new_render_state.with_cursor(
-            config.grid.width // 2, config.grid.height // 2
+        # Center cursor in current viewport
+        viewport_x = render_state.viewport.offset_x + (render_state.viewport.width // 2)
+        viewport_y = render_state.viewport.offset_y + (
+            render_state.viewport.height // 2
         )
+        new_render_state = new_render_state.with_cursor(viewport_x, viewport_y)
     else:
         new_renderer = config.renderer.with_pattern(None)
         new_config = ControllerConfig(
@@ -112,19 +115,33 @@ def handle_cursor_movement(
     render_state: RendererState,
     direction: str,
 ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
-    """Handle wrapped cursor movement within grid bounds."""
+    """Handle cursor movement within grid bounds."""
     if not render_state.pattern_mode:
         return grid, config, render_state, False
 
     new_x, new_y = render_state.cursor_x, render_state.cursor_y
-    if direction == "left":
-        new_x = (render_state.cursor_x - 1) % config.grid.width
-    elif direction == "right":
-        new_x = (render_state.cursor_x + 1) % config.grid.width
-    elif direction == "up":
-        new_y = (render_state.cursor_y - 1) % config.grid.height
-    elif direction == "down":
-        new_y = (render_state.cursor_y + 1) % config.grid.height
+
+    # Handle cursor movement based on boundary condition
+    if config.grid.boundary in (BoundaryCondition.FINITE, BoundaryCondition.TOROIDAL):
+        # Wrap coordinates for FINITE and TOROIDAL boundaries
+        if direction == "left":
+            new_x = (render_state.cursor_x - 1) % config.grid.width
+        elif direction == "right":
+            new_x = (render_state.cursor_x + 1) % config.grid.width
+        elif direction == "up":
+            new_y = (render_state.cursor_y - 1) % config.grid.height
+        elif direction == "down":
+            new_y = (render_state.cursor_y + 1) % config.grid.height
+    else:  # INFINITE boundary
+        # Don't wrap coordinates for INFINITE boundary
+        if direction == "left":
+            new_x = render_state.cursor_x - 1
+        elif direction == "right":
+            new_x = render_state.cursor_x + 1
+        elif direction == "up":
+            new_y = render_state.cursor_y - 1
+        elif direction == "down":
+            new_y = render_state.cursor_y + 1
 
     new_render_state = render_state.with_cursor(new_x, new_y)
     return grid, config, new_render_state, False

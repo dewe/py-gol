@@ -317,7 +317,7 @@ def run_game_loop(
                         break
 
                     # Update key states for movement keys
-                    if key.name in key_states:
+                    if key.name in key_states and not render_state.pattern_mode:
                         key_states[key.name] = True
                     elif key:
                         # Handle non-movement keys normally
@@ -338,16 +338,17 @@ def run_game_loop(
                                     grid, config, render_state
                                 )
 
-                # Process active movement keys
-                for key_name, is_pressed in key_states.items():
-                    if is_pressed:
-                        command = movement_commands[key_name]
-                        handler = command_map.get(command)
-                        if handler:
-                            grid, config, render_state, _ = handler(
-                                grid, config, render_state
-                            )
-                    key_states[key_name] = False  # Reset state
+                # Process active movement keys only in normal mode
+                if not render_state.pattern_mode:
+                    for key_name, is_pressed in key_states.items():
+                        if is_pressed:
+                            command = movement_commands[key_name]
+                            handler = command_map.get(command)
+                            if handler:
+                                grid, config, render_state, _ = handler(
+                                    grid, config, render_state
+                                )
+                        key_states[key_name] = False  # Reset state
 
                 last_input = current_time
 

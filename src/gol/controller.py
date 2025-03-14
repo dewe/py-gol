@@ -176,15 +176,21 @@ def cleanup_game(terminal: TerminalProtocol) -> None:
     cleanup_terminal(terminal)
 
 
-def handle_viewport_resize(state: RendererState, expand: bool) -> RendererState:
+def handle_viewport_resize(
+    state: RendererState,
+    expand: bool,
+    terminal: TerminalProtocol,
+) -> RendererState:
     """Pure function to handle viewport resize.
 
     Resizes the viewport by a fixed delta while maintaining minimum dimensions
-    and preserving the viewport offset.
+    and preserving the viewport offset. Also respects terminal constraints
+    to ensure viewport doesn't exceed visible area.
 
     Args:
         state: Current renderer state
         expand: True to expand viewport, False to shrink
+        terminal: Terminal interface for constraints
 
     Returns:
         New renderer state with updated viewport dimensions
@@ -194,9 +200,13 @@ def handle_viewport_resize(state: RendererState, expand: bool) -> RendererState:
     new_width = viewport.width + (delta if expand else -delta)
     new_height = viewport.height + (delta if expand else -delta)
 
-    # Ensure minimum viewport size
-    new_width = max(20, new_width)
-    new_height = max(10, new_height)
+    # Calculate maximum visible area based on terminal constraints
+    max_visible_width = (terminal.width - 4) // 2  # Account for borders
+    max_visible_height = terminal.height - 4  # Account for status lines
+
+    # Ensure minimum viewport size and respect terminal constraints
+    new_width = max(20, min(new_width, max_visible_width))
+    new_height = max(10, min(new_height, max_visible_height))
 
     new_viewport = ViewportState(
         dimensions=(new_width, new_height),

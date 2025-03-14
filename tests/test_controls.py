@@ -1,17 +1,92 @@
 """Tests for game controls and user input handling."""
 
-from typing import cast
+from dataclasses import replace
+from typing import Any, cast
 from unittest.mock import Mock, PropertyMock, patch
 
 import numpy as np
 import pytest
+from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
+from gol.commands import handle_viewport_resize_command
 from gol.controller import ControllerConfig
+from gol.grid import BoundaryCondition
 from gol.patterns import Pattern, PatternCategory, PatternMetadata
 from gol.renderer import RendererConfig, TerminalProtocol, handle_user_input
 from gol.state import RendererState, ViewportState
-from gol.types import PatternGrid
+from gol.types import Grid, PatternGrid
+
+
+class MockTerminal(TerminalProtocol):
+    """Mock terminal for testing."""
+
+    @property
+    def width(self) -> int:
+        return 100  # 50 cells (each cell is 2 chars wide)
+
+    @property
+    def height(self) -> int:
+        return 30  # 27 usable rows (3 reserved for status)
+
+    # Implement required methods with minimal stubs
+    @property
+    def dim(self) -> str:
+        return ""
+
+    @property
+    def normal(self) -> str:
+        return ""
+
+    @property
+    def white(self) -> str:
+        return ""
+
+    @property
+    def blue(self) -> str:
+        return ""
+
+    @property
+    def green(self) -> str:
+        return ""
+
+    @property
+    def yellow(self) -> str:
+        return ""
+
+    @property
+    def magenta(self) -> str:
+        return ""
+
+    def move_xy(self, x: int, y: int) -> ParameterizingString:
+        return ParameterizingString("")
+
+    def exit_fullscreen(self) -> str:
+        return ""
+
+    def enter_fullscreen(self) -> str:
+        return ""
+
+    def hide_cursor(self) -> str:
+        return ""
+
+    def normal_cursor(self) -> str:
+        return ""
+
+    def clear(self) -> str:
+        return ""
+
+    def enter_ca_mode(self) -> str:
+        return ""
+
+    def exit_ca_mode(self) -> str:
+        return ""
+
+    def inkey(self, timeout: float = 0) -> Keystroke:
+        return Keystroke("")
+
+    def cbreak(self) -> Any:
+        return self
 
 
 def create_mock_keystroke(name: str = "", value: str = "") -> Mock:
@@ -511,3 +586,49 @@ class TestPatternModeControls:
         assert cmd == "viewport_shrink"
         assert state.viewport.width >= 20  # Minimum width
         assert state.viewport.height >= 10  # Minimum height
+
+    def test_viewport_resize_terminal_constraints(self) -> None:
+        """Test that viewport resizing respects terminal constraints."""
+
+        terminal = MockTerminal()
+
+        # Test FINITE mode
+        grid: Grid = np.zeros((20, 30), dtype=bool)
+        config = ControllerConfig.create(
+            width=30, height=20, boundary=BoundaryCondition.FINITE
+        )
+        state = RendererState.create(dimensions=(30, 20))
+
+        # Try to expand beyond terminal bounds
+        for _ in range(10):  # Multiple expansions
+            grid, config, state, _ = handle_viewport_resize_command(
+                grid, config, state, expand=True, terminal=terminal
+            )
+
+            # Calculate maximum visible area
+            max_visible_width = (terminal.width - 4) // 2  # Account for borders
+            max_visible_height = terminal.height - 4  # Account for status lines
+
+            # Verify viewport/grid doesn't exceed terminal constraints
+            assert state.viewport.width <= max_visible_width
+            assert state.viewport.height <= max_visible_height
+            assert grid.shape[1] <= max_visible_width  # width
+            assert grid.shape[0] <= max_visible_height  # height
+
+        # Test TOROIDAL mode
+        config = replace(
+            config, grid=replace(config.grid, boundary=BoundaryCondition.TOROIDAL)
+        )
+        state = RendererState.create(dimensions=(30, 20))
+
+        # Try to expand beyond terminal bounds
+        for _ in range(10):  # Multiple expansions
+            grid, config, state, _ = handle_viewport_resize_command(
+                grid, config, state, expand=True, terminal=terminal
+            )
+
+            # Verify viewport/grid doesn't exceed terminal constraints
+            assert state.viewport.width <= max_visible_width
+            assert state.viewport.height <= max_visible_height
+            assert grid.shape[1] <= max_visible_width  # width
+            assert grid.shape[0] <= max_visible_height  # height

@@ -263,7 +263,7 @@ def handle_viewport_resize_command(
     resized.
     """
     # First resize the viewport
-    new_render_state = handle_viewport_resize(render_state, expand)
+    new_render_state = handle_viewport_resize(render_state, expand, terminal)
 
     # Clear screen and handle artifacts
     print(terminal.clear(), end="", flush=True)

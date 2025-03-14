@@ -21,6 +21,77 @@ from gol.state import RendererState, ViewportState
 from gol.types import TerminalPosition
 
 
+class MockTerminal(TerminalProtocol):
+    """Mock terminal for testing."""
+
+    @property
+    def width(self) -> int:
+        return 100  # 50 cells (each cell is 2 chars wide)
+
+    @property
+    def height(self) -> int:
+        return 30  # 27 usable rows (3 reserved for status)
+
+    # Implement required methods with minimal stubs
+    @property
+    def dim(self) -> str:
+        return ""
+
+    @property
+    def normal(self) -> str:
+        return ""
+
+    @property
+    def white(self) -> str:
+        return ""
+
+    @property
+    def blue(self) -> str:
+        return ""
+
+    @property
+    def green(self) -> str:
+        return ""
+
+    @property
+    def yellow(self) -> str:
+        return ""
+
+    @property
+    def magenta(self) -> str:
+        return ""
+
+    def move_xy(self, x: int, y: int) -> ParameterizingString:
+        return ParameterizingString("")
+
+    def exit_fullscreen(self) -> str:
+        return ""
+
+    def enter_fullscreen(self) -> str:
+        return ""
+
+    def hide_cursor(self) -> str:
+        return ""
+
+    def normal_cursor(self) -> str:
+        return ""
+
+    def clear(self) -> str:
+        return ""
+
+    def enter_ca_mode(self) -> str:
+        return ""
+
+    def exit_ca_mode(self) -> str:
+        return ""
+
+    def inkey(self, timeout: float = 0) -> Keystroke:
+        return Keystroke("")
+
+    def cbreak(self) -> Any:
+        return self
+
+
 def create_mock_keystroke(name: str = "", value: str = "") -> Mock:
     """Create a mock keystroke for testing.
 
@@ -82,13 +153,18 @@ def test_viewport_state_custom_values() -> None:
 
 
 def test_viewport_resize_expand() -> None:
-    """Test viewport expansion behavior."""
-    state = RendererState()
-    initial_dimensions = state.viewport.dimensions
-    new_state = handle_viewport_resize(state, expand=True)
+    """Test viewport expansion behavior with terminal constraints."""
+    initial_viewport = ViewportState(dimensions=(40, 30))  # Start with smaller viewport
+    state = RendererState().with_viewport(initial_viewport)
+    terminal = MockTerminal()
+    new_state = handle_viewport_resize(state, expand=True, terminal=terminal)
 
-    assert new_state.viewport.dimensions[0] == initial_dimensions[0] + 4
-    assert new_state.viewport.dimensions[1] == initial_dimensions[1] + 4
+    # Terminal width is 100, so max_visible_width is (100 - 4) // 2 = 48
+    # Terminal height is 30, so max_visible_height is 30 - 4 = 26
+    assert new_state.viewport.dimensions[0] == 44  # 40 + 4, within terminal constraints
+    assert (
+        new_state.viewport.dimensions[1] == 26
+    )  # Capped by terminal height constraint
     assert new_state.viewport.offset == state.viewport.offset
 
 
@@ -96,7 +172,8 @@ def test_viewport_resize_shrink() -> None:
     """Test viewport shrinking behavior."""
     initial_viewport = ViewportState(dimensions=(40, 30))
     state = RendererState().with_viewport(initial_viewport)
-    new_state = handle_viewport_resize(state, expand=False)
+    terminal = MockTerminal()
+    new_state = handle_viewport_resize(state, expand=False, terminal=terminal)
 
     assert new_state.viewport.dimensions[0] == 36  # 40 - 4
     assert new_state.viewport.dimensions[1] == 26  # 30 - 4
@@ -107,7 +184,8 @@ def test_viewport_resize_minimum_bounds() -> None:
     """Test viewport minimum size constraints."""
     initial_viewport = ViewportState(dimensions=(22, 12))
     state = RendererState().with_viewport(initial_viewport)
-    new_state = handle_viewport_resize(state, expand=False)
+    terminal = MockTerminal()
+    new_state = handle_viewport_resize(state, expand=False, terminal=terminal)
 
     assert new_state.viewport.dimensions[0] >= 20  # Minimum width
     assert new_state.viewport.dimensions[1] >= 10  # Minimum height
@@ -219,75 +297,6 @@ def test_viewport_bounds_terminal_constraints() -> None:
 
 def test_terminal_position_calculation() -> None:
     """Test terminal position calculation centers grid properly."""
-
-    class MockTerminal(TerminalProtocol):
-        """Mock terminal for testing."""
-
-        @property
-        def width(self) -> int:
-            return 100
-
-        @property
-        def height(self) -> int:
-            return 30
-
-        @property
-        def dim(self) -> str:
-            return ""
-
-        @property
-        def normal(self) -> str:
-            return ""
-
-        @property
-        def white(self) -> str:
-            return ""
-
-        @property
-        def blue(self) -> str:
-            return ""
-
-        @property
-        def green(self) -> str:
-            return ""
-
-        @property
-        def yellow(self) -> str:
-            return ""
-
-        @property
-        def magenta(self) -> str:
-            return ""
-
-        def move_xy(self, x: int, y: int) -> ParameterizingString:
-            return ParameterizingString("")
-
-        def exit_fullscreen(self) -> str:
-            return ""
-
-        def enter_fullscreen(self) -> str:
-            return ""
-
-        def hide_cursor(self) -> str:
-            return ""
-
-        def normal_cursor(self) -> str:
-            return ""
-
-        def clear(self) -> str:
-            return ""
-
-        def enter_ca_mode(self) -> str:
-            return ""
-
-        def exit_ca_mode(self) -> str:
-            return ""
-
-        def inkey(self, timeout: float = 0) -> Keystroke:
-            return Keystroke("")
-
-        def cbreak(self) -> Any:
-            return self
 
     grid = np.zeros((40, 60), dtype=bool)  # 40 rows, 60 columns
     terminal = MockTerminal()

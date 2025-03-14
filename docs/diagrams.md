@@ -2,12 +2,13 @@
 
 This document illustrates the key interactions between components in the Game of Life implementation using sequence diagrams.
 
-## 1. Game Initialization Sequence
+## Game Initialization Sequence
 
 ```mermaid
 sequenceDiagram
     participant Main
     participant Controller
+    participant Commands
     participant Terminal
     participant Grid
     participant State
@@ -20,61 +21,67 @@ sequenceDiagram
     Grid-->>Controller: return initial_grid
     Controller->>State: initialize_game()
     State-->>Controller: return game_state
+    Controller->>Commands: initialize_command_handler()
+    Commands-->>Controller: return command_handler
     Controller->>Metrics: initialize_metrics()
     Metrics-->>Controller: return metrics_state
 ```
 
-## 2. Game Loop and Pattern Management
+## Game Loop and Pattern Management
 
 ```mermaid
 sequenceDiagram
     participant Main
     participant Controller
+    participant Commands
     participant Grid
     participant Patterns
     participant Renderer
     participant State
+    participant Life
     participant Metrics
     
     Main->>Controller: run_game_loop()
     loop Game Loop
-        Controller->>Grid: process_generation()
-        Grid-->>Controller: return new_grid
-        Controller->>State: update_state()
-        State-->>Controller: return new_state
+        Controller->>Commands: handle_input()
+        Commands-->>Controller: return command
         alt pattern_mode
-            Controller->>Patterns: get_centered_position()
-            Patterns-->>Controller: return position
-            Controller->>Patterns: place_pattern()
+            Controller->>Patterns: handle_pattern_command()
             Patterns-->>Controller: return updated_grid
         end
-        Controller->>Renderer: render_grid()
+        alt running
+            Controller->>Life: process_generation()
+            Life->>Grid: apply_rules()
+            Grid-->>Life: return new_grid
+            Life-->>Controller: return new_grid
+        end
+        Controller->>State: update_state()
+        State-->>Controller: return new_state
+        Controller->>Renderer: render_frame()
         Renderer->>Renderer: update_display()
         Controller->>Metrics: update_metrics()
-        Controller->>Controller: handle_user_input()
     end
 ```
 
-## 3. Pattern System Flow
+## Pattern System Flow
 
 ```mermaid
 sequenceDiagram
     participant Controller
+    participant Commands
     participant Patterns
-    participant Storage
     participant Grid
     participant State
     
-    Controller->>Patterns: load_pattern()
-    Patterns->>Storage: read_pattern_file()
-    Storage-->>Patterns: return pattern_data
+    Controller->>Commands: handle_pattern_command()
+    Commands->>Patterns: load_pattern()
     Patterns->>Grid: place_pattern()
     Grid-->>Patterns: return updated_grid
     Patterns->>State: update_state()
     State-->>Controller: return updated_state
 ```
 
-## 4. Renderer Update Sequence
+## Renderer Update Sequence
 
 ```mermaid
 sequenceDiagram
@@ -129,50 +136,66 @@ graph TD
         State[State Transitions]
         Pattern[Pattern Operations]
         Metrics[Performance Metrics]
+        Types[Type Definitions]
     end
 
     %% Impure Shell
     subgraph Impure ["Impure Shell"]
-        Terminal[Terminal I/O]
-        FileIO[File I/O]
-        Signals[Signal Handlers]
-        GameLoop[Game Loop]
+        Main[Main Application]
+        Commands[Command Handler]
+        Controller[Game Controller]
+        Renderer[Terminal Renderer]
     end
 
     %% Connections
-    GameLoop --> Grid
-    GameLoop --> Life
-    GameLoop --> State
-    GameLoop --> Pattern
-    GameLoop --> Metrics
-    Terminal --> GameLoop
-    FileIO --> Pattern
-    Signals --> GameLoop
+    Main --> Controller
+    Controller --> Commands
+    Controller --> Grid
+    Controller --> Life
+    Controller --> State
+    Controller --> Pattern
+    Controller --> Metrics
+    Commands --> Pattern
+    Commands --> Grid
+    Renderer --> Grid
+    
+    %% Type System
+    Types --> Grid
+    Types --> Life
+    Types --> State
+    Types --> Pattern
+    Types --> Metrics
+    Types --> Controller
+    Types --> Commands
+    Types --> Renderer
 
     %% Styling
     classDef pure fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     classDef impure fill:#ffebee,stroke:#b71c1c,stroke-width:2px;
-    class Grid,Life,State,Pattern,Metrics pure;
-    class Terminal,FileIO,Signals,GameLoop impure;
+    class Grid,Life,State,Pattern,Metrics,Types pure;
+    class Main,Commands,Controller,Renderer impure;
 ```
 
 ## Pattern State Flow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Preview
+    [*] --> Normal
+    Normal --> PatternMode: P Key
+    PatternMode --> Preview: Enter
     Preview --> Selected: Number Key
     Selected --> Rotated: R Key
     Rotated --> Selected: R Key
     Selected --> Placed: Space
-    Placed --> [*]
+    Placed --> PatternMode
+    PatternMode --> Normal: Esc/P Key
 
     %% Styling
     classDef state fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
-    class Preview,Selected,Rotated,Placed state;
+    class Normal,PatternMode,Preview,Selected,Rotated,Placed state;
 ```
 
-This diagram shows the pattern placement workflow:
+## Pattern Placement Workflow
 
 1. Enter pattern mode (P key)
 2. Select pattern (number keys)

@@ -20,12 +20,12 @@
 
 | Key         | Action                         |
 |-------------|--------------------------------|
-| 1-9         | Select pattern                 |
-| R           | Rotate pattern                 |
-| Space       | Place pattern                  |
-| Arrow keys  | Move cursor                    |
-| P, Esc      | Exit pattern mode              |
-| Q           | Quit game                      |
+| 1-9         | Select pattern                |
+| R           | Rotate pattern                |
+| Space       | Place pattern                 |
+| Arrow keys  | Move cursor                   |
+| P, Esc      | Exit pattern mode             |
+| Q           | Quit game                     |
 
 ## Constraints
 
@@ -51,7 +51,7 @@
 - Pattern rotation occurs in 90-degree increments
 - Patterns can be placed at grid boundaries
 - Cursor movement is constrained to grid boundaries
-- Pattern selection can be done repetedly.
-- Pattern mode can be exited with 'P' or ESC.
+- Pattern selection can be done repeatedly
+- Pattern mode can be exited with 'P' or ESC
 - Pattern placement is allowed even if pattern extends beyond grid
 - Cursor position is preserved when exiting/entering pattern mode

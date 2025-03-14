@@ -3,7 +3,6 @@ title: Implementation Plan
 author: Development Team
 date: 2024-03-22
 ---
-<!-- markdownlint-disable MD024 -->
 
 ## Overview
 
@@ -17,364 +16,255 @@ title: Component Dependencies
 ---
 graph TD
     A[Grid Management] --> B[State Management]
-    B --> C[Grid Operations]
-    C --> D[Renderer]
-    D --> E[Main Controller]
+    B --> C[Life Rules]
+    C --> D[Command Handler]
+    D --> E[Controller]
+    E --> F[Main Application]
+    G[Types] --> A
+    G --> B
+    G --> C
+    G --> D
+    G --> E
     
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#bbf,stroke:#333,stroke-width:2px
     style C fill:#bfb,stroke:#333,stroke-width:2px
     style D fill:#fbb,stroke:#333,stroke-width:2px
     style E fill:#fff,stroke:#333,stroke-width:2px
+    style F fill:#ffd,stroke:#333,stroke-width:2px
+    style G fill:#dff,stroke:#333,stroke-width:2px
 ```
 
 ## Components
 
-### 1. Grid Management & Cell State
+### Type System
 
-Core grid functionality handling the game's state representation.
+Core type definitions for the entire system.
 
-#### Key Functions
+```python
+# types.py
+Position = tuple[int, int]
+Grid = np.ndarray
+GameState = TypedDict('GameState', {
+    'grid': Grid,
+    'running': bool,
+    'pattern_mode': bool
+})
+```
+
+### Grid Management
+
+Pure grid operations and state representation.
 
 ```python
 # grid.py
-def create_grid(size: int, density: float) -> Grid:
+def create_grid(size: Size, density: float) -> Grid:
     """Creates initial grid with random cell distribution"""
 
-def get_neighbors(grid: Grid, x: int, y: int) -> list[Position]:
+def get_neighbors(grid: Grid, pos: Position) -> list[Position]:
     """Pure function to get valid neighbor positions"""
 
-def count_live_neighbors(grid: Grid, positions: list[Position]) -> int:
+def count_live_neighbors(grid: Grid, pos: Position) -> int:
     """Pure function to count live neighbors"""
 ```
 
-#### BDD Tests
+### Life Rules
+
+Pure implementation of Conway's Game of Life rules.
+
+```python
+# life.py
+def process_generation(grid: Grid) -> Grid:
+    """Pure function to compute next generation"""
+
+def apply_rules(grid: Grid, pos: Position) -> bool:
+    """Pure function implementing Game of Life rules"""
+```
+
+### State Management
+
+Pure state transitions and game state management.
+
+```python
+# state.py
+def update_state(state: GameState, grid: Grid) -> GameState:
+    """Pure function to update game state"""
+
+def toggle_running(state: GameState) -> GameState:
+    """Pure function to toggle simulation state"""
+```
+
+### Pattern System
+
+Pattern management and manipulation.
+
+```python
+# patterns.py
+def load_pattern(name: str) -> Pattern:
+    """Load pattern from definition"""
+
+def place_pattern(grid: Grid, pattern: Pattern, pos: Position) -> Grid:
+    """Pure function to place pattern on grid"""
+
+def rotate_pattern(pattern: Pattern) -> Pattern:
+    """Pure function to rotate pattern"""
+```
+
+### Command Handler
+
+User input processing and command execution.
+
+```python
+# commands.py
+def handle_input(terminal: Terminal) -> Command:
+    """Process user input into commands"""
+
+def handle_pattern_command(cmd: Command, state: GameState) -> GameState:
+    """Handle pattern-related commands"""
+
+def handle_game_command(cmd: Command, state: GameState) -> GameState:
+    """Handle game control commands"""
+```
+
+### Renderer
+
+Terminal-based visualization.
+
+```python
+# renderer.py
+def render_frame(terminal: Terminal, state: GameState) -> None:
+    """Render current game state"""
+
+def render_pattern_preview(terminal: Terminal, pattern: Pattern) -> None:
+    """Render pattern preview in pattern mode"""
+
+def render_status(terminal: Terminal, state: GameState) -> None:
+    """Render status information"""
+```
+
+### Controller
+
+Game orchestration and lifecycle management.
+
+```python
+# controller.py
+def parse_arguments() -> GameConfig:
+    """Parse and validate CLI arguments"""
+
+def initialize_game(config: GameConfig) -> GameState:
+    """Set up initial game state"""
+
+def run_game_loop(state: GameState) -> None:
+    """Main game loop coordination"""
+```
+
+### Main Application
+
+Entry point and application setup.
+
+```python
+# main.py
+def main() -> None:
+    """Application entry point"""
+
+def setup_logging() -> None:
+    """Configure logging system"""
+
+def handle_signals() -> None:
+    """Set up signal handlers"""
+```
+
+## Implementation Order
+
+1. Type System
+    - Core type definitions
+    - Type aliases
+    - Protocol classes
+
+2. Grid Management
+    - Grid operations
+    - Neighbor calculations
+    - Boundary handling
+
+3. Life Rules
+    - Rule implementation
+    - Generation processing
+    - State transitions
+
+4. State Management
+    - Game state updates
+    - Mode transitions
+    - State validation
+
+5. Pattern System
+    - Pattern loading
+    - Pattern manipulation
+    - Pattern placement
+
+6. Command Handler
+    - Input processing
+    - Command execution
+    - Mode-specific handling
+
+7. Renderer
+    - Terminal setup
+    - Frame rendering
+    - Status display
+
+8. Controller
+    - Game initialization
+    - Loop coordination
+    - State management
+
+9. Main Application
+    - Entry point
+    - Configuration
+    - Signal handling
+
+## Testing Strategy
+
+Each component should have corresponding test files following BDD patterns:
 
 ```python
 # test_grid.py
 def test_grid_creation():
     """
-    Given a grid size of 10 and density of 0.3
-    When creating a new grid
-    Then grid should be 10x10
-    And approximately 30% of cells should be alive
+    Given: A grid size and density
+    When: Creating a new grid
+    Then: Grid should have correct dimensions and density
     """
 
-def test_neighbor_counting():
+# test_life.py
+def test_rule_application():
     """
-    Given a grid with known live cells
-    When counting neighbors for a specific position
-    Then should return correct number of live neighbors
-    """
-```
-
-### 2. State Management
-
-Pure functional implementation of state transitions.
-
-#### Key Functions
-
-```python
-# state.py
-def calculate_next_generation(grid: Grid) -> Grid:
-    """Pure function to compute next generation state"""
-
-def update_cell_state(cell: Cell, neighbors: list[Cell]) -> Cell:
-    """Pure function to compute next cell state"""
-
-def apply_rules(alive: bool, live_neighbors: int) -> bool:
-    """Pure function implementing Game of Life rules"""
-```
-
-#### BDD Tests
-
-```python
-# test_state.py
-def test_next_generation():
-    """
-    Given a grid with known state
-    When calculating next generation
-    Then should return correct new state
+    Given: A cell with known neighbors
+    When: Applying life rules
+    Then: Cell should transition to correct state
     """
 
-def test_cell_state_update():
+# test_patterns.py
+def test_pattern_placement():
     """
-    Given a cell with known neighbors
-    When updating state
-    Then should return correct new state
+    Given: A grid and pattern
+    When: Placing pattern at position
+    Then: Grid should contain pattern at correct location
     """
 ```
-
-### 3. Grid Operations
-
-Pure functions for grid manipulation and neighbor calculations.
-
-#### Key Functions
-
-```python
-# grid_ops.py
-def get_cell_neighbors(grid: Grid, pos: Position) -> list[Cell]:
-    """Pure function to get cell neighbors"""
-
-def update_grid(grid: Grid, updates: list[CellUpdate]) -> Grid:
-    """Pure function to create new grid with updates"""
-
-def create_empty_grid(size: Size) -> Grid:
-    """Pure function to create empty grid"""
-```
-
-#### BDD Tests
-
-```python
-# test_grid_ops.py
-def test_neighbor_retrieval():
-    """
-    Given a grid position
-    When getting neighbors
-    Then should return correct cells
-    """
-
-def test_grid_update():
-    """
-    Given a list of cell updates
-    When applying to grid
-    Then should return new grid with updates
-    """
-```
-
-### 4. Renderer
-
-Terminal-based visualization using the Blessed library.
-
-#### Key Functions
-
-```python
-# renderer.py
-def initialize_terminal(blessed_terminal) -> Terminal:
-    """Sets up blessed terminal interface"""
-
-def render_grid(terminal: Terminal, grid: Grid) -> None:
-    """Renders current grid state"""
-
-def handle_user_input(terminal: Terminal) -> UserCommand:
-    """Handles keyboard input"""
-```
-
-#### BDD Tests
-
-```python
-# test_renderer.py
-def test_grid_rendering():
-    """
-    Given a grid with known state
-    When rendering
-    Then should output correct characters
-    """
-
-def test_input_handling():
-    """
-    Given user presses 'q'
-    When handling input
-    Then should return exit command
-    """
-```
-
-### 5. Main Controller
-
-Game orchestration and lifecycle management.
-
-#### Key Functions
-
-```python
-# controller.py
-def parse_arguments() -> GameConfig:
-    """Parses and validates CLI arguments"""
-
-def initialize_game(config: GameConfig) -> GameState:
-    """Sets up initial game state"""
-
-def update_game_state(state: GameState) -> GameState:
-    """Coordinates cell updates and rendering"""
-
-def cleanup_resources(state: GameState) -> None:
-    """Ensures clean shutdown"""
-```
-
-#### BDD Tests
-
-```python
-# test_controller.py
-def test_argument_parsing():
-    """
-    Given valid CLI arguments
-    When parsing
-    Then should return correct config
-    """
-
-def test_game_initialization():
-    """
-    Given valid config
-    When initializing game
-    Then should create correct number of actors
-    """
-```
-
-## Implementation Order
-
-1. Grid Management
-   - Core data structures
-   - State representation
-   - Grid operations
-
-2. State Management
-   - Pure state transitions
-   - Rule implementation
-   - Generation updates
-
-3. Grid Operations
-   - Neighbor calculations
-   - Grid updates
-   - Boundary handling
-
-4. Renderer
-   - Terminal setup
-   - Grid visualization
-   - Input handling
-
-5. Main Controller
-   - Game initialization
-   - Update coordination
-   - Resource management
-
-## Testing Strategy
-
-Each component follows this test-driven development cycle:
-
-1. Write failing tests
-2. Implement minimal code
-3. Refactor with test coverage
-4. Integration testing
-5. Performance testing
-
-> 💡 **Tip:** Start each component by implementing its test suite first.
 
 ## Performance Considerations
 
-- Monitor thread usage with different grid sizes
-- Measure message queue throughput
-- Profile rendering performance
-- Test memory usage patterns
+```python
+# metrics.py
+def update_metrics(metrics: Metrics, frame_time: float) -> Metrics:
+    """Update performance metrics"""
+
+def calculate_statistics(metrics: Metrics) -> Statistics:
+    """Calculate performance statistics"""
+```
 
 ## Error Handling
 
-- Validate all inputs
-- Handle terminal events
-- Manage actor failures
-- Ensure clean shutdown
-
-> 🚨 **Warning:** Always implement proper resource cleanup in tests. 
-
-## Core Components
-
-1. **Grid Management**
-   - Pure functions for grid operations
-   - Immutable grid state
-   - Multiple boundary conditions
-   - Efficient cell state tracking
-
-2. **Pattern System**
-   - Built-in pattern library
-   - Custom pattern loading
-   - Pattern preview and rotation
-   - Centered pattern placement
-   - Pattern metadata handling
-
-3. **Game Controller**
-   - Game loop management
-   - User input handling
-   - State transitions
-   - Configuration management
-
-4. **Renderer**
-   - Terminal-based UI
-   - Cell age visualization
-   - Pattern preview display
-   - Status line updates
-   - Differential rendering
-
-## Implementation Principles
-
-1. **Functional Core**
-   - Pure functions for state transitions
-   - Immutable data structures
-   - No shared mutable state
-   - Type-safe operations
-   - Clear separation between pure and impure code
-
-2. **Side Effects Management**
-   - Terminal I/O isolated in renderer module
-   - File I/O contained in pattern storage
-   - Signal handling in main controller
-   - Game loop manages state updates
-   - Metrics collection for monitoring
-
-3. **Pure Functions**
-   - Grid operations (grid.py)
-   - Life rules (life.py)
-   - State transitions (state.py)
-   - Pattern transformations (patterns.py)
-   - Neighbor calculations (grid.py)
-
-4. **Impure Functions**
-   - Terminal initialization/cleanup (renderer.py)
-   - Pattern file I/O (patterns.py)
-   - Signal handlers (main.py)
-   - Game loop state management (main.py)
-   - Metrics updates (metrics.py)
-
-## Project Structure
-
-```text
-src/gol/
-├── main.py           # Application entry point
-├── controller.py     # Game controller
-├── grid.py          # Grid operations
-├── patterns.py      # Pattern management
-├── renderer.py      # Terminal UI
-└── storage.py       # Pattern storage
-
-tests/
-├── test_controller.py
-├── test_grid.py
-├── test_patterns.py
-└── test_renderer.py
-
-patterns/            # Pattern files
-└── custom/         # User patterns
-```
-
-## Development Workflow
-
-1. **Feature Implementation**
-   - Write tests first
-   - Implement pure functions
-   - Add UI components
-   - Integrate with existing code
-
-2. **Testing**
-   - Unit tests for functions
-   - Integration tests for features
-   - Manual testing for UI
-   - Performance testing
-
-3. **Documentation**
-   - Code documentation
-   - User documentation
-   - Architecture diagrams
-   - Pattern documentation
-
-4. **Maintenance**
-   - Code review
-   - Performance optimization
-   - Bug fixes
-   - Feature updates
+- Use Result types for operations that can fail
+- Validate inputs at system boundaries
+- Log errors with appropriate context
+- Maintain pure error handling in core

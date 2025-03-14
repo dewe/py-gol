@@ -3,8 +3,6 @@ title: Viewport and Grid Sizing Specification
 description: Technical specification for viewport, game, and grid sizing in Game of Life
 ---
 
-# Viewport and Grid Sizing
-
 ## Overview
 
 This document describes how viewport sizing works in relation to game and grid dimensions in the Game of Life implementation. The system uses a layered approach to manage different view contexts while maintaining proper boundaries and constraints.
@@ -73,86 +71,90 @@ sequenceDiagram
 ### Grid Sizing
 
 1. Initial grid dimensions are determined by:
-   - Terminal size
-   - Minimum game requirements
-   - User preferences (if specified)
+    - Terminal size
+    - Minimum game requirements
+    - User preferences (if specified)
 
 2. Grid boundaries are enforced through:
-   - Finite mode: Fixed boundaries
-   - Toroidal mode: Wrapping boundaries
-   - Infinite mode: Expandable boundaries
+    - Finite mode: Fixed boundaries
+    - Toroidal mode: Wrapping boundaries
+    - Infinite mode: Expandable boundaries
 
 3. Expandable Boundaries (Infinite Mode):
 
-   ```mermaid
-   ---
-   title: Grid Expansion in Infinite Mode
-   ---
-   graph TD
-      A[Check Cell Position] --> B{Outside Current Grid?}
-      B -->|No| C[Use Existing Grid]
-      B -->|Yes| D[Calculate New Dimensions]
-      D --> E[Create Expanded Grid]
-      E --> F[Copy Existing State]
-      F --> G[Update Grid Reference]
-   ```
+```mermaid
+---
+title: Grid Expansion in Infinite Mode
+---
+graph TD
+   A[Check Cell Position] --> B{Outside Current Grid?}
+   B -->|No| C[Use Existing Grid]
+   B -->|Yes| D[Calculate New Dimensions]
+   D --> E[Create Expanded Grid]
+   E --> F[Copy Existing State]
+   F --> G[Update Grid Reference]
+```
 
-   The grid automatically expands when:
-   - A pattern is placed beyond current boundaries
-   - Living cells reach the grid edges
-   - Viewport is panned beyond current dimensions
+The grid automatically expands when:
 
-   Expansion behavior:
+- A pattern is placed beyond current boundaries
+- Living cells reach the grid edges
+- Viewport is panned beyond current dimensions
 
-   ```python
-   # When a cell or pattern exceeds current bounds
-   new_width = max(current_width, required_x + EXPANSION_MARGIN)
-   new_height = max(current_height, required_y + EXPANSION_MARGIN)
-   
-   # EXPANSION_MARGIN provides buffer space (default: 20 cells)
-   # This prevents frequent resizing during pattern evolution
-   ```
+Expansion behavior:
 
-   State preservation:
-   - Current grid state is copied to the expanded grid
-   - New cells are initialized as dead
-   - Grid center remains aligned with original center
-   - Coordinate system maintains consistency
+```python
+# When a cell or pattern exceeds current bounds
+new_width = max(current_width, required_x + EXPANSION_MARGIN)
+new_height = max(current_height, required_y + EXPANSION_MARGIN)
 
-   Performance considerations:
-   > 💡 **Tip:** Grid expansion is optimized to minimize memory reallocation by using the expansion margin.
+# EXPANSION_MARGIN provides buffer space (default: 20 cells)
+# This prevents frequent resizing during pattern evolution
+```
 
-   Constraints:
-   > 🚨 **Warning:** Grid expansion is limited by available system memory. Very large patterns may require manual size configuration.
+State preservation:
+
+- Current grid state is copied to the expanded grid
+- New cells are initialized as dead
+- Grid center remains aligned with original center
+- Coordinate system maintains consistency
+
+Performance considerations:
+
+> 💡 **Tip:** Grid expansion is optimized to minimize memory reallocation by using the expansion margin.
+
+Constraints:
+
+> 🚨 **Warning:** Grid expansion is limited by available system memory. Very large patterns may require manual size configuration.
 
 ### Viewport Sizing
 
 1. Default viewport dimensions:
-   - Width: 40 cells
-   - Height: 25 cells
+    - Width: 40 cells
+    - Height: 25 cells
 
 2. Minimum constraints:
-   - Width: 20 cells
-   - Height: 10 cells
+    - Width: 20 cells
+    - Height: 10 cells
 
 3. Resize operations:
-   - Expand: Increase both dimensions by 4
-   - Shrink: Decrease both dimensions by 4
-   - Maintain minimum size constraints
+    - Expand: Increase both dimensions by 4
+    - Shrink: Decrease both dimensions by 4
+    - Maintain minimum size constraints
 
-### Terminal Constraints
+### Terminal Constraints (2)
 
 1. Cell rendering:
-   - Each cell requires 2 characters width
-   - One character height per cell
-   - Status line requires 1 line at bottom
+    - Each cell requires 2 characters width
+    - One character height per cell
+    - Status line requires 1 line at bottom
 
 2. Available space calculation:
 
-   ```python
-   available_width = terminal_width // 2  # Due to cell width
-   available_height = terminal_height - 1  # Reserve status line
-   ```
+```python
+available_width = terminal_width // 2  # Due to cell width
+available_height = terminal_height - 1  # Reserve status line
+```
 
 ## Viewport Operations
 
@@ -198,8 +200,8 @@ viewport = ViewportState(
 
 ## Implementation Notes
 
-> 💡 **Tip:** Always check terminal dimensions before rendering to ensure proper display.
+* 💡 **Tip:** Always check terminal dimensions before rendering to ensure proper display.
 
-> ℹ️ **Note:** The viewport system uses immutable state management to prevent unexpected modifications.
+* ℹ️ **Note:** The viewport system uses immutable state management to prevent unexpected modifications.
 
-> 🚨 **Warning:** Grid boundaries must be respected when panning to prevent undefined behavior. 
+* 🚨 **Warning:** Grid boundaries must be respected when panning to prevent undefined behavior.

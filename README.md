@@ -138,6 +138,7 @@ Run with auto-sized grid, fast updates, and toroidal boundaries:
 ### Speed Control
 
 The simulation speed can be adjusted using Shift+Up/Down keys:
+
 - Maximum speed: 10 generations/second (100ms interval)
 - Minimum speed: 0.5 generations/second (2000ms interval)
 - Speed adjustments are inverse proportional to current speed

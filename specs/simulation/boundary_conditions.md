@@ -27,7 +27,7 @@ simulation and not tied to viewports or pattern management.
 - Maintains original grid center position
 - Preserves pattern evolution as if on infinite plane
 
-## INFINITE Mode Behavior
+## INFINITE Mode Implementation
 
 ### Grid Expansion Rules
 
@@ -81,59 +81,6 @@ The sequence in the game loop MUST be:
 4. Calculate next generation
 5. Update display
 
-### Visual Examples
-
-Below are examples showing grid expansion in INFINITE mode:
-
-```text
-Example 1: Expansion REQUIRED (x = live cell, . = dead cell)
-┌───────┐
-│...x...│ 
-│...x...│
-│...x...│ <- Live cell at boundary
-└───────┘
-
-Example 2: Expansion NOT REQUIRED
-┌───────┐
-│...x...│ 
-│...x...│ <- Live cells not at boundary
-│.......│    No expansion needed
-└───────┘
-```
-
-Pattern at corner - Expansion REQUIRED:
-
-```text
-Before:          After:
-┌─────┐         ┌───────┐
-│..x..│         │..x....│
-│...x.│   ->    │...x...|
-│....x│         │....x..│ <- Expansion required
-└─────┘         │.......│    due to corner cell
-                └───────┘
-```
-
-Viewport behavior during expansion:
-
-```text
-Before:         Next generation:
-Grid:           Grid:
-┌───────┐       ┌───────┐
-│..xxx..│       │...x...│
-│.......│       │...x...│
-│.......│       │.......│
-└───────┘       │.......│
-                └───────┘
-       
-Viewport:       Viewport:
-┌───────┐       ┌───────┐
-│..xxx..│       │...x...│
-│.......│       │...x...│
-│.......│       │.......│
-└───────┘       └───────┘
-Offset(0,0)      Offset(0,1)
-```
-
 ### Implementation Constraints
 
 1. Grid expansion:
@@ -163,8 +110,6 @@ Offset(0,0)      Offset(0,1)
 
 ### Visual Examples
 
-Below are examples showing grid expansion in INFINITE mode:
-
 ```text
 Example 1: Expansion REQUIRED (x = live cell, . = dead cell)
 ┌───────┐
@@ -179,11 +124,8 @@ Example 2: Expansion NOT REQUIRED
 │...x...│ <- Live cells not at boundary
 │.......│    No expansion needed
 └───────┘
-```
 
 Pattern at corner - Expansion REQUIRED:
-
-```text
 Before:          After:
 ┌─────┐         ┌───────┐
 │..x..│         │..x....│
@@ -191,11 +133,8 @@ Before:          After:
 │....x│         │....x..│ <- Expansion required
 └─────┘         │.......│    due to corner cell
                 └───────┘
-```
 
 Viewport behavior during expansion:
-
-```text
 Before:         Next generation:
 Grid:           Grid:
 ┌───────┐       ┌───────┐

@@ -2,152 +2,174 @@
 
 # Module Dependencies
 
-This document shows the dependencies between different modules in the Game of Life implementation.
+## Core Dependencies
 
-## Core Module Dependencies
+- **numpy**: Grid operations and efficient array manipulation
+- **blessed**: Terminal UI and input handling
+- **typing-extensions**: Extended type hints support
+- **attrs**: Immutable data structures
+- **result**: Error handling with Result types
+
+## Development Dependencies
+
+- **pytest**: Testing framework
+- **pytest-cov**: Test coverage reporting
+- **mypy**: Static type checking
+- **ruff**: Fast Python linter
+- **black**: Code formatting
+- **isort**: Import sorting
+
+## Module Dependency Graph
 
 ```mermaid
 graph TD
-    %% Core modules
-    grid[gol.grid]
-    life[gol.life]
-    controller[gol.controller]
-    main[gol.main]
-    renderer[gol.renderer]
-    patterns[gol.patterns]
-    types[gol.types]
-    state[gol.state]
-    metrics[gol.metrics]
-
-    %% Core dependencies
-    types --> blessed[blessed]
-    types --> scipy[scipy]
-    grid --> types
-    life --> grid
-    controller --> grid
-    controller --> life
-    controller --> renderer
-    controller --> state
-    patterns --> grid
-    patterns --> types
-    renderer --> types
-    renderer --> patterns
-    renderer --> blessed
-    renderer --> scipy
-    main --> controller
-    main --> patterns
-    main --> blessed
-    metrics --> types
-    state --> types
-    state --> grid
-
-    %% Styling
-    classDef core fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef external fill:#dfd,stroke:#333,stroke-width:1px;
+    A[main.py] --> B[controller.py]
+    B --> C[commands.py]
+    B --> D[grid.py]
+    B --> E[life.py]
+    B --> F[state.py]
+    B --> G[patterns.py]
+    B --> H[renderer.py]
+    B --> I[metrics.py]
+    C --> D
+    C --> G
+    D --> J[types.py]
+    E --> D
+    F --> D
+    G --> D
+    H --> D
+    I --> D
     
-    class grid,life,controller,main,renderer,patterns,types,state,metrics core;
-    class scipy,blessed external;
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbb,stroke:#333,stroke-width:2px
+    style E fill:#dff,stroke:#333,stroke-width:2px
+    style F fill:#ffd,stroke:#333,stroke-width:2px
+    style G fill:#eff,stroke:#333,stroke-width:2px
+    style H fill:#fee,stroke:#333,stroke-width:2px
+    style I fill:#dfd,stroke:#333,stroke-width:2px
+    style J fill:#fdf,stroke:#333,stroke-width:2px
 ```
 
 ## Module Responsibilities
 
 ### Core Modules
 
-- **gol.types**: Type definitions and aliases
-  - Defines core type system using SciPy arrays and Blessed types
-  - Provides type aliases for grid operations and pattern transformations
-  - Ensures consistent typing across modules
+#### types.py
 
-- **gol.grid**: Core grid operations and boundary conditions
-  - Implements grid operations using SciPy arrays
-  - Handles boundary conditions and neighbor calculations
-  - Provides efficient array-based operations
+- Type definitions
+- Type aliases
+- Protocol classes
 
-- **gol.life**: Game of Life rules implementation
-  - Applies game rules using vectorized operations
-  - Depends on grid operations for state transitions
-  - Optimized for SciPy array operations
+#### grid.py
 
-- **gol.controller**: Game state management
-  - Coordinates between components
-  - Manages game state and configuration
-  - Handles game loop and state transitions
+- Grid creation and manipulation
+- Neighbor calculations
+- Boundary handling
 
-- **gol.renderer**: Terminal display and user input
-  - Implements efficient grid rendering using Blessed
-  - Handles pattern preview and placement
-  - Manages terminal display and user interaction
-  - Uses type-safe pattern transformations
+#### life.py
 
-- **gol.patterns**: Pattern management and manipulation
-  - Manages pattern storage and loading
-  - Implements pattern transformations
-  - Provides pattern placement operations
-  - Uses SciPy arrays for pattern storage
+- Game rules implementation
+- Generation processing
+- State transitions
 
-- **gol.state**: Game state management
-  - Manages game state transitions
-  - Handles state validation
-  - Provides immutable state operations
+#### state.py
 
-- **gol.metrics**: Performance monitoring
-  - Tracks performance metrics
-  - Provides timing information
-  - Monitors resource usage
+- Game state management
+- Mode transitions
+- State validation
 
-- **gol.main**: Application entry point and game loop
-  - Initializes game components
-  - Manages main game loop
-  - Handles configuration and startup
-  - Provides CLI interface using Blessed
+#### patterns.py
 
-## Key Dependencies
+- Pattern loading and storage
+- Pattern manipulation
+- Pattern placement
 
-1. **Type System**
-   - `gol.types` provides SciPy and Blessed type definitions
-   - Ensures type safety across all modules
-   - Defines specialized types for patterns and transformations
+### Shell Modules
 
-2. **Grid Operations**
-   - `gol.grid` implements efficient SciPy array operations
-   - Provides optimized neighbor calculations
-   - Handles boundary conditions using array operations
+#### commands.py
 
-3. **Game Logic**
-   - `gol.life` uses vectorized operations for rule application
-   - Optimized for performance with SciPy arrays
-   - Maintains pure functional approach
+- Input processing
+- Command execution
+- Mode-specific handling
 
-4. **State Management**
-   - `gol.state` provides immutable state operations
-   - `gol.controller` coordinates component interactions
-   - Manages game state transitions
-   - Handles configuration and user input
+#### renderer.py
 
-5. **User Interface**
-   - `gol.renderer` provides efficient terminal display using Blessed
-   - Implements type-safe pattern transformations
-   - Uses optimized SciPy operations for updates
+- Terminal UI
+- Frame rendering
+- Status display
 
-6. **Pattern Management**
-   - `gol.patterns` handles pattern operations
-   - Uses SciPy arrays for pattern storage
-   - Provides type-safe pattern transformations
+#### controller.py
 
-7. **Performance Monitoring**
-   - `gol.metrics` tracks performance metrics
-   - Monitors resource usage
-   - Provides timing information
+- Game initialization
+- Loop coordination
+- State management
 
-## External Dependencies
+#### main.py
 
-- **SciPy**: Core numerical operations
-  - Used for efficient array operations
-  - Provides optimized grid manipulations
-  - Enables vectorized calculations
+- Application entry
+- Configuration
+- Signal handling
 
-- **Blessed**: Terminal handling
-  - Manages terminal display
-  - Handles user input
-  - Provides terminal formatting
+#### metrics.py
+
+- Performance tracking
+- Statistics calculation
+- Metrics storage
+
+## Type Dependencies
+
+```mermaid
+graph TD
+    A[GameState] --> B[Grid]
+    C[Pattern] --> B
+    D[Command] --> A
+    E[Metrics] --> F[Statistics]
+    G[Position] --> B
+    H[Size] --> B
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbb,stroke:#333,stroke-width:2px
+    style E fill:#dff,stroke:#333,stroke-width:2px
+    style F fill:#ffd,stroke:#333,stroke-width:2px
+    style G fill:#eff,stroke:#333,stroke-width:2px
+    style H fill:#fee,stroke:#333,stroke-width:2px
+```
+
+## Testing Dependencies
+
+Each module has a corresponding test file:
+
+- test_grid.py → grid.py
+- test_life.py → life.py
+- test_state.py → state.py
+- test_patterns.py → patterns.py
+- test_commands.py → commands.py
+- test_renderer.py → renderer.py
+- test_controller.py → controller.py
+- test_metrics.py → metrics.py
+
+## Development Tools
+
+### Code Quality
+
+- **mypy**: Static type checking
+- **ruff**: Fast Python linter
+- **black**: Code formatting
+- **isort**: Import sorting
+
+### Testing
+
+- **pytest**: Test framework
+- **pytest-cov**: Coverage reporting
+- **pytest-benchmark**: Performance testing
+
+### Documentation
+
+- **mermaid**: Architecture diagrams
+- **markdown**: Documentation format
+- **docstrings**: API documentation
    

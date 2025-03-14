@@ -24,6 +24,7 @@ from .state import RendererState, ViewportState
 from .types import (
     CommandType,
     Grid,
+    GridPosition,
     RenderGrid,
     ScreenPosition,
     TerminalPosition,
@@ -618,7 +619,7 @@ def calculate_pattern_cells(
     grid_width: int,
     grid_height: int,
     pattern_name: Optional[str],
-    cursor_pos: tuple[int, int],
+    cursor_pos: GridPosition,
     rotation: PatternTransform,
     boundary_condition: BoundaryCondition = BoundaryCondition.FINITE,
 ) -> set[tuple[int, int]]:

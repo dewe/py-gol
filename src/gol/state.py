@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-from gol.types import GameDimensions, TerminalPosition, ViewportOffset
+from gol.types import TerminalPosition, ViewportDimensions, ViewportOffset
 
 
 @dataclasses.dataclass(frozen=True)
@@ -21,7 +21,7 @@ class ViewportState:
     All fields are immutable to ensure thread safety and predictable state updates.
     """
 
-    dimensions: GameDimensions  # Use game dimensions for viewport
+    dimensions: ViewportDimensions  # Use viewport dimensions for viewport
     offset_x: int = 0  # Viewport offset from grid origin
     offset_y: int = 0  # Viewport offset from grid origin
 
@@ -55,7 +55,7 @@ class ViewportState:
         )
 
     @classmethod
-    def create(cls, dimensions: tuple[int, int]) -> "ViewportState":
+    def create(cls, dimensions: ViewportDimensions) -> "ViewportState":
         """Create a new viewport state with specified dimensions."""
         return cls(dimensions=dimensions)
 
@@ -86,7 +86,7 @@ class RendererState:
     @classmethod
     def create(
         cls,
-        dimensions: tuple[int, int] = (50, 30),
+        dimensions: ViewportDimensions = (50, 30),
         pattern_mode: bool = False,
         cursor_x: int = 0,
         cursor_y: int = 0,

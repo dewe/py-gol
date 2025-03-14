@@ -624,7 +624,7 @@ def calculate_pattern_cells(
     cursor_pos: GridPosition,
     rotation: PatternTransform,
     boundary_condition: BoundaryCondition = BoundaryCondition.FINITE,
-) -> set[tuple[int, int]]:
+) -> set[GridPosition]:
     """Pure function to calculate pattern preview cell positions.
 
     Args:

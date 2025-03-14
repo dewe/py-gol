@@ -23,7 +23,9 @@ from .patterns import (
 from .state import RendererState, ViewportState
 from .types import (
     CommandType,
+    GameDimensions,
     Grid,
+    GridDimensions,
     GridPosition,
     RenderGrid,
     ScreenPosition,
@@ -671,8 +673,8 @@ class RenderInitialization:
     """
 
     terminal_pos: TerminalPosition
-    grid_dimensions: tuple[int, int]
-    terminal_dimensions: tuple[int, int]
+    grid_dimensions: GridDimensions
+    terminal_dimensions: GameDimensions
 
 
 def initialize_render_state(

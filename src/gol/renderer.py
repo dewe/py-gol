@@ -737,8 +737,8 @@ def calculate_cell_display(
     x: int,
     y: int,
     current_grid: RenderGrid,
-    pattern_cells: set[tuple[int, int]],
-    cursor_pos: tuple[int, int],
+    pattern_cells: set[GridPosition],  # Set of (x,y) coordinates for pattern preview
+    cursor_pos: GridPosition,  # (x, y) coordinates of cursor in grid space
     pattern_mode: bool,
     config: RendererConfig,
     terminal: TerminalProtocol,
@@ -772,7 +772,7 @@ def calculate_cell_display(
 
 def render_cell(
     terminal: TerminalProtocol,
-    screen_pos: tuple[int, int],
+    screen_pos: ScreenPosition,  # Terminal coordinates (x, y)
     cell_char: str,
     color: str,
     config: RendererConfig,

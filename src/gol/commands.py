@@ -237,16 +237,32 @@ def handle_cycle_boundary(
         BoundaryCondition.INFINITE: BoundaryCondition.FINITE,
     }[current]
 
-    new_grid_config = config.grid.with_boundary(new_boundary)
+    # When switching from INFINITE to FINITE/TOROIDAL, resize grid to match viewport
+    if current == BoundaryCondition.INFINITE and new_boundary in (
+        BoundaryCondition.FINITE,
+        BoundaryCondition.TOROIDAL,
+    ):
+        new_grid, new_grid_config = resize_game(
+            grid,
+            render_state.viewport.width,
+            render_state.viewport.height,
+            config.grid,
+        )
+        # Update boundary condition after resizing
+        new_grid_config = new_grid_config.with_boundary(new_boundary)
+    else:
+        new_grid = grid
+        new_grid_config = config.grid.with_boundary(new_boundary)
+
     new_renderer_config = dataclasses.replace(
         config.renderer, boundary_condition=new_boundary
     )
     new_config = ControllerConfig(
-        dimensions=config.dimensions,
+        dimensions=(new_grid_config.width, new_grid_config.height),
         grid=new_grid_config,
         renderer=new_renderer_config,
     )
-    return grid, new_config, render_state, False
+    return new_grid, new_config, render_state, False
 
 
 def handle_viewport_resize_command(

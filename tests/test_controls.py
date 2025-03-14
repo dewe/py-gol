@@ -9,7 +9,7 @@ import pytest
 from blessed.formatters import ParameterizingString
 from blessed.keyboard import Keystroke
 
-from gol.commands import handle_viewport_resize_command
+from gol.commands import handle_cycle_boundary, handle_viewport_resize_command
 from gol.controller import ControllerConfig
 from gol.grid import BoundaryCondition
 from gol.patterns import Pattern, PatternCategory, PatternMetadata
@@ -632,3 +632,43 @@ class TestPatternModeControls:
             assert state.viewport.height <= max_visible_height
             assert grid.shape[1] <= max_visible_width  # width
             assert grid.shape[0] <= max_visible_height  # height
+
+    def test_grid_resize_on_mode_switch(self) -> None:
+        """Test grid resizing when switching from INFINITE to FINITE/TOROIDAL mode.
+
+        Given: A grid in INFINITE mode that has expanded beyond viewport size
+        When: Switching to FINITE or TOROIDAL mode
+        Then: Grid should resize to match viewport dimensions
+        """
+        # Start with INFINITE mode and a grid larger than viewport
+        grid: Grid = cast(
+            Grid, np.zeros((40, 50), dtype=bool)
+        )  # Larger than terminal size
+        config = ControllerConfig.create(
+            width=50, height=40, boundary=BoundaryCondition.INFINITE
+        )
+        state = RendererState.create(dimensions=(30, 20))  # Smaller viewport
+
+        # Switch to FINITE mode
+        grid, config, state, _ = handle_cycle_boundary(grid, config, state)
+
+        # Verify grid resized to match viewport
+        assert config.grid.boundary == BoundaryCondition.FINITE
+        assert grid.shape[1] == state.viewport.width  # width
+        assert grid.shape[0] == state.viewport.height  # height
+
+        # Switch to TOROIDAL mode
+        grid, config, state, _ = handle_cycle_boundary(grid, config, state)
+
+        # Verify grid maintains viewport size
+        assert config.grid.boundary == BoundaryCondition.TOROIDAL
+        assert grid.shape[1] == state.viewport.width  # width
+        assert grid.shape[0] == state.viewport.height  # height
+
+        # Switch back to INFINITE mode
+        grid, config, state, _ = handle_cycle_boundary(grid, config, state)
+
+        # Verify grid maintains size when going to INFINITE
+        assert config.grid.boundary == BoundaryCondition.INFINITE
+        assert grid.shape[1] == state.viewport.width  # width
+        assert grid.shape[0] == state.viewport.height  # height

@@ -17,6 +17,7 @@ from .types import (
     GridSlice,
     GridView,
     IntArray,
+    ViewportOffset,
 )
 
 
@@ -254,7 +255,7 @@ def expand_grid(
     expand_right: bool = False,
     expand_down: bool = False,
     expand_left: bool = False,
-) -> tuple[Grid, tuple[int, int]]:
+) -> tuple[Grid, ViewportOffset]:
     """Expand grid in specified directions by one cell.
 
     Args:

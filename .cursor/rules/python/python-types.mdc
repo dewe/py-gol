@@ -1,22 +1,20 @@
 ---
 description: ENFORCE domain type usage WHEN writing type annotations TO improve code clarity and maintainability
-globs: "**/*.{py,pyi}"
+globs: *.py,*.pyi
 alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
-
 # Domain Types Over Native Types
 
 ## Context
-
-- When writing or modifying type annotations
 - When defining function signatures
 - When creating new variables
 - When refactoring existing code
+- When writing or modifying type annotations
 
 ## Requirements
-
+- Use type hints
 - Use domain-specific type aliases over native types
+- Re-use existing domain concepts when applicable
 - Create new type aliases for domain concepts when needed
 - Group related type aliases in a types module
 - Document type aliases with clear descriptions
@@ -24,8 +22,7 @@ alwaysApply: false
 
 ## Examples
 
-<example>
-
+✅ Correct:
 ```python
 # Good: Using domain types
 from .types import ViewportDimensions, ViewportOffset
@@ -39,10 +36,7 @@ def resize_viewport(
     return ViewportState(width, height, offset_x, offset_y)
 ```
 
-</example>
-
-<example type="invalid">
-
+❌ Incorrect:
 ```python
 # Bad: Using native types directly
 def resize_viewport(
@@ -54,20 +48,7 @@ def resize_viewport(
     return ViewportState(width, height, offset_x, offset_y)
 ```
 
-</example>
-
-## Critical Patterns
-
-1. 🏷️ Create type aliases for domain concepts
-2. 📦 Group related types in a types module
-3. 📝 Document type meanings and constraints
-4. 🔄 Use consistent naming patterns
-5. 🎯 Prefer domain types over native types
-
-<critical>
-
+## CRITICAL
 - NEVER use native types when domain types exist
 - ALWAYS create type aliases for domain concepts
 - ALWAYS document type aliases with clear descriptions
-
-</critical>

@@ -1,0 +1,76 @@
+---
+description: Use ALWAYS when asked to CREATE A RULE or UPDATE A RULE or taught a lesson from the user that should be retained as a new rule for Cursor
+globs: 
+alwaysApply: false
+---
+
+# Rules for Cursor rules
+
+# Context
+This rule ensures that all new MDC (Model-Driven Code) rules are created in the `.cursor/rules` directory, maintaining a consistent and organized structure for rule management.
+
+## Requirements
+When creating new MDC rules:
+1. All new MDC rules MUST be created in the `.cursor/rules` directory
+2. Each rule MUST be in a separate file
+3. Rule files MUST use the `.mdc` extension
+4. Rule files MUST follow the naming convention: `[rule-name].mdc`
+5. Rule files MUST contain proper markdown formatting
+
+## Implementation
+The Cursor IDE will enforce this rule by:
+- Automatically creating new MDC rules in the `.cursor/rules` directory
+- Preventing creation of MDC rules outside this directory
+- Maintaining separation of rules into individual files
+- Ensuring proper file extensions and naming conventions
+
+## Benefits
+- Improved organization and maintainability
+- Easier rule discovery and management
+- Consistent rule structure across the project
+- Better version control and tracking of rule changes
+
+## Examples
+
+✅ Correct:
+```
+.cursor/rules/
+  ├── mdc-rules-location.mdc
+  ├── another-rule.mdc
+  └── third-rule.mdc
+```
+
+❌ Incorrect:
+```
+.cursor/
+  ├── rules/
+  │   └── mdc-rules-location.mdc
+  └── other-rules/
+      └── another-rule.mdc
+```
+
+## Content
+- Keep rules as short as possbile
+- Use Mermaid syntax if it will be shorter or clearer than describing a complex rule
+- Use Emojis where appropriate to convey meaning that will improve rule understanding by the AI Agent
+- Keep examples as short as possible to clearly convey the positive or negative example
+
+## AI Optimization Tips
+1. Use precise, deterministic ACTION TRIGGER OUTCOME format in descriptions
+2. Provide concise positive and negative example of rule application in practice
+3. Optimize for AI context window efficiency
+4. Remove any non-essential or redundant information
+5. Use standard glob patterns without quotes, comma-separated (e.g., *.js, src/**/*.ts)
+
+## AI Context Efficiency
+1. Keep frontmatter description under 120 characters (or less) while maintaining clear intent for rule selection by AI Agent
+2. Limit examples to essential patterns only
+3. Use hierarchical structure for quick parsing
+4. Remove redundant information across sections
+5. Maintain high information density with minimal tokens
+6. Focus on machine-actionable instructions over human explanations
+
+## CRITICAL
+- NEVER include verbose explanations or redundant context that increases AI token overhead
+- Keep file as short and to the point as possible BUT NEVER at the expense of sacrificing rule impact and usefulness for the AI Agent.
+- The frontmatter can ONLY have the fields: description, globs, and alwaysApply

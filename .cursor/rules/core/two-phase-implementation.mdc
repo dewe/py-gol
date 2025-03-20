@@ -1,9 +1,8 @@
 ---
-description: ENFORCE two-phase implementation workflow WHEN implementing features TO maintain code quality and alignment
-globs: src/**/*
+description: APPLY two-phase implementation workflow WHEN implementing features TO maintain code quality and alignment
+globs: 
 alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Two-Phase Implementation Workflow
 
@@ -16,14 +15,14 @@ alwaysApply: false
 
 ## Requirements
 
-### Phase 1: Planning 🎯
+### Phase 1: Planning
 
 1. Receive and analyze user requirement
 2. Request clarification if needed
 3. Propose implementation plan with clear steps
 4. Wait for user approval before proceeding
 
-### Phase 2: Implementation ⚙️
+### Phase 2: Implementation
 
 1. Start with test implementation
 2. Present tests for user review
@@ -34,8 +33,7 @@ alwaysApply: false
 
 ## Examples
 
-<example>
-# Good: Following two-phase workflow
+✅ Correct: Following two-phase workflow
 
 Phase 1:
 
@@ -63,10 +61,7 @@ def handle_viewport_pan():
 # AI: Runs tests and fixes lint
 ```
 
-</example>
-
-<example type="invalid">
-# Bad: Skipping phases or steps
+❌ Incorrect: Skipping phases or steps
 
 ```python
 # User: Add viewport boundary checks
@@ -77,13 +72,9 @@ def handle_viewport_pan():
 # AI: Adds tests after implementation
 ```
 
-</example>
-
-<critical>
+## CRITICAL
 
 - NEVER skip the planning phase
 - NEVER implement code before tests
 - ALWAYS wait for user approval between phases
 - ALWAYS run tests after implementation
-
-</critical>

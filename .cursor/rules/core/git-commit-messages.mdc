@@ -1,20 +1,16 @@
 ---
 description: ENFORCE commit message standards WHEN creating commits TO maintain clear and focused git history
-globs: .git/COMMIT_EDITMSG
+globs: 
 alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Commit Message Standards
 
 ## Context
-
 - When generating commit messages
 - When proposing changes to be committed
-- When reviewing commit history
 
 ## Requirements
-
 - Use conventional commits format: `type(scope): description`
 - Focus on WHY the change was made, not just WHAT changed
 - Keep messages concise but meaningful
@@ -24,8 +20,7 @@ alwaysApply: false
 
 ## Examples
 
-<example>
-
+✅ Correct:
 ```text
 refactor(types): improve type safety with domain-specific arrays
 
@@ -34,14 +29,11 @@ and makes array implementations easier to change across the codebase.
 ```
 
 Good because:
-
 - Explains WHY (improve type safety) not just what
 - Concise but meaningful
 - Shows impact of the change
-</example>
 
-<example type="invalid">
-
+❌ Incorrect:
 ```text
 refactor(types): use domain-specific array types
 
@@ -51,17 +43,11 @@ refactor(types): use domain-specific array types
 ```
 
 Bad because:
-
 - Lists WHAT changed without explaining WHY
 - Reads like a changelog
 - No indication of benefits or motivation
 
-</example>
-
-<critical>
-
+## CRITICAL
 - NEVER just list the changes made
 - ALWAYS explain the motivation/benefit
 - Keep subject line clear and concise
-
-</critical> 

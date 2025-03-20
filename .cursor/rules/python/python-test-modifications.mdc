@@ -3,7 +3,6 @@ description: ENFORCE test modification constraints WHEN updating test files TO p
 globs: tests/**/*.py
 alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Test Modification Constraints
 
@@ -30,25 +29,22 @@ alwaysApply: false
 
 ## Examples
 
-<example>
-# Good: Updates test data structure while preserving logic
+
+✅ Correct: Updates test data structure while preserving logic
 
 ```python
 # Before
-grid = Grid([[True, False], [False, True]])
-assert grid[0][0] is True
-assert grid[1][1] is True
+grid = np.array([[True, False], [False, True]], dtype=np.bool_)
+assert grid[0, 0] is True 
+assert grid[1, 1] is True
 
 # After
-grid = np.array([[True, False], [False, True]], dtype=np.bool_)
-assert grid[0, 0] is True  # Same logical check, different syntax
-assert grid[1, 1] is True  # Same logical check, different syntax
+grid = Grid([[True, False], [False, True]])
+assert grid[0][0] is True  # Same logical check, different syntax
+assert grid[1][1] is True  # Same logical check, different syntax
 ```
 
-</example>
-
-<example type="invalid">
-# Bad: Changes test expectations without consent
+❌ Incorrect: Changes test expectations without consent
 
 ```python
 # Before
@@ -58,24 +54,12 @@ def test_cell_survival():
 
 # After
 def test_cell_survival():
-    """Test that cell with 3 neighbors survives."""  # Changed logic!
+    """Test that cell with 3 neighbors survives."""  # Changed logic! Not ok.
     assert next_gen(cell, 3) is True
 ```
 
-</example>
-
-## Critical Patterns
-
-1. 🔒 Preserve test logic and expectations
-2. ✨ Update syntax and structure only
-3. 📝 Document all changes
-4. ✅ Verify tests pass
-5. 🤝 Get explicit consent for logic changes
-
-<critical>
+## CRITICAL
 
 - NEVER modify test assertions without consent
 - NEVER change test expectations without consent
 - NEVER remove test cases without consent
-
-</critical>

@@ -1,21 +1,18 @@
 ---
 description: ENFORCE comment standards WHEN writing or modifying code TO maintain clear and meaningful documentation
-globs: src/**/*.{py,js,ts,go}
-alwaysApply: true
+globs: *.py
+alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Code Comment Standards
 
 ## Context
-
 - When writing new code
 - When reviewing existing code
 - When refactoring or modifying code
 - When documenting functions, classes, or modules
 
 ## Requirements
-
 - Keep all docstrings that provide API documentation
 - Keep comments that explain:
   - Complex algorithms
@@ -34,7 +31,7 @@ alwaysApply: true
 
 ## Examples
 
-<example>
+✅ Correct:
 
 ```python
 # Good: Explains complex algorithm
@@ -44,9 +41,7 @@ def calculate_neighbors(grid: Grid, pos: Position) -> int:
     return np.sum(grid[pos.y-1:pos.y+2, pos.x-1:pos.x+2]) - grid[pos.y, pos.x]
 ```
 
-</example>
-
-<example type="invalid">
+❌ Incorrect:
 
 ```python
 # Bad: Restates the obvious
@@ -61,12 +56,7 @@ class User:
         self.age = 0   # The user's age
 ```
 
-</example>
-
-<critical>
-
+## CRITICAL
 - NEVER keep comments that only restate the code
 - ALWAYS explain why, not what, when commenting
 - ALWAYS keep docstrings for public APIs
-
-</critical>

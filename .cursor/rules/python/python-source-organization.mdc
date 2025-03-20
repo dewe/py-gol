@@ -1,20 +1,17 @@
 ---
 description: ENFORCE source file organization WHEN creating or moving Python files TO maintain consistent project structure
-globs: **/*.py
-alwaysApply: true
+globs: 
+alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Source Directory Organization
 
 ## Context
-
 - When creating new source files
 - When moving existing source files
 - When organizing project structure
 
 ## Requirements
-
 - Place all source code under /src directory
 - Use domain-based subdirectories under /src
 - Keep tests outside src in /tests directory
@@ -22,7 +19,7 @@ alwaysApply: true
 
 ## Examples
 
-<example>
+✅ Correct:
 ```
 project/
 ├── src/
@@ -35,9 +32,8 @@ project/
     ├── __init__.py
     └── test_actor.py
 ```
-</example>
 
-<example type="invalid">
+❌ Incorrect:
 ```
 project/
 ├── actor.py  # Wrong: source in root
@@ -47,4 +43,6 @@ project/
 └── tests/
     └── test_actor.py
 ```
-</example>
+
+CRITICAL:
+- Do not create or move source files outside of src/ or tests/

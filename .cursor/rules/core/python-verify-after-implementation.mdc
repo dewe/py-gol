@@ -1,9 +1,8 @@
 ---
-description: ENFORCE test verification WHEN implementing features TO maintain code reliability
-globs: src/**/*
-alwaysApply: true
+description: 
+globs: *.py
+alwaysApply: false
 ---
-<!-- markdownlint-disable MD033 -->
 
 # Test-After-Implementation Workflow
 
@@ -22,14 +21,12 @@ alwaysApply: true
   1. Review error messages
   2. Fix failing tests
   3. Run tests again
-- Document any test failures in commit messages
-- Add new tests for new functionality
-- Update existing tests for modified functionality
+- Commit changes when all tests are green
 
 ## Examples
 
-<example>
-# Good: Run tests after implementation
+✅ Correct: Run tests after implementation
+
 1. Implement feature
 2. Run tests: `make test`
 3. Fix any failures
@@ -41,10 +38,8 @@ Running tests...
 26 passed in 0.05s
 ```
 
-</example>
+❌ Incorrect: Multiple changes without testing
 
-<example type="invalid">
-# Bad: Multiple changes without testing
 1. Implement feature A
 2. Implement feature B
 3. Run tests at the end
@@ -56,18 +51,8 @@ Running tests...
 15 failed, 11 passed in 0.05s
 ```
 
-</example>
+## CRITICAL
 
-## Critical Patterns
-
-1. 🧪 Test after each logical change
-2. 🔍 Review all test output
-3. ✅ Ensure all tests pass before commit
-4. 📝 Document test-driven changes
-5. 🔄 Repeat until all tests pass
-
-<critical>
 - NEVER skip running tests after implementation
 - NEVER commit code with failing tests
 - ALWAYS add tests for new functionality
-</critical>

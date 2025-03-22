@@ -25,7 +25,7 @@ alwaysApply: false
 git commit -m "feat: <commit description>"
 ```
 
-✅ Correct:
+✅ Correct: One `-m` for each line
 
 ```text
 git commit -m "feat: <commit description>" \

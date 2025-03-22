@@ -1,0 +1,40 @@
+---
+description: When user asks to commit the changes
+globs: 
+alwaysApply: false
+---
+
+# Commit Message Standards
+
+## Context
+- When committing changes
+- 
+
+## Requirements
+- If changes are not known, use `git status` and `git diff` to understand the changes.
+- Split commits in logical chunks.
+- Use git commit message rule for crafting the commit message.
+- Do not include newlines `\n` in the git commit command.
+
+## Examples
+
+✅ Correct:
+```text
+git commit -m "feat: <commit description>"
+```
+
+✅ Correct:
+```text
+git commit -m "feat: <commit description>" \
+  -m "<commit body 1>" \
+  -m "<commit body 2>"
+```
+
+❌ Incorrect: command contains newline characters
+```text
+git commit -m "feat: <another message>\n\n<commit body>
+```
+
+## CRITICAL
+- NEVER use newline characters when applying commands
+- ALWAYS use multiple `-m` when submitting multiline commit messages

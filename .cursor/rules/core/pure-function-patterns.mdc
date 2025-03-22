@@ -51,25 +51,23 @@ When to apply:
 
 ```python
 from dataclasses import replace
-from typing import TypeVar, Sequence
 
-T = TypeVar('T')
-
-def filter_valid_items(items: Sequence[T], predicate: Callable[[T], bool]) -> tuple[T, ...]:
+def filter_valid_items(items, predicate):
     """Pure filter returning new immutable sequence."""
     return tuple(item for item in items if predicate(item))
 
-def update_entity(entity: Entity, **fields) -> Entity:
+def update_entity(entity, **fields):
     """Pure update returning new entity instance."""
     return replace(entity, **fields)
 
-def calculate_statistics(values: Sequence[float]) -> Statistics:
+def calculate_statistics(values):
     """Pure computation returning statistics."""
-    return Statistics(
-        mean=sum(values) / len(values),
-        median=sorted(values)[len(values) // 2],
-        count=len(values)
-    )
+    sorted_values = sorted(values)
+    return {
+        'mean': sum(values) / len(values),
+        'median': sorted_values[len(values) // 2],
+        'count': len(values)
+    }
 ```
 
 ❌ Anti-Patterns:

@@ -4,12 +4,14 @@ globs:
 alwaysApply: false
 ---
 
-# Rules for Cursor rules
+# Rules for managing Cursor rules
 
-# Context
+## Context
+
 This rule ensures that all new MDC (Model-Driven Code) rules are created in the `.cursor/rules` directory, maintaining a consistent and organized structure for rule management.
 
 ## Requirements
+
 When creating new MDC rules:
 1. All new MDC rules MUST be created in the `.cursor/rules` directory
 2. Each rule MUST be in a separate file
@@ -18,6 +20,7 @@ When creating new MDC rules:
 5. Rule files MUST contain proper markdown formatting
 
 ## Implementation
+
 The Cursor IDE will enforce this rule by:
 - Automatically creating new MDC rules in the `.cursor/rules` directory
 - Preventing creation of MDC rules outside this directory
@@ -25,6 +28,7 @@ The Cursor IDE will enforce this rule by:
 - Ensuring proper file extensions and naming conventions
 
 ## Benefits
+
 - Improved organization and maintainability
 - Easier rule discovery and management
 - Consistent rule structure across the project
@@ -33,6 +37,7 @@ The Cursor IDE will enforce this rule by:
 ## Examples
 
 ✅ Correct:
+
 ```
 .cursor/rules/
   ├── mdc-rules-location.mdc
@@ -41,6 +46,7 @@ The Cursor IDE will enforce this rule by:
 ```
 
 ❌ Incorrect:
+
 ```
 .cursor/
   ├── rules/
@@ -50,12 +56,14 @@ The Cursor IDE will enforce this rule by:
 ```
 
 ## Content
+
 - Keep rules as short as possbile
 - Use Mermaid syntax if it will be shorter or clearer than describing a complex rule
 - Use Emojis where appropriate to convey meaning that will improve rule understanding by the AI Agent
 - Keep examples as short as possible to clearly convey the positive or negative example
 
 ## AI Optimization Tips
+
 1. Use precise, deterministic ACTION TRIGGER OUTCOME format in descriptions
 2. Provide concise positive and negative example of rule application in practice
 3. Optimize for AI context window efficiency
@@ -63,6 +71,7 @@ The Cursor IDE will enforce this rule by:
 5. Use standard glob patterns without quotes, comma-separated (e.g., *.js, src/**/*.ts)
 
 ## AI Context Efficiency
+
 1. Keep frontmatter description under 120 characters (or less) while maintaining clear intent for rule selection by AI Agent
 2. Limit examples to essential patterns only
 3. Use hierarchical structure for quick parsing
@@ -71,6 +80,7 @@ The Cursor IDE will enforce this rule by:
 6. Focus on machine-actionable instructions over human explanations
 
 ## CRITICAL
+
 - NEVER include verbose explanations or redundant context that increases AI token overhead
 - Keep file as short and to the point as possible BUT NEVER at the expense of sacrificing rule impact and usefulness for the AI Agent.
 - The frontmatter can ONLY have the fields: description, globs, and alwaysApply

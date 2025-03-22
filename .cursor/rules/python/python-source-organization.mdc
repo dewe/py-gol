@@ -7,11 +7,13 @@ alwaysApply: false
 # Source Directory Organization
 
 ## Context
+
 - When creating new source files
 - When moving existing source files
 - When organizing project structure
 
 ## Requirements
+
 - Place all source code under /src directory
 - Use domain-based subdirectories under /src
 - Keep tests outside src in /tests directory
@@ -20,7 +22,8 @@ alwaysApply: false
 ## Examples
 
 ✅ Correct:
-```
+
+```text
 project/
 ├── src/
 │   └── gol/
@@ -34,7 +37,8 @@ project/
 ```
 
 ❌ Incorrect:
-```
+
+```text
 project/
 ├── actor.py  # Wrong: source in root
 ├── src/
@@ -44,5 +48,6 @@ project/
     └── test_actor.py
 ```
 
-CRITICAL:
+## CRITICAL
+
 - Do not create or move source files outside of src/ or tests/

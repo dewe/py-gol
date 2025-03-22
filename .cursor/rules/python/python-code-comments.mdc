@@ -7,12 +7,14 @@ alwaysApply: false
 # Code Comment Standards
 
 ## Context
+
 - When writing new code
 - When reviewing existing code
 - When refactoring or modifying code
 - When documenting functions, classes, or modules
 
 ## Requirements
+
 - Keep all docstrings that provide API documentation
 - Keep comments that explain:
   - Complex algorithms
@@ -57,6 +59,7 @@ class User:
 ```
 
 ## CRITICAL
+
 - NEVER keep comments that only restate the code
 - ALWAYS explain why, not what, when commenting
 - ALWAYS keep docstrings for public APIs

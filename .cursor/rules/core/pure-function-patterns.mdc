@@ -119,5 +119,4 @@ Different languages provide different tools for pure functions:
 - Dynamic languages (JavaScript, Python, Ruby):
   - Use conventions and discipline
   - Freeze/seal objects when possible
-  - Use immutable data structure libraries 
-  
+  - Use immutable data structure libraries

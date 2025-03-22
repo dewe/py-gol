@@ -1,56 +1,101 @@
 ---
-description: ENFORCE pure function patterns WHEN implementing concurrent systems TO ensure thread safety and testability
+description: 
 globs: *.py
 alwaysApply: false
 ---
 # Pure Function Implementation Patterns
 
+ENFORCE pure function patterns WHEN implementing Python code TO ensure predictability, testability and thread safety
+
 ## Context
-- When implementing state transitions
-- When handling concurrent operations
-- When processing messages between actors
+
+When to apply:
+- Implementing core business logic
+- Processing data transformations
+- Handling state transitions
+- Managing concurrent operations
 
 ## Requirements
-- Functions should have no side effects
+
+1. Function Signature
+- Type all parameters and return values
+- Use domain types over primitives
+- Make dependencies explicit as parameters
+
+2. State Management
+- Never modify input parameters
 - Return new state instead of modifying existing
-- Use immutable data structures when possible
-- Clearly separate pure and impure functions
-- Document function purity in docstrings
-- Keep pure functions small and focused
+- Use immutable data structures (tuple, frozenset)
+- Avoid global state access
 
-## Examples
+3. Side Effects
+- No I/O operations (file, network, database)
+- No logging or print statements
+- No time-dependent operations
+- No random number generation without seeding
 
-✅ Correct:
+4. Function Organization
+- Keep functions small (< 20 lines)
+- Single responsibility
+- Compose complex operations from pure functions
+- Separate pure and impure functions into different modules
 
-```python
-def calculate_next_state(current: bool, live_neighbors: int) -> bool:
-    """Pure function implementing Game of Life rules."""
-    if current:
-        return 2 <= live_neighbors <= 3
-    return live_neighbors == 3
+## Implementation Patterns
 
-def get_neighbors(grid: Grid, pos: Position) -> list[Position]:
-    """Pure function to get valid neighbor positions."""
-    x, y = pos
-    size = len(grid)
-    return [
-        Position((x + dx, y + dy))
-        for dx, dy in [(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)]
-        if (dx, dy) != (0, 0) and 0 <= x + dx < size and 0 <= y + dy < size
-    ]
-```
-
-❌ Incorrect:
+✅ Pure Function Patterns:
 
 ```python
-def update_cell_state(cell):  # Impure function
-    cell.state = not cell.state  # Modifies input
-    cell.notify_neighbors()  # Side effect
-    return cell
+from dataclasses import replace
+from typing import TypeVar, Sequence
 
-def process_queue(queue):  # Mixed concerns
-    while not queue.empty():
-        msg = queue.get()  # Side effect
-        print(msg)  # Side effect
-        update_state(msg)  # Side effect
+T = TypeVar('T')
+
+def filter_valid_items(items: Sequence[T], predicate: Callable[[T], bool]) -> tuple[T, ...]:
+    """Pure filter returning new immutable sequence."""
+    return tuple(item for item in items if predicate(item))
+
+def update_entity(entity: Entity, **fields) -> Entity:
+    """Pure update returning new entity instance."""
+    return replace(entity, **fields)
+
+def calculate_statistics(values: Sequence[float]) -> Statistics:
+    """Pure computation returning statistics."""
+    return Statistics(
+        mean=sum(values) / len(values),
+        median=sorted(values)[len(values) // 2],
+        count=len(values)
+    )
 ```
+
+❌ Anti-Patterns:
+
+```python
+def process_data(items: list[str]) -> None:  # Avoid functions without return
+    items.clear()  # Never modify input
+    items.extend(['new', 'items'])
+
+def get_user_data(user_id: int) -> dict:  # Avoid direct I/O
+    response = requests.get(f'/api/users/{user_id}')  # Side effect
+    return response.json()
+
+def calculate_price(quantity: int) -> float:
+    global tax_rate  # Avoid global state
+    return quantity * price * (1 + tax_rate)
+```
+
+## Verification
+
+Test pure functions by verifying:
+1. Same inputs always produce same outputs
+2. No observable side effects
+3. No state changes to input parameters
+4. Function works with frozen/immutable inputs
+5. Function can be safely parallelized
+
+## Migration Strategy
+
+When converting impure to pure functions:
+1. Extract I/O operations to outer layers (functional core, imperative shell)
+2. Pass dependencies as parameters
+3. Return new state instead of mutations
+4. Use functional composition for complex operations

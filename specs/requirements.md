@@ -2,7 +2,8 @@
 
 ## Overview
 
-A terminal-based implementation of Conway's Game of Life using a pure functional approach with immutable state transitions.
+A terminal-based implementation of Conway's Game of Life using a pure functional
+approach with immutable state transitions.
 
 ## Core Requirements
 
@@ -63,8 +64,8 @@ gol.py <width> <height> [--interval <ms>] [--density <float>]
 
 #### Optional Arguments
 
-- `--interval`: Integer specifying update interval in milliseconds (default: 100)
-- `--density`: Float between 0.0 and 1.0 specifying initial live cell density (default: 0.3)
+- `--interval`: Integer specifying update interval in ms (default: 100)
+- `--density`: Float between 0.0 and 1.0 for initial density (default: 0.3)
 - `--toroidal`: Flag to enable toroidal grid (edges wrap around)
 
 ## Technical Design
@@ -121,4 +122,4 @@ sequenceDiagram
 2. Multiple grid topologies (toroidal, infinite)
 3. Custom initial patterns
 4. Performance monitoring
-5. Different visualization modes 
+5. Different visualization modes

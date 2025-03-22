@@ -1,8 +1,9 @@
 # Boundary Conditions
 
-This document specifies the behavior of different boundary conditions in the Game of Life implementation. 
-Boundary conditions describe what happens at grid edges during simulation. It is strictly about the life 
-simulation and not tied to viewports or pattern management.
+This document specifies the behavior of different boundary conditions in the Game
+of Life implementation. Boundary conditions describe what happens at grid edges
+during simulation. It is strictly about the life simulation and not tied to
+viewports or pattern management.
 
 ## Types
 

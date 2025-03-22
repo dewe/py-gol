@@ -6,7 +6,9 @@ date: 2024-03-22
 
 ## Overview
 
-This document outlines the test-driven implementation plan for Conway's Game of Life using a pure functional approach. The implementation follows functional programming principles and is organized by major components.
+This document outlines the test-driven implementation plan for Conway's Game of
+Life using a pure functional approach. The implementation follows functional
+programming principles and is organized by major components.
 
 ## Architecture
 

@@ -5,13 +5,17 @@ description: Technical specification for viewport, game, and grid sizing in Game
 
 ## Overview
 
-This document describes how viewport sizing works in relation to game and grid dimensions in the Game of Life implementation. The system uses a layered approach to manage different view contexts while maintaining proper boundaries and constraints.
+This document describes how viewport sizing works in relation to game and grid
+dimensions in the Game of Life implementation. The system uses a layered approach
+to manage different view contexts while maintaining proper boundaries and
+constraints.
 
 ## Components
 
 ### Viewport State
 
-The viewport represents the visible portion of the game grid that can be seen in the terminal window. It has:
+The viewport represents the visible portion of the game grid that can be seen in
+the terminal window. It has:
 
 - Dimensions (width, height)
 - Offset position (x, y)
@@ -71,14 +75,14 @@ sequenceDiagram
 ### Grid Sizing
 
 1. Initial grid dimensions are determined by:
-    - Terminal size
-    - Minimum game requirements
-    - User preferences (if specified)
+   - Terminal size
+   - Minimum game requirements
+   - User preferences (if specified)
 
 2. Grid boundaries are enforced through:
-    - Finite mode: Fixed boundaries
-    - Toroidal mode: Wrapping boundaries
-    - Infinite mode: Expandable boundaries
+   - Finite mode: Fixed boundaries
+   - Toroidal mode: Wrapping boundaries
+   - Infinite mode: Expandable boundaries
 
 3. Expandable Boundaries (Infinite Mode):
 
@@ -121,33 +125,35 @@ State preservation:
 
 Performance considerations:
 
-> 💡 **Tip:** Grid expansion is optimized to minimize memory reallocation by using the expansion margin.
+> 💡 **Tip:** Grid expansion is optimized to minimize memory reallocation by using
+> the expansion margin.
 
 Constraints:
 
-> 🚨 **Warning:** Grid expansion is limited by available system memory. Very large patterns may require manual size configuration.
+> 🚨 **Warning:** Grid expansion is limited by available system memory. Very large
+> patterns may require manual size configuration.
 
 ### Viewport Sizing
 
 1. Default viewport dimensions:
-    - Width: 40 cells
-    - Height: 25 cells
+   - Width: 40 cells
+   - Height: 25 cells
 
 2. Minimum constraints:
-    - Width: 20 cells
-    - Height: 10 cells
+   - Width: 20 cells
+   - Height: 10 cells
 
 3. Resize operations:
-    - Expand: Increase both dimensions by 4
-    - Shrink: Decrease both dimensions by 4
-    - Maintain minimum size constraints
+   - Expand: Increase both dimensions by 4
+   - Shrink: Decrease both dimensions by 4
+   - Maintain minimum size constraints
 
-### Terminal Constraints (2)
+### Terminal Cell Rendering
 
 1. Cell rendering:
-    - Each cell requires 2 characters width
-    - One character height per cell
-    - Status line requires 1 line at bottom
+   - Each cell requires 2 characters width
+   - One character height per cell
+   - Status line requires 1 line at bottom
 
 2. Available space calculation:
 
@@ -200,8 +206,11 @@ viewport = ViewportState(
 
 ## Implementation Notes
 
-* 💡 **Tip:** Always check terminal dimensions before rendering to ensure proper display.
+- 💡 **Tip:** Always check terminal dimensions before rendering to ensure proper
+  display.
 
-* ℹ️ **Note:** The viewport system uses immutable state management to prevent unexpected modifications.
+- ℹ️ **Note:** The viewport system uses immutable state management to prevent
+  unexpected modifications.
 
-* 🚨 **Warning:** Grid boundaries must be respected when panning to prevent undefined behavior.
+- 🚨 **Warning:** Grid boundaries must be respected when panning to prevent
+  undefined behavior.

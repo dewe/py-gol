@@ -1,25 +1,23 @@
-<!-- markdownlint-disable MD033 -->
+# Dependencies
 
-# Module Dependencies
+## Runtime Dependencies
 
-## Core Dependencies
-
-- **numpy**: Grid operations and efficient array manipulation
-- **blessed**: Terminal UI and input handling
-- **typing-extensions**: Extended type hints support
-- **attrs**: Immutable data structures
-- **result**: Error handling with Result types
+- **numpy**: Grid operations
+- **blessed**: Terminal UI
+- **typing-extensions**: Type hints
+- **attrs**: Immutable data
+- **result**: Error handling
 
 ## Development Dependencies
 
-- **pytest**: Testing framework
-- **pytest-cov**: Test coverage reporting
-- **mypy**: Static type checking
-- **ruff**: Fast Python linter
-- **black**: Code formatting
+- **pytest**: Testing
+- **pytest-cov**: Coverage
+- **mypy**: Type checking
+- **ruff**: Linting
+- **black**: Formatting
 - **isort**: Import sorting
 
-## Module Dependency Graph
+## Module Dependencies
 
 ```mermaid
 graph TD
@@ -39,137 +37,39 @@ graph TD
     G --> D
     H --> D
     I --> D
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
-    style C fill:#bfb,stroke:#333,stroke-width:2px
-    style D fill:#fbb,stroke:#333,stroke-width:2px
-    style E fill:#dff,stroke:#333,stroke-width:2px
-    style F fill:#ffd,stroke:#333,stroke-width:2px
-    style G fill:#eff,stroke:#333,stroke-width:2px
-    style H fill:#fee,stroke:#333,stroke-width:2px
-    style I fill:#dfd,stroke:#333,stroke-width:2px
-    style J fill:#fdf,stroke:#333,stroke-width:2px
+
+    classDef module fill:#f9f,stroke:#333,stroke-width:2px
+    class A,B,C,D,E,F,G,H,I,J module
 ```
 
 ## Module Responsibilities
 
-### Core Modules
+### Core
 
-#### types.py
+- **types.py**: Type definitions and protocols
+- **grid.py**: Grid operations and boundaries
+- **life.py**: Game rules and transitions
+- **state.py**: Game state management
+- **patterns.py**: Pattern operations
 
-- Type definitions
-- Type aliases
-- Protocol classes
+### Shell
 
-#### grid.py
-
-- Grid creation and manipulation
-- Neighbor calculations
-- Boundary handling
-
-#### life.py
-
-- Game rules implementation
-- Generation processing
-- State transitions
-
-#### state.py
-
-- Game state management
-- Mode transitions
-- State validation
-
-#### patterns.py
-
-- Pattern loading and storage
-- Pattern manipulation
-- Pattern placement
-
-### Shell Modules
-
-#### commands.py
-
-- Input processing
-- Command execution
-- Mode-specific handling
-
-#### renderer.py
-
-- Terminal UI
-- Frame rendering
-- Status display
-
-#### controller.py
-
-- Game initialization
-- Loop coordination
-- State management
-
-#### main.py
-
-- Application entry
-- Configuration
-- Signal handling
-
-#### metrics.py
-
-- Performance tracking
-- Statistics calculation
-- Metrics storage
-
-## Type Dependencies
-
-```mermaid
-graph TD
-    A[GameState] --> B[Grid]
-    C[Pattern] --> B
-    D[Command] --> A
-    E[Metrics] --> F[Statistics]
-    G[Position] --> B
-    H[Size] --> B
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
-    style C fill:#bfb,stroke:#333,stroke-width:2px
-    style D fill:#fbb,stroke:#333,stroke-width:2px
-    style E fill:#dff,stroke:#333,stroke-width:2px
-    style F fill:#ffd,stroke:#333,stroke-width:2px
-    style G fill:#eff,stroke:#333,stroke-width:2px
-    style H fill:#fee,stroke:#333,stroke-width:2px
-```
-
-## Testing Dependencies
-
-Each module has a corresponding test file:
-
-- test_grid.py → grid.py
-- test_life.py → life.py
-- test_state.py → state.py
-- test_patterns.py → patterns.py
-- test_commands.py → commands.py
-- test_renderer.py → renderer.py
-- test_controller.py → controller.py
-- test_metrics.py → metrics.py
+- **commands.py**: Input handling
+- **renderer.py**: Terminal UI
+- **controller.py**: Game coordination
+- **main.py**: Application entry
+- **metrics.py**: Performance tracking
 
 ## Development Tools
 
 ### Code Quality
 
-- **mypy**: Static type checking
-- **ruff**: Fast Python linter
-- **black**: Code formatting
+- **mypy**: Type checking
+- **ruff**: Linting
+- **black**: Formatting
 - **isort**: Import sorting
 
 ### Testing
 
-- **pytest**: Test framework
+- **pytest**: Testing framework
 - **pytest-cov**: Coverage reporting
-- **pytest-benchmark**: Performance testing
-
-### Documentation
-
-- **mermaid**: Architecture diagrams
-- **markdown**: Documentation format
-- **docstrings**: API documentation
-   

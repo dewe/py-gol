@@ -94,4 +94,4 @@ def test_create_grid():
 - Get user approval for test design before implementation
 - Never skip the failing test phase
 - Keep tests focused on behavior, not implementation
-- Use stubs instead of mocks 
+- Use stubs instead of mocks

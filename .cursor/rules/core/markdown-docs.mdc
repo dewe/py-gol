@@ -127,3 +127,7 @@ graph TD
 A-->B
 B-->C
 ```
+
+## CRITICAL
+
+- ALWAYS run `markdownlint` after creating or editing a markdown file.

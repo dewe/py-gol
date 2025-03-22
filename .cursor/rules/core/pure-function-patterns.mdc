@@ -1,0 +1,125 @@
+---
+description: 
+globs: *.py
+alwaysApply: false
+---
+# Pure Function Implementation Patterns
+
+ENFORCE pure function patterns WHEN implementing Python code TO ensure predictability, testability and thread safety
+
+## Context
+
+When to apply:
+- Implementing core business logic
+- Processing data transformations
+- Handling state transitions
+- Managing concurrent operations
+- Implementing mathematical computations
+
+## Requirements
+
+1. Function Signature
+- Type all parameters and return values
+- Use domain types over primitives
+- Make dependencies explicit as parameters
+- No hidden inputs or outputs
+
+2. State Management
+- Never modify input parameters
+- Return new state instead of modifying existing
+- Use immutable data structures (tuple, frozenset)
+- Avoid global state access
+- No shared mutable state between functions
+
+3. Side Effects
+- No I/O operations (file, network, database)
+- No logging or print statements
+- No time-dependent operations
+- No random number generation without seeding
+- No system state queries (time, random, env vars)
+
+4. Function Organization
+- Keep functions small (< 20 lines)
+- Single responsibility
+- Compose complex operations from pure functions
+- Separate pure and impure functions into different modules
+- Place impure operations at edges of system
+
+## Implementation Patterns
+
+✅ Pure Function Patterns:
+
+```python
+from dataclasses import replace
+from typing import TypeVar, Sequence
+
+T = TypeVar('T')
+
+def filter_valid_items(items: Sequence[T], predicate: Callable[[T], bool]) -> tuple[T, ...]:
+    """Pure filter returning new immutable sequence."""
+    return tuple(item for item in items if predicate(item))
+
+def update_entity(entity: Entity, **fields) -> Entity:
+    """Pure update returning new entity instance."""
+    return replace(entity, **fields)
+
+def calculate_statistics(values: Sequence[float]) -> Statistics:
+    """Pure computation returning statistics."""
+    return Statistics(
+        mean=sum(values) / len(values),
+        median=sorted(values)[len(values) // 2],
+        count=len(values)
+    )
+```
+
+❌ Anti-Patterns:
+
+```python
+def process_data(items: list[str]) -> None:  # Avoid functions without return
+    items.clear()  # Never modify input
+    items.extend(['new', 'items'])
+
+def get_user_data(user_id: int) -> dict:  # Avoid direct I/O
+    response = requests.get(f'/api/users/{user_id}')  # Side effect
+    return response.json()
+
+def calculate_price(quantity: int) -> float:
+    global tax_rate  # Avoid global state
+    return quantity * price * (1 + tax_rate)
+```
+
+## Verification
+
+Test pure functions by verifying:
+1. Same inputs always produce same outputs
+2. No observable side effects
+3. No state changes to input parameters
+4. Function works with frozen/immutable inputs
+5. Function can be safely parallelized
+6. Function evaluation can be memoized
+
+
+## Migration Strategy
+
+When converting impure to pure functions:
+1. Extract I/O operations to outer layers (a.k.a functional core, imperative shell)
+2. Pass dependencies as parameters
+3. Return new state instead of mutations
+4. Use functional composition for complex operations
+
+## Language-Specific Considerations
+
+Different languages provide different tools for pure functions:
+
+- Functional languages (Haskell, Elm):
+  - Enforce purity through type system
+  - Built-in immutable data structures
+  
+- Static typed languages (TypeScript, Rust, Kotlin):
+  - Use type system to enforce immutability
+  - Mark parameters as readonly/const
+  
+- Dynamic languages (JavaScript, Python, Ruby):
+  - Use conventions and discipline
+  - Freeze/seal objects when possible
+  - Use immutable data structure libraries 

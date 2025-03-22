@@ -29,7 +29,6 @@ alwaysApply: false
 
 ## Examples
 
-
 ✅ Correct: Updates test data structure while preserving logic
 
 ```python

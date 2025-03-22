@@ -7,6 +7,7 @@ alwaysApply: false
 # Makefile Standards
 
 ## Context
+
 - Applied when creating or modifying Makefiles
 - Used for project automation and build tasks
 - Focuses on Python project requirements
@@ -14,6 +15,7 @@ alwaysApply: false
 ## Requirements
 
 ### Structure
+
 - Declare PHONY targets at the top
 - Group related targets with comments
 - Use tabs for indentation (required by Make)
@@ -21,6 +23,7 @@ alwaysApply: false
 - Default target: help
 
 ### Core Targets
+
 Must include these standard targets:
 - `init`: Install dependencies
 - `test`: Run test suite
@@ -30,12 +33,14 @@ Must include these standard targets:
 - `help`: Show available targets
 
 ### Variables
+
 - Use `:=` for immediate assignment
 - Use `?=` for default values
 - Define common variables at top
 - Use `$$` for shell variables
 
 ### Dependencies
+
 - List all target dependencies
 - Chain related targets with dependencies
 
@@ -71,12 +76,14 @@ black .    # Missing target documentation
 ## Command Patterns
 
 ### Shell Commands
+
 - Use `@` to suppress command echo
 - Use `$(shell ...)` for shell operations
 - Chain commands with `&&`
 - Use `-` prefix when errors should be ignored
 
 ### Error Handling
+
 - Set `-e` for error propagation
 - Use conditional execution
 - Provide clean error messages 

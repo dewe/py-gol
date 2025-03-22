@@ -1,29 +1,32 @@
 ---
-description: When user asks to commit the changes
+description: USE ALWAYS when user asks to COMMIT CHANGES
 globs: 
 alwaysApply: false
 ---
 
-# Commit Message Standards
+# How to make git commits
 
 ## Context
-- When committing changes
-- 
+
+- When committing changes with git
 
 ## Requirements
+
 - If changes are not known, use `git status` and `git diff` to understand the changes.
-- Split commits in logical chunks.
-- Use git commit message rule for crafting the commit message.
+- Split changes into commits in logical chunks.
+- Use rule for git commit messages when crafting the commit message.
 - Do not include newlines `\n` in the git commit command.
 
 ## Examples
 
 ✅ Correct:
+
 ```text
 git commit -m "feat: <commit description>"
 ```
 
 ✅ Correct:
+
 ```text
 git commit -m "feat: <commit description>" \
   -m "<commit body 1>" \
@@ -31,10 +34,12 @@ git commit -m "feat: <commit description>" \
 ```
 
 ❌ Incorrect: command contains newline characters
+
 ```text
 git commit -m "feat: <another message>\n\n<commit body>
 ```
 
 ## CRITICAL
+
 - NEVER use newline characters when applying commands
 - ALWAYS use multiple `-m` when submitting multiline commit messages

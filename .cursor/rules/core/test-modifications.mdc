@@ -1,6 +1,6 @@
 ---
-description: ENFORCE test modification constraints WHEN updating test files TO preserve test integrity
-globs: tests/**/*.py
+description: WHEN updating test files ENFORCE test modification constraints TO preserve test integrity
+globs: 
 alwaysApply: false
 ---
 

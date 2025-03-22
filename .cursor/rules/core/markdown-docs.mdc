@@ -68,7 +68,7 @@ Reference the `example()` function inline.
 
 - Use blockquotes with emoji for different types of callouts
 
-✅ Correct example: 
+✅ Correct example:
 
 ```markdown
 <!-- markdownlint-disable MD028 -->

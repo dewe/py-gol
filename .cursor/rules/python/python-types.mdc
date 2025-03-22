@@ -1,9 +1,11 @@
 ---
-description: ENFORCE domain type usage WHEN writing type annotations TO improve code clarity and maintainability
+description: 
 globs: *.py,*.pyi
 alwaysApply: false
 ---
 # Domain Types Over Native Types
+
+ENFORCE domain type usage WHEN writing type annotations TO improve code clarity and maintainability
 
 ## Context
 

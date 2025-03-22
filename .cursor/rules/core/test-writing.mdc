@@ -1,0 +1,97 @@
+---
+description: WHEN writing tests ENFORCE test-driven development with BDD style TO ensure quality and maintainability
+globs: 
+alwaysApply: false
+---
+# Test Writing Guidelines
+
+WHEN writing tests ENFORCE test-driven development with BDD style TO ensure quality and maintainability
+
+## Context
+
+- When implementing new features
+- When fixing bugs
+- When refactoring code
+- When writing integration tests
+
+## Requirements
+
+### Test Structure
+
+- Use BDD style (Given/When/Then) for test organization
+- Name test files with `_test` suffix
+- Group tests by feature or domain
+
+### Test-Driven Development
+
+1. Write failing test first
+2. Get user approval for test design
+3. Implement minimal code to pass test
+4. Refactor while keeping tests green
+
+### Testing Approach
+
+- Use state-based testing with stubs
+- Avoid mocks and interaction testing
+- Test HTTP APIs at the HTTP level
+- Prefer pure functions in test setup
+- Use test data builders for complex objects
+
+### Test Verification Points
+
+- After writing new tests (before implementation)
+- After implementing functionality
+- After refactoring
+- Before committing changes
+
+## Examples
+
+✅ Correct: BDD style test with state verification
+
+```python
+def test_live_cell_with_two_neighbors():
+    # Given
+    grid = Grid([[True, True, True],  # Initial state
+                 [False, False, False]])
+    
+    # When
+    next_grid = next_generation(grid)
+    
+    # Then
+    assert next_grid[1][1] is True  # Middle cell survives
+```
+
+❌ Incorrect: Mock-based interaction testing
+
+```python
+def test_cell_update():
+    # Don't test interactions
+    mock_grid = Mock()
+    mock_grid.update_cell.return_value = True
+    
+    next_generation(mock_grid)
+    
+    mock_grid.update_cell.assert_called_once()  # Wrong: testing implementation
+```
+
+✅ Correct: HTTP API test
+
+```python
+def test_create_grid():
+    # Given
+    grid_data = {"width": 3, "height": 3}
+    
+    # When
+    response = client.post("/api/grids", json=grid_data)
+    
+    # Then
+    assert response.status_code == 201
+    assert response.json()["width"] == 3
+```
+
+## CRITICAL
+
+- Get user approval for test design before implementation
+- Never skip the failing test phase
+- Keep tests focused on behavior, not implementation
+- Use stubs instead of mocks 

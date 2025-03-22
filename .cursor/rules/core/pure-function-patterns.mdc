@@ -14,6 +14,7 @@ When to apply:
 - Processing data transformations
 - Handling state transitions
 - Managing concurrent operations
+- Implementing mathematical computations
 
 ## Requirements
 
@@ -21,24 +22,28 @@ When to apply:
 - Type all parameters and return values
 - Use domain types over primitives
 - Make dependencies explicit as parameters
+- No hidden inputs or outputs
 
 2. State Management
 - Never modify input parameters
 - Return new state instead of modifying existing
 - Use immutable data structures (tuple, frozenset)
 - Avoid global state access
+- No shared mutable state between functions
 
 3. Side Effects
 - No I/O operations (file, network, database)
 - No logging or print statements
 - No time-dependent operations
 - No random number generation without seeding
+- No system state queries (time, random, env vars)
 
 4. Function Organization
 - Keep functions small (< 20 lines)
 - Single responsibility
 - Compose complex operations from pure functions
 - Separate pure and impure functions into different modules
+- Place impure operations at edges of system
 
 ## Implementation Patterns
 
@@ -91,11 +96,30 @@ Test pure functions by verifying:
 3. No state changes to input parameters
 4. Function works with frozen/immutable inputs
 5. Function can be safely parallelized
+6. Function evaluation can be memoized
+
 
 ## Migration Strategy
 
 When converting impure to pure functions:
-1. Extract I/O operations to outer layers (functional core, imperative shell)
+1. Extract I/O operations to outer layers (a.k.a functional core, imperative shell)
 2. Pass dependencies as parameters
 3. Return new state instead of mutations
 4. Use functional composition for complex operations
+
+## Language-Specific Considerations
+
+Different languages provide different tools for pure functions:
+
+- Functional languages (Haskell, Elm):
+  - Enforce purity through type system
+  - Built-in immutable data structures
+  
+- Static typed languages (TypeScript, Rust, Kotlin):
+  - Use type system to enforce immutability
+  - Mark parameters as readonly/const
+  
+- Dynamic languages (JavaScript, Python, Ruby):
+  - Use conventions and discipline
+  - Freeze/seal objects when possible
+  - Use immutable data structure libraries 

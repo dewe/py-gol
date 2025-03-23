@@ -51,7 +51,7 @@ class PatternStorage(Protocol):
 class FilePatternStorage:
     """RLE-based pattern storage in project directory."""
 
-    storage_dir: Path = field(default_factory=lambda: Path(".gol") / "patterns")
+    storage_dir: Path = field(default_factory=lambda: Path("patterns"))
 
     def save_pattern(self, pattern: Pattern) -> None:
         """Serializes pattern to RLE format."""

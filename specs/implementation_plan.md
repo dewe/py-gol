@@ -27,6 +27,9 @@ graph TD
     G --> C
     G --> D
     G --> E
+    H[Pattern Types] --> I[Pattern System]
+    I --> J[RLE Parser]
+    I --> D
     
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#bbf,stroke:#333,stroke-width:2px
@@ -35,6 +38,9 @@ graph TD
     style E fill:#fff,stroke:#333,stroke-width:2px
     style F fill:#ffd,stroke:#333,stroke-width:2px
     style G fill:#dff,stroke:#333,stroke-width:2px
+    style H fill:#fdf,stroke:#333,stroke-width:2px
+    style I fill:#dff,stroke:#333,stroke-width:2px
+    style J fill:#ffd,stroke:#333,stroke-width:2px
 ```
 
 ## Components
@@ -180,28 +186,29 @@ def handle_signals() -> None:
 
 1. Type System
     - Core type definitions
-    - Type aliases
+    - Pattern-specific types
     - Protocol classes
 
 2. Grid Management
     - Grid operations
-    - Neighbor calculations
-    - Boundary handling
+    - Boundary conditions
+    - Grid transformations
 
 3. Life Rules
     - Rule implementation
     - Generation processing
     - State transitions
 
-4. State Management
+4. Pattern System
+    - Pattern type definitions
+    - RLE parser implementation
+    - Pattern operations
+    - Pattern storage
+
+5. State Management
     - Game state updates
     - Mode transitions
     - State validation
-
-5. Pattern System
-    - Pattern loading
-    - Pattern manipulation
-    - Pattern placement
 
 6. Command Handler
     - Input processing
@@ -211,6 +218,7 @@ def handle_signals() -> None:
 7. Renderer
     - Terminal setup
     - Frame rendering
+    - Pattern preview
     - Status display
 
 8. Controller
@@ -229,27 +237,27 @@ Each component should have corresponding test files following BDD patterns:
 
 ```python
 # test_grid.py
-def test_grid_creation():
+def test_boundary_conditions():
     """
-    Given: A grid size and density
-    When: Creating a new grid
-    Then: Grid should have correct dimensions and density
-    """
-
-# test_life.py
-def test_rule_application():
-    """
-    Given: A cell with known neighbors
-    When: Applying life rules
-    Then: Cell should transition to correct state
+    Given: A grid with specific boundary condition
+    When: Calculating neighbors near boundary
+    Then: Should respect boundary condition rules
     """
 
 # test_patterns.py
+def test_rle_pattern_parsing():
+    """
+    Given: An RLE pattern string
+    When: Parsing the pattern
+    Then: Should create correct pattern grid
+    """
+
+# test_commands.py
 def test_pattern_placement():
     """
-    Given: A grid and pattern
-    When: Placing pattern at position
-    Then: Grid should contain pattern at correct location
+    Given: A grid and selected pattern
+    When: Executing place pattern command
+    Then: Pattern should be correctly placed on grid
     """
 ```
 

@@ -10,6 +10,8 @@ graph TD
         Life[Life Rules]
         State[State]
         Pattern[Patterns]
+        PatternTypes[Pattern Types]
+        RLEParser[RLE Parser]
         Metrics[Metrics]
         Types[Types]
     end
@@ -33,6 +35,8 @@ graph TD
     Commands --> Pattern
     Commands --> Grid
     Renderer --> Grid
+    Pattern --> PatternTypes
+    Pattern --> RLEParser
     
     %% Type System
     Types --> Grid
@@ -44,7 +48,7 @@ graph TD
     %% Styling
     classDef pure fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef shell fill:#ffebee,stroke:#b71c1c,stroke-width:2px
-    class Grid,Life,State,Pattern,Metrics,Types pure
+    class Grid,Life,State,Pattern,PatternTypes,RLEParser,Metrics,Types pure
     class Main,Commands,Controller,Renderer shell
 ```
 
@@ -94,13 +98,16 @@ stateDiagram-v2
 graph LR
     GameState --> Grid
     Pattern --> Grid
+    Pattern --> PatternTypes
     Command --> GameState
     Metrics --> Statistics
     Position --> Grid
     Size --> Grid
+    RLEParser --> Pattern
     
     classDef type fill:#f9f,stroke:#333,stroke-width:2px
-    class GameState,Grid,Pattern,Command,Metrics,Statistics,Position,Size type
+    class GameState,Grid,Pattern,Command,Metrics,Statistics type
+    class Position,Size,PatternTypes,RLEParser type
 ```
 
 ## Key Features

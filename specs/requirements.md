@@ -54,19 +54,20 @@ approach with immutable state transitions.
 The game should be invokable from the command line with the following format:
 
 ```bash
-gol.py <width> <height> [--interval <ms>] [--density <float>]
+game.py [--width <width>] [--height <height>] [--interval <ms>] \
+        [--density <float>] [--boundary <type>]
 ```
-
-#### Required Arguments
-
-- `width`: Integer specifying grid width
-- `height`: Integer specifying grid height
 
 #### Optional Arguments
 
-- `--interval`: Integer specifying update interval in ms (default: 100)
+- `--width`: Grid width (auto-sized if 0, min 30)
+- `--height`: Grid height (auto-sized if 0, min 20)
+- `--interval`: Update interval in ms (default: 200)
 - `--density`: Float between 0.0 and 1.0 for initial density (default: 0.3)
-- `--toroidal`: Flag to enable toroidal grid (edges wrap around)
+- `--boundary`: Boundary type: 'finite', 'toroidal', 'infinite' (default: finite)
+
+The grid dimensions will automatically adjust to fit the terminal window if
+not specified or set to 0, while maintaining minimum playable dimensions.
 
 ## Technical Design
 
@@ -83,6 +84,9 @@ graph TD
     C --> E[Grid State]
     C --> F[Next State]
     D --> H[Terminal UI]
+    I[Pattern System] --> B
+    I --> J[RLE Parser]
+    I --> K[Pattern Types]
 ```
 
 ### Communication Flow

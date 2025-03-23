@@ -2,20 +2,16 @@
 
 ## Runtime Dependencies
 
-- **numpy**: Grid operations
-- **blessed**: Terminal UI
-- **typing-extensions**: Type hints
-- **attrs**: Immutable data
-- **result**: Error handling
+- **scipy>=1.12.0**: Grid operations and scientific computing
+- **blessed>=1.20.0**: Terminal UI
 
 ## Development Dependencies
 
-- **pytest**: Testing
-- **pytest-cov**: Coverage
-- **mypy**: Type checking
-- **ruff**: Linting
-- **black**: Formatting
-- **isort**: Import sorting
+- **pytest>=8.0.0**: Testing
+- **black>=24.0.0**: Formatting
+- **ruff>=0.3.0**: Linting
+- **mypy>=1.9.0**: Type checking
+- **types-setuptools>=75.0.0**: Type stubs for setuptools
 
 ## Module Dependencies
 
@@ -31,6 +27,8 @@ graph TD
     B --> I[metrics.py]
     C --> D
     C --> G
+    G --> K[pattern_types.py]
+    G --> L[rle_parser.py]
     D --> J[types.py]
     E --> D
     F --> D
@@ -39,7 +37,7 @@ graph TD
     I --> D
 
     classDef module fill:#f9f,stroke:#333,stroke-width:2px
-    class A,B,C,D,E,F,G,H,I,J module
+    class A,B,C,D,E,F,G,H,I,J,K,L module
 ```
 
 ## Module Responsibilities
@@ -50,26 +48,28 @@ graph TD
 - **grid.py**: Grid operations and boundaries
 - **life.py**: Game rules and transitions
 - **state.py**: Game state management
-- **patterns.py**: Pattern operations
+- **patterns.py**: Pattern operations and management
+- **pattern_types.py**: Pattern-related type definitions
+- **rle_parser.py**: RLE pattern format parser
 
 ### Shell
 
-- **commands.py**: Input handling
-- **renderer.py**: Terminal UI
-- **controller.py**: Game coordination
-- **main.py**: Application entry
-- **metrics.py**: Performance tracking
+- **commands.py**: Input handling and command processing
+- **renderer.py**: Terminal UI and display management
+- **controller.py**: Game coordination and state management
+- **main.py**: Application entry and configuration
+- **metrics.py**: Performance tracking and optimization
 
 ## Development Tools
 
 ### Code Quality
 
-- **mypy**: Type checking
-- **ruff**: Linting
-- **black**: Formatting
-- **isort**: Import sorting
+- **mypy**: Static type checking
+- **ruff**: Fast Python linter
+- **black**: Code formatting
+- **isort**: Import sorting (via ruff)
 
 ### Testing
 
 - **pytest**: Testing framework
-- **pytest-cov**: Coverage reporting
+- **pytest-cov**: Coverage reporting (via pytest)

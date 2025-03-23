@@ -87,7 +87,23 @@ Built-in patterns include:
 - Glider (spaceship)
 - Gosper Glider Gun (pattern generator)
 
-Custom patterns are stored in `~/.gol/patterns/` as JSON files.
+Custom patterns are stored in `patterns/` as RLE files.
+
+The RLE (Run Length Encoded) format is the standard format for Life patterns,
+as specified in [LifeWiki's RLE format](https://conwaylife.com/wiki/Run_Length_Encoded).
+It provides a compact representation for patterns and includes metadata like
+author, description, and discovery year.
+
+Example RLE file:
+
+```text
+#N Glider
+#O Richard K. Guy
+#C The smallest, most common spaceship.
+#C www.conwaylife.com/wiki/index.php?title=Glider
+x = 3, y = 3
+bob$2bo$3o!
+```
 
 ## Development
 
@@ -96,17 +112,22 @@ Custom patterns are stored in `~/.gol/patterns/` as JSON files.
 ```text
 py-gol/
 ├── src/gol/
-│   ├── controller.py   # Game controller
-│   ├── grid.py        # Grid operations
-│   ├── life.py        # Life rules
-│   ├── main.py        # Application entry
-│   ├── metrics.py     # Performance metrics
-│   ├── patterns.py    # Pattern management
-│   ├── renderer.py    # Terminal UI
+│   ├── controller.py   # Game controller and state management
+│   ├── commands.py     # Command processing and handlers
+│   ├── grid.py        # Grid operations and boundaries
+│   ├── life.py        # Life rules and transitions
+│   ├── main.py        # Application entry and config
+│   ├── metrics.py     # Performance tracking
+│   ├── patterns.py    # Pattern management and operations
+│   ├── pattern_types.py # Pattern-related type definitions
+│   ├── rle_parser.py  # RLE pattern format parser
+│   ├── renderer.py    # Terminal UI and display
 │   ├── state.py       # State management
 │   └── types.py       # Type definitions
 ├── tests/             # Test modules
 ├── docs/              # Documentation
+├── specs/             # Specifications
+├── patterns/          # Pattern files
 └── game.py           # Entry point
 ```
 

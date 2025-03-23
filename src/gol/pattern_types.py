@@ -48,9 +48,11 @@ class Pattern:
     @property
     def width(self) -> int:
         """Pattern width in cells."""
-        return self.cells.shape[1]
+        shape = self.cells.shape
+        return int(shape[1])
 
     @property
     def height(self) -> int:
         """Pattern height in cells."""
-        return self.cells.shape[0]
+        shape = self.cells.shape
+        return int(shape[0])

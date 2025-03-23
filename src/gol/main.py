@@ -65,6 +65,7 @@ from gol.renderer import (
     RendererState,
     TerminalProtocol,
     apply_initialization,
+    calculate_frame_interval,
     cleanup_terminal,
     handle_user_input,
     initialize_render_state,
@@ -238,11 +239,12 @@ def run_game_loop(
     """Main game loop implementing Conway's Game of Life rules.
 
     Manages game state updates, user input handling, and rendering with
-    performance optimizations like frame rate limiting and efficient
+    performance optimizations like adaptive frame rate and efficient
     terminal updates.
     """
-    last_frame = time.time()
-    last_update = time.time()
+    last_time = time.time()
+    update_accumulated = 0.0
+    render_accumulated = 0.0
     last_input = time.time()
     metrics = create_metrics()
 
@@ -263,7 +265,7 @@ def run_game_loop(
     }
 
     # Input polling configuration
-    INPUT_POLL_INTERVAL = 1 / 60  # 60Hz polling rate
+    INPUT_POLL_INTERVAL = 1 / 60  # Poll input at 60Hz
 
     # Command map with proper handler signatures
     command_map: Dict[CommandType, CommandHandler] = {
@@ -307,6 +309,12 @@ def run_game_loop(
     with terminal.cbreak():
         while not should_quit:
             current_time = time.time()
+            frame_time = current_time - last_time
+            last_time = current_time
+
+            # Accumulate time for updates and rendering
+            update_accumulated += frame_time
+            render_accumulated += frame_time
 
             # Process input at controlled rate
             if current_time - last_input >= INPUT_POLL_INTERVAL:
@@ -353,10 +361,11 @@ def run_game_loop(
                 last_input = current_time
 
             # Update game state if not paused
-            if (
+            update_interval = config.renderer.update_interval / 1000
+            while (
                 not render_state.pattern_mode
                 and not render_state.paused
-                and current_time - last_update >= config.renderer.update_interval / 1000
+                and update_accumulated >= update_interval
             ):
                 grid, render_state = process_next_generation(
                     grid, config.grid.boundary, render_state
@@ -369,10 +378,13 @@ def run_game_loop(
                     deaths=0,  # Will be updated in render_grid
                     increment_generation=True,  # Increment generation counter
                 )
-                last_update = current_time
+                update_accumulated -= update_interval
+
+            # Calculate optimal frame interval
+            frame_interval = calculate_frame_interval(metrics, config.renderer)
 
             # Render frame if enough time has passed
-            if current_time - last_frame >= 1 / 60:  # Cap at 60 FPS
+            if render_accumulated >= frame_interval:
                 # Update renderer config with current boundary condition
                 renderer_config = config.renderer
                 if renderer_config.boundary_condition != config.grid.boundary:
@@ -383,10 +395,20 @@ def run_game_loop(
                 render_state, metrics = safe_render_grid(
                     terminal, grid, renderer_config, render_state, metrics
                 )
-                last_frame = current_time
+                render_accumulated = 0.0  # Reset accumulator after rendering
 
-            # Small sleep to prevent busy waiting
-            time.sleep(0.001)
+            # Sleep to prevent busy waiting
+            sleep_time = min(
+                INPUT_POLL_INTERVAL - (time.time() - last_input),
+                frame_interval - render_accumulated,
+                (
+                    update_interval - update_accumulated
+                    if not render_state.paused
+                    else float("inf")
+                ),
+            )
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
 
 def main() -> None:

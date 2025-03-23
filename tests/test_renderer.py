@@ -18,6 +18,7 @@ from gol.patterns import FilePatternStorage, PatternCategory, PatternTransform
 from gol.renderer import (
     RendererConfig,
     TerminalProtocol,
+    calculate_frame_interval,
     cleanup_terminal,
     handle_resize_event,
     initialize_terminal,
@@ -384,3 +385,37 @@ def test_debug_status_bar_clearing(mock_terminal: MockTerminal) -> None:
     assert (
         not debug_info_calls
     ), "No debug info should be printed when debug mode is off"
+
+
+def test_adaptive_frame_rate() -> None:
+    """Test adaptive frame rate calculation.
+
+    Given: Different performance scenarios
+    When: Calculating frame intervals
+    Then: Should adapt frame rate appropriately
+    """
+    from dataclasses import replace
+
+    config = RendererConfig()
+    metrics = create_metrics()
+
+    # Test with adaptive FPS disabled
+    config = replace(config, adaptive_fps=False)
+    interval = calculate_frame_interval(metrics, config)
+    assert interval == 1.0 / config.target_fps
+
+    # Test with high performance (above target FPS)
+    config = replace(config, adaptive_fps=True)
+    metrics = replace(metrics, perf=replace(metrics.perf, actual_fps=70.0))
+    interval = calculate_frame_interval(metrics, config)
+    assert interval == 1.0 / config.target_fps
+
+    # Test with medium performance (between min and target FPS)
+    metrics = replace(metrics, perf=replace(metrics.perf, actual_fps=45.0))
+    interval = calculate_frame_interval(metrics, config)
+    assert interval == 1.0 / 45.0
+
+    # Test with low performance (below min FPS)
+    metrics = replace(metrics, perf=replace(metrics.perf, actual_fps=20.0))
+    interval = calculate_frame_interval(metrics, config)
+    assert interval == 1.0 / config.min_fps

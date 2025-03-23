@@ -3,6 +3,7 @@
 from typing import Optional, cast
 
 import numpy as np
+from numba import jit, prange
 from scipy import signal
 
 from gol.state import ViewportState
@@ -11,18 +12,43 @@ from gol.types import Grid, IntArray
 from .grid import BoundaryCondition, expand_grid, needs_boundary_expansion
 
 
-def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
-    """Calculate next state using vectorized operations for performance.
+@jit(nopython=True, parallel=True)  # type: ignore[misc]
+def _calculate_next_state_parallel(
+    current_state: np.ndarray, live_neighbors: np.ndarray
+) -> np.ndarray:
+    """JIT-compiled parallel implementation of state calculation."""
+    height, width = current_state.shape
+    result = np.empty((height, width), dtype=np.bool_)
 
-    Applies Conway's rules using NumPy's logical operations to process
-    all cells simultaneously instead of iterating.
-    """
-    survival = np.logical_and(
-        current_state, np.logical_or(live_neighbors == 2, live_neighbors == 3)
-    )
-    birth = np.logical_and(~current_state, live_neighbors == 3)
-    result: Grid = np.logical_or(survival, birth)
+    for y in prange(height):
+        for x in prange(width):
+            neighbors = live_neighbors[y, x]
+            state = current_state[y, x]
+            # Combine survival and birth rules
+            result[y, x] = (state & ((neighbors == 2) | (neighbors == 3))) | (
+                ~state & (neighbors == 3)
+            )
+
     return result
+
+
+def calculate_next_state(current_state: Grid, live_neighbors: IntArray) -> Grid:
+    """Calculate next state using parallel processing for performance.
+
+    Uses Numba JIT compilation and parallel processing to compute the next state
+    efficiently across multiple cores.
+    """
+    # For small grids, use vectorized operations
+    if current_state.size < 10000:  # Threshold for parallel processing
+        return cast(
+            Grid,
+            (current_state & ((live_neighbors == 2) | (live_neighbors == 3)))
+            | (~current_state & (live_neighbors == 3)),
+        )
+
+    # For large grids, use parallel processing
+    result = _calculate_next_state_parallel(current_state, live_neighbors)
+    return cast(Grid, result)
 
 
 def next_generation(

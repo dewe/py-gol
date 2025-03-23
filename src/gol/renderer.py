@@ -82,6 +82,11 @@ class RendererConfig:
     - Speed adjustments are inverse proportional to current speed
     - Interval values are rounded to nearest 10ms
     - Speed changes use 20% of current interval as step size
+
+    Frame Rate Control:
+    - Target FPS: Default target frame rate (60 FPS)
+    - Minimum FPS: Never go below this rate (30 FPS)
+    - Adaptive FPS: Automatically adjust frame rate based on performance
     """
 
     cell_alive: str = "■"
@@ -97,6 +102,9 @@ class RendererConfig:
     pattern_rotation: PatternTransform = PatternTransform.NONE
     boundary_condition: BoundaryCondition = BoundaryCondition.FINITE
     pattern_category_idx: int = 0
+    target_fps: int = 60  # Default target frame rate
+    min_fps: int = 30  # Minimum acceptable frame rate
+    adaptive_fps: bool = True  # Enable adaptive frame rate
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -804,6 +812,7 @@ def render_debug_status_line(
     terminal: TerminalProtocol,
     grid: Grid,
     state: RendererState,
+    metrics: Metrics,
 ) -> str:
     """Renders debug status line with grid and viewport information."""
     grid_height, grid_width = grid.shape
@@ -837,13 +846,21 @@ def render_debug_status_line(
         f"({bounds.grid_start[0]+bounds.visible_dims[0]-1},"
         f"{bounds.grid_start[1]+bounds.visible_dims[1]-1})"
     )
+    fps_info = (
+        f"{terminal.yellow}FPS: {terminal.normal}{metrics.perf.actual_fps:.1f} "
+        f"(avg: {metrics.perf.avg_fps:.1f}, "
+        f"min: {metrics.perf.min_fps:.1f}, "
+        f"max: {metrics.perf.max_fps:.1f})"
+    )
 
     debug_info = (
         f"{grid_info} | {viewport_info} | {offset_info} | {visible_info} | "
-        f"{visible_coords}"
+        f"{visible_coords} | {fps_info}"
     )
 
-    true_length = len(debug_info) - len(terminal.blue + terminal.normal) * 5
+    true_length = (
+        len(debug_info) - len(terminal.blue + terminal.normal) * 6
+    )  # Updated for new color section
     y = terminal.height - 2
     x = max(0, (terminal.width - true_length) // 2)
 
@@ -853,6 +870,34 @@ def render_debug_status_line(
         + terminal.move_xy(x, y)
         + debug_info
     )
+
+
+def calculate_frame_interval(metrics: Metrics, config: RendererConfig) -> float:
+    """Calculate optimal frame interval based on performance metrics.
+
+    Uses adaptive frame rate to maintain smooth rendering while respecting
+    system capabilities and resource constraints.
+
+    Args:
+        metrics: Current performance metrics
+        config: Renderer configuration
+
+    Returns:
+        Optimal frame interval in seconds
+    """
+    if not config.adaptive_fps:
+        return 1.0 / config.target_fps
+
+    # If we're consistently hitting target FPS, maintain it
+    if metrics.perf.actual_fps >= config.target_fps:
+        return 1.0 / config.target_fps
+
+    # If we're below target but above minimum, adapt to current performance
+    if metrics.perf.actual_fps >= config.min_fps:
+        return 1.0 / metrics.perf.actual_fps
+
+    # If we're below minimum FPS, use minimum
+    return 1.0 / config.min_fps
 
 
 def render_grid_to_terminal(
@@ -1009,7 +1054,11 @@ def render_grid_to_terminal(
         )
 
         if state.debug_mode:
-            print(render_debug_status_line(terminal, grid, state), end="", flush=True)
+            print(
+                render_debug_status_line(terminal, grid, state, metrics),
+                end="",
+                flush=True,
+            )
         print(render_status_line(terminal, config, metrics), end="", flush=True)
 
     return state, metrics

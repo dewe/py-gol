@@ -22,6 +22,7 @@ classifiers = [
 dependencies = [
     "blessed>=1.20.0",
     "scipy>=1.12.0",
+    "numba>=0.59.0",
 ]
 
 [project.optional-dependencies]
@@ -59,5 +60,5 @@ warn_unreachable = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
-module = ["scipy.*"]
+module = ["scipy.*", "numba.*"]
 ignore_missing_imports = true 

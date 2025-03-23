@@ -23,6 +23,10 @@ class PerformanceMetrics:
 
     frames_this_second: int = 0
     actual_fps: float = 0.0
+    min_fps: float = float("inf")  # Minimum FPS seen
+    max_fps: float = 0.0  # Maximum FPS seen
+    avg_fps: float = 0.0  # Average FPS
+    total_frames: int = 0  # Total frames rendered
     last_fps_update: float = 0.0
     last_stats_update: float = 0.0
 
@@ -110,13 +114,33 @@ def update_frame_metrics(metrics: Metrics) -> Metrics:
 
     # Increment frame counter
     frames_this_second = perf.frames_this_second + 1
+    total_frames = perf.total_frames + 1
 
     # Check if a second has passed
     if now - perf.last_fps_update >= 1.0:
         # Calculate FPS and reset counter
         actual_fps = float(perf.frames_this_second)
         frames_this_second = 1  # Count current frame
-        perf = replace(perf, last_fps_update=now)
+
+        # Update min/max FPS
+        min_fps = min(perf.min_fps, actual_fps) if actual_fps > 0 else perf.min_fps
+        max_fps = max(perf.max_fps, actual_fps)
+
+        # Update average FPS using running average
+        if perf.avg_fps == 0.0:
+            avg_fps = actual_fps
+        else:
+            avg_fps = (perf.avg_fps * 0.95) + (
+                actual_fps * 0.05
+            )  # Exponential moving average
+
+        perf = replace(
+            perf,
+            last_fps_update=now,
+            min_fps=min_fps,
+            max_fps=max_fps,
+            avg_fps=avg_fps,
+        )
     else:
         actual_fps = perf.actual_fps
 
@@ -125,6 +149,7 @@ def update_frame_metrics(metrics: Metrics) -> Metrics:
         perf,
         frames_this_second=frames_this_second,
         actual_fps=actual_fps,
+        total_frames=total_frames,
     )
 
     return replace(metrics, perf=perf)

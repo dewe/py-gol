@@ -4,14 +4,15 @@ globs:
 alwaysApply: false
 ---
 
-# Commit Message Standards
+# Git Commit Standards
 
 ## Context
 
-- When generating commit messages
-- When proposing changes to be committed
+This rule ensures consistent and meaningful git commit messages and proper commit command syntax.
 
 ## Requirements
+
+### Message Style
 
 - Use conventional commits format: `type(scope): description`
 - Focus on WHY the change was made, not just WHAT changed
@@ -20,9 +21,18 @@ alwaysApply: false
 - If body needed, separate from subject with blank line
 - Use imperative mood in subject line
 
+### Command Syntax
+
+- If changes are not known, use `git status` and `git diff` to understand the changes
+- Split changes into logical chunks
+- Use multiple `-m` flags for multiline commit messages
+- Never include newlines `\n` in the git commit command
+
 ## Examples
 
-✅ Correct:
+### Message style example
+
+✅ Correct message:
 
 ```text
 refactor(types): improve type safety with domain-specific arrays
@@ -32,12 +42,11 @@ and makes array implementations easier to change across the codebase.
 ```
 
 Good because:
-
 - Explains WHY (improve type safety) not just what
 - Concise but meaningful
 - Shows impact of the change
 
-❌ Incorrect:
+❌ Incorrect message:
 
 ```text
 refactor(types): use domain-specific array types
@@ -48,13 +57,36 @@ refactor(types): use domain-specific array types
 ```
 
 Bad because:
-
 - Lists WHAT changed without explaining WHY
 - Reads like a changelog
 - No indication of benefits or motivation
+
+### Command Syntax example
+
+✅ Correct command:
+
+```text
+git commit -m "feat: <commit description>"
+```
+
+✅ Correct multiline command:
+
+```text
+git commit -m "feat: <commit description>" \
+  -m "<commit body 1>" \
+  -m "<commit body 2>"
+```
+
+❌ Incorrect command:
+
+```text
+git commit -m "feat: <another message>\n\n<commit body>"
+```
 
 ## CRITICAL
 
 - NEVER just list the changes made
 - ALWAYS explain the motivation/benefit
 - Keep subject line clear and concise
+- NEVER use newline characters in commit commands
+- ALWAYS use multiple `-m` flags for multiline commit messages 

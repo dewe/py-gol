@@ -77,11 +77,12 @@ class RendererConfig:
     This class is immutable. All modifications return new instances.
 
     Speed Control Constraints:
-    - Maximum speed: 10 generations/second (min_interval = 100ms)
+    - Maximum speed: 20 generations/second (min_interval = 50ms)
     - Minimum speed: 0.5 generations/second (max_interval = 2000ms)
-    - Speed adjustments are inverse proportional to current speed
+    - Speed adjustments use fixed steps:
+      - For intervals <= 200ms: step size is 10ms
+      - For intervals > 200ms: step size is 50ms
     - Interval values are rounded to nearest 10ms
-    - Speed changes use 20% of current interval as step size
 
     Frame Rate Control:
     - Target FPS: Default target frame rate (60 FPS)
@@ -96,8 +97,9 @@ class RendererConfig:
     refresh_per_second: int = 5
     min_interval: int = 50  # Max speed: 20 generations/second
     max_interval: int = 2000  # Min speed: 0.5 generations/second
-    min_interval_step: int = 10
-    interval_change_factor: float = 0.2
+    min_interval_step: int = 10  # Step size for intervals <= 200ms
+    max_interval_step: int = 50  # Step size for intervals > 200ms
+    interval_threshold: int = 200  # Threshold for step size change
     selected_pattern: Optional[str] = None
     pattern_rotation: PatternTransform = PatternTransform.NONE
     boundary_condition: BoundaryCondition = BoundaryCondition.FINITE
@@ -118,15 +120,18 @@ class RendererConfig:
     def with_increased_interval(self) -> "RendererConfig":
         """Create new config with increased interval (slower speed).
 
-        Steps are proportional to current interval, making changes smaller
-        at higher speeds (lower intervals) and larger at lower speeds.
+        Uses fixed step sizes:
+        - For intervals <= 200ms: step size is 10ms
+        - For intervals > 200ms: step size is 50ms
         """
         from dataclasses import replace
 
-        # Calculate step size based on current interval
-        step = max(
-            self.min_interval_step,
-            round(self.update_interval * self.interval_change_factor),
+        # When increasing interval, use max_interval_step (50ms)
+        # when current interval is >= threshold
+        step = (
+            self.max_interval_step
+            if self.update_interval >= self.interval_threshold
+            else self.min_interval_step
         )
         new_interval = self._round_to_step(self.update_interval + step)
         return replace(self, update_interval=min(new_interval, self.max_interval))
@@ -134,15 +139,18 @@ class RendererConfig:
     def with_decreased_interval(self) -> "RendererConfig":
         """Create new config with decreased interval (faster speed).
 
-        Steps are proportional to current interval, making changes smaller
-        at higher speeds (lower intervals) and larger at lower speeds.
+        Uses fixed step sizes:
+        - For intervals <= 200ms: step size is 10ms
+        - For intervals > 200ms: step size is 50ms
         """
         from dataclasses import replace
 
-        # Calculate step size based on current interval
-        step = max(
-            self.min_interval_step,
-            round(self.update_interval * self.interval_change_factor),
+        # When decreasing interval, use max_interval_step (50ms)
+        # when current interval is > threshold
+        step = (
+            self.max_interval_step
+            if self.update_interval > self.interval_threshold
+            else self.min_interval_step
         )
         new_interval = self._round_to_step(self.update_interval - step)
         return replace(self, update_interval=max(new_interval, self.min_interval))

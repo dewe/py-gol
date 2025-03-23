@@ -8,53 +8,36 @@ from gol.renderer import RendererConfig, handle_user_input
 from gol.state import RendererState
 
 
-def test_speed_control_inverse_proportional_steps() -> None:
-    """Test that speed adjustments follow inverse proportional steps.
+def test_speed_control_fixed_steps() -> None:
+    """Test that speed adjustments use fixed steps based on current interval.
 
-    Speed should be adjusted in steps that are inverse proportional to the
-    current speed.
-    - At lower speeds (higher intervals), steps should be larger
-    - At higher speeds (lower intervals), steps should be smaller
+    Speed should be adjusted in fixed steps:
+    - For intervals <= 200ms: step size is 10ms
+    - For intervals > 200ms: step size is 50ms
     """
-    # Start with default interval (200ms = 5 gen/s)
+    # Start with default interval (200ms)
     config = RendererConfig()
     state = RendererState()
 
-    # Test speed increase (decreasing intervals)
-    intervals = []
+    # Test speed increase (decreasing intervals) from 200ms
     current_config = config
-
-    # Simulate multiple speed increases
-    for _ in range(5):
+    for _ in range(3):
         key = Keystroke(name="KEY_SUP")  # Shift+Up
         cmd, new_config = handle_user_input(key, current_config, state)
         assert cmd == "speed_up"
-        intervals.append(new_config.update_interval)
+        # Should decrease by 10ms each time when <= 200ms
+        assert new_config.update_interval == current_config.update_interval - 10
         current_config = new_config
 
-    # Verify steps get smaller as speed increases (intervals decrease)
-    steps = [intervals[i - 1] - intervals[i] for i in range(1, len(intervals))]
-    assert all(
-        steps[i] >= steps[i + 1] for i in range(len(steps) - 1)
-    ), "Speed increase steps should get smaller as speed increases"
-
-    # Test speed decrease (increasing intervals)
-    intervals = []
+    # Test speed decrease (increasing intervals) from 200ms
     current_config = config
-
-    # Simulate multiple speed decreases
-    for _ in range(5):
+    for _ in range(3):
         key = Keystroke(name="KEY_SDOWN")  # Shift+Down
         cmd, new_config = handle_user_input(key, current_config, state)
         assert cmd == "speed_down"
-        intervals.append(new_config.update_interval)
+        # Should increase by 50ms each time when > 200ms
+        assert new_config.update_interval == current_config.update_interval + 50
         current_config = new_config
-
-    # Verify steps get larger as speed decreases (intervals increase)
-    steps = [intervals[i] - intervals[i - 1] for i in range(1, len(intervals))]
-    assert all(
-        steps[i] >= steps[i - 1] for i in range(1, len(steps))
-    ), "Speed decrease steps should get larger as speed decreases"
 
 
 def test_speed_control_boundaries() -> None:

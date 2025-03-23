@@ -1,13 +1,14 @@
 """Pattern management for Game of Life."""
 
-import json
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, cast
+from typing import List, Optional, Protocol, cast
 
 import numpy as np
 
+from .pattern_types import Pattern, PatternCategory, PatternMetadata
+from .rle_parser import parse_rle_pattern
 from .types import Grid, GridPosition, PatternGrid
 
 
@@ -30,53 +31,6 @@ class PatternTransform(Enum):
         return self.value // 90
 
 
-class PatternCategory(Enum):
-    """Classification system for organizing patterns by behavior and complexity."""
-
-    STILL_LIFE = auto()
-    OSCILLATOR = auto()
-    SPACESHIP = auto()
-    GUN = auto()
-    METHUSELAH = auto()
-    CUSTOM = auto()
-
-
-@dataclass(frozen=True)
-class PatternMetadata:
-    """Immutable pattern attributes for categorization and attribution."""
-
-    name: str
-    description: str
-    category: PatternCategory
-    author: Optional[str] = None
-    oscillator_period: Optional[int] = None
-    discovery_year: Optional[int] = None
-    tags: List[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class Pattern:
-    """Immutable pattern representation optimized for numpy operations."""
-
-    metadata: PatternMetadata
-    cells: PatternGrid
-
-    def __post_init__(self) -> None:
-        """Ensures consistent numpy boolean array representation."""
-        if not isinstance(self.cells, np.ndarray) or self.cells.dtype != np.bool_:
-            object.__setattr__(self, "cells", np.array(self.cells, dtype=np.bool_))
-
-    @property
-    def width(self) -> int:
-        """Pattern width in cells."""
-        return self.cells.shape[1]
-
-    @property
-    def height(self) -> int:
-        """Pattern height in cells."""
-        return self.cells.shape[0]
-
-
 class PatternStorage(Protocol):
     """Interface for pattern persistence implementations."""
 
@@ -95,62 +49,72 @@ class PatternStorage(Protocol):
 
 @dataclass
 class FilePatternStorage:
-    """JSON-based pattern storage in user's home directory."""
+    """RLE-based pattern storage in user's home directory."""
 
     storage_dir: Path = field(default_factory=lambda: Path.home() / ".gol" / "patterns")
 
-    def __post_init__(self) -> None:
-        """Ensures storage directory exists."""
+    def save_pattern(self, pattern: Pattern) -> None:
+        """Serializes pattern to RLE format."""
+        # Create storage directory if needed
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-    def save_pattern(self, pattern: Pattern) -> None:
-        """Serializes pattern to JSON with numpy array conversion."""
-        pattern_data = {
-            "metadata": {
-                "name": pattern.metadata.name,
-                "description": pattern.metadata.description,
-                "category": pattern.metadata.category.name,
-                "author": pattern.metadata.author,
-                "oscillator_period": pattern.metadata.oscillator_period,
-                "discovery_year": pattern.metadata.discovery_year,
-                "tags": pattern.metadata.tags,
-            },
-            "cells": pattern.cells.tolist(),
-        }
+        # Build RLE content
+        lines = []
 
-        file_path = self.storage_dir / f"{pattern.metadata.name}.json"
-        with open(file_path, "w") as f:
-            json.dump(pattern_data, f, indent=2)
+        # Add metadata
+        lines.append(f"#N {pattern.metadata.name}")
+        if pattern.metadata.author:
+            lines.append(f"#O {pattern.metadata.author}")
+        if pattern.metadata.description:
+            for line in pattern.metadata.description.split("\n"):
+                lines.append(f"#C {line}")
+
+        # Add dimensions
+        lines.append(f"x = {pattern.width}, y = {pattern.height}")
+
+        # Convert cells to RLE format
+        rle_data = []
+        for row in pattern.cells:
+            run_count = 1
+            current_cell = row[0]
+
+            for cell in row[1:]:
+                if cell == current_cell:
+                    run_count += 1
+                else:
+                    rle_data.append(str(run_count) if run_count > 1 else "")
+                    rle_data.append("o" if current_cell else "b")
+                    run_count = 1
+                    current_cell = cell
+
+            # Handle last run in row
+            rle_data.append(str(run_count) if run_count > 1 else "")
+            rle_data.append("o" if current_cell else "b")
+            rle_data.append("$")
+
+        # Replace last $ with !
+        rle_data[-1] = "!"
+        lines.append("".join(rle_data))
+
+        # Write to file
+        file_path = self.storage_dir / f"{pattern.metadata.name}.rle"
+        file_path.write_text("\n".join(lines))
 
     def load_pattern(self, name: str) -> Optional[Pattern]:
-        """Deserializes pattern from JSON with numpy array reconstruction."""
-        file_path = self.storage_dir / f"{name}.json"
+        """Loads pattern from RLE file."""
+        file_path = self.storage_dir / f"{name}.rle"
         if not file_path.exists():
             return None
 
-        with open(file_path) as f:
-            data = json.load(f)
-
-        metadata = PatternMetadata(
-            name=data["metadata"]["name"],
-            description=data["metadata"]["description"],
-            category=PatternCategory[data["metadata"]["category"]],
-            author=data["metadata"]["author"],
-            oscillator_period=data["metadata"]["oscillator_period"],
-            discovery_year=data["metadata"]["discovery_year"],
-            tags=data["metadata"]["tags"],
-        )
-
-        cells = np.array(data["cells"], dtype=np.bool_)
-        return Pattern(metadata=metadata, cells=cells)
+        return parse_rle_pattern(file_path.read_text())
 
     def list_patterns(self) -> List[str]:
-        """Lists all JSON pattern files in storage directory."""
-        return [f.stem for f in self.storage_dir.glob("*.json")]
+        """Lists all RLE pattern files in storage directory."""
+        return [f.stem for f in self.storage_dir.glob("*.rle")]
 
 
 # Built-in pattern library with historically significant patterns
-BUILTIN_PATTERNS: Dict[str, Pattern] = {
+BUILTIN_PATTERNS = {
     "glider": Pattern(
         metadata=PatternMetadata(
             name="glider",
@@ -825,6 +789,36 @@ BUILTIN_PATTERNS: Dict[str, Pattern] = {
 }
 
 
+def get_pattern_cells(pattern: Pattern, turns: int = 0) -> List[GridPosition]:
+    """Returns list of (x,y) coordinates for live cells after rotation.
+
+    Args:
+        pattern: Pattern to get cells from
+        turns: Number of 90-degree clockwise rotations to apply
+
+    Returns:
+        List of (x, y) coordinates for live cells after rotation
+    """
+    cells: List[GridPosition] = []
+    height, width = pattern.cells.shape
+
+    for y in range(height):
+        for x in range(width):
+            if pattern.cells[y][x]:
+                # Transform coordinates based on rotation angle
+                match turns:
+                    case 0:  # Original orientation
+                        cells.append((x, y))
+                    case 1:  # 90° clockwise
+                        cells.append((y, width - 1 - x))
+                    case 2:  # 180°
+                        cells.append((width - 1 - x, height - 1 - y))
+                    case 3:  # 270° clockwise
+                        cells.append((height - 1 - y, x))
+
+    return cells
+
+
 def extract_pattern(
     grid: Grid,
     top_left: GridPosition,
@@ -861,63 +855,21 @@ def place_pattern(
     rotation: PatternTransform = PatternTransform.NONE,
     centered: bool = True,
 ) -> Grid:
-    """Places pattern on grid with boundary handling and rotation support."""
-    rotated_cells = cast(PatternGrid, np.rot90(pattern.cells, k=-rotation.to_turns()))
-    pos = get_centered_position(pattern, position, rotation) if centered else position
-    x, y = pos
-
+    """Places pattern on grid with boundary handling."""
     new_grid = grid.copy()
-    height, width = grid.shape
-    pattern_height, pattern_width = rotated_cells.shape
+    turns = rotation.to_turns()
+    cells = get_pattern_cells(pattern, turns)
 
-    # Calculate valid intersection between pattern and grid
-    y_start = max(0, y)
-    y_end = min(height, y + pattern_height)
-    x_start = max(0, x)
-    x_end = min(width, x + pattern_width)
+    if centered:
+        position = get_centered_position(pattern, position, rotation)
 
-    # Handle patterns partially outside grid bounds
-    pattern_y_start = max(0, -y)
-    pattern_x_start = max(0, -x)
+    grid_height, grid_width = grid.shape
+    for dx, dy in cells:
+        x = (position[0] + dx) % grid_width
+        y = (position[1] + dy) % grid_height
+        new_grid[y, x] = True
 
-    # If pattern is completely outside grid bounds, expand grid
-    if x_end <= x_start or y_end <= y_start:
-        # Calculate required expansion
-        expand_left = x < 0
-        expand_right = x + pattern_width > width
-        expand_up = y < 0
-        expand_down = y + pattern_height > height
-
-        # Expand grid if needed
-        if any([expand_up, expand_right, expand_down, expand_left]):
-            from gol.grid import expand_grid
-
-            new_grid, (dx, dy) = expand_grid(
-                new_grid,
-                expand_up=expand_up,
-                expand_right=expand_right,
-                expand_down=expand_down,
-                expand_left=expand_left,
-            )
-            # Adjust pattern position for grid expansion
-            x += dx
-            y += dy
-            # Recalculate intersection
-            height, width = new_grid.shape
-            y_start = max(0, y)
-            y_end = min(height, y + pattern_height)
-            x_start = max(0, x)
-            x_end = min(width, x + pattern_width)
-            pattern_y_start = max(0, -y)
-            pattern_x_start = max(0, -x)
-
-    # Place pattern in valid intersection area
-    new_grid[y_start:y_end, x_start:x_end] |= rotated_cells[
-        pattern_y_start : pattern_y_start + (y_end - y_start),
-        pattern_x_start : pattern_x_start + (x_end - x_start),
-    ]
-
-    return cast(Grid, new_grid)
+    return new_grid
 
 
 def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
@@ -933,33 +885,3 @@ def find_pattern(grid: Grid, pattern: Pattern) -> List[GridPosition]:
                 positions.append((x, y))
 
     return positions
-
-
-def get_pattern_cells(pattern: Pattern, rotation: int = 0) -> List[GridPosition]:
-    """Generates list of live cell positions with rotation transformation.
-
-    Args:
-        pattern: Pattern to get cells from
-        rotation: Number of 90-degree clockwise rotations (0-3)
-
-    Returns:
-        List of (x, y) coordinates for live cells after rotation
-    """
-    cells: List[GridPosition] = []
-    height, width = pattern.cells.shape
-
-    for y in range(height):
-        for x in range(width):
-            if pattern.cells[y][x]:
-                # Transform coordinates based on rotation angle
-                match rotation:
-                    case 0:  # Original orientation
-                        cells.append((x, y))
-                    case 1:  # 90° clockwise
-                        cells.append((y, width - 1 - x))
-                    case 2:  # 180°
-                        cells.append((width - 1 - x, height - 1 - y))
-                    case 3:  # 270° clockwise
-                        cells.append((height - 1 - y, x))
-
-    return cells

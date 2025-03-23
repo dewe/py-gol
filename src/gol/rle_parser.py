@@ -6,15 +6,17 @@ from typing import Tuple
 
 import numpy as np
 
-from gol.patterns import Pattern, PatternCategory, PatternMetadata
+from gol.pattern_types import Pattern, PatternCategory, PatternMetadata
 from gol.types import PatternGrid
 
 
 class RLEParseError(Exception):
     """Raised when RLE pattern parsing fails."""
 
+    pass
 
-@dataclass(frozen=True)
+
+@dataclass
 class RLEDimensions:
     """Pattern dimensions from RLE header."""
 
@@ -23,66 +25,77 @@ class RLEDimensions:
 
 
 def parse_header_line(line: str) -> Tuple[str, str]:
-    """Parse a header line starting with # into key and value.
+    """Parse a header line from an RLE file.
 
     Args:
-        line: Header line starting with #
+        line: Line starting with # from RLE file
 
     Returns:
-        Tuple of (key, value) where key is the header type (N/O/C)
-        and value is the header content
+        Tuple of (key, value) where key is N/O/C and value is the content
+
+    Raises:
+        RLEParseError: If header line is invalid
     """
     if not line.startswith("#"):
         raise RLEParseError(f"Invalid header line: {line}")
 
-    if len(line) < 3:
-        raise RLEParseError(f"Header line too short: {line}")
-
-    return line[1], line[2:].strip()
+    try:
+        key = line[1].upper()
+        value = line[2:].strip()
+        if key not in ["N", "O", "C"]:
+            raise RLEParseError(f"Invalid header key: {key}")
+        return key, value
+    except IndexError:
+        raise RLEParseError(f"Invalid header line format: {line}")
 
 
 def parse_dimensions(line: str) -> RLEDimensions:
-    """Parse the dimensions line of an RLE pattern.
+    """Parse the dimensions line from an RLE file.
 
     Args:
-        line: Line containing pattern dimensions (x = N, y = M)
+        line: Line containing x = W, y = H format
 
     Returns:
-        RLEDimensions with parsed width and height
+        RLEDimensions with width and height
 
     Raises:
         RLEParseError: If dimensions line is invalid
     """
-    # Extract dimensions with regex
-    match = re.match(r"x\s*=\s*(\d+)\s*,\s*y\s*=\s*(\d+)", line)
-    if not match:
-        raise RLEParseError(f"Invalid dimensions line: {line}")
+    # Remove whitespace and split on comma
+    parts = [p.strip() for p in line.split(",")]
+    if len(parts) != 2:
+        raise RLEParseError(f"Invalid dimensions line format: {line}")
 
     try:
-        width = int(match.group(1))
-        height = int(match.group(2))
-        if width <= 0 or height <= 0:
-            raise RLEParseError(f"Invalid dimensions: {width}x{height}")
+        # Extract width and height values
+        width_match = re.search(r"x\s*=\s*(\d+)", parts[0])
+        height_match = re.search(r"y\s*=\s*(\d+)", parts[1])
+
+        if not width_match or not height_match:
+            raise RLEParseError(f"Invalid dimensions format: {line}")
+
+        width = int(width_match.group(1))
+        height = int(height_match.group(1))
         return RLEDimensions(width=width, height=height)
-    except ValueError as e:
-        raise RLEParseError(f"Failed to parse dimensions: {e}")
+    except (AttributeError, ValueError):
+        raise RLEParseError(f"Invalid dimensions format: {line}")
 
 
 def parse_pattern_data(data: str, dimensions: RLEDimensions) -> PatternGrid:
-    """Parse the pattern data section of an RLE pattern.
+    """Parse the RLE pattern data into a numpy array.
 
     Args:
-        data: Pattern data string in RLE format
-        dimensions: Expected pattern dimensions
+        data: RLE encoded pattern data
+        dimensions: Pattern dimensions
 
     Returns:
-        Boolean numpy array representing the pattern
+        Boolean numpy array of pattern cells
 
     Raises:
-        RLEParseError: If pattern data is invalid or doesn't match dimensions
+        RLEParseError: If pattern data is invalid
     """
     # Initialize empty pattern grid
-    grid = np.zeros((dimensions.height, dimensions.width), dtype=np.bool_)
+    pattern = np.zeros((dimensions.height, dimensions.width), dtype=np.bool_)
 
     # Remove whitespace and split into runs
     data = "".join(data.split())
@@ -90,44 +103,39 @@ def parse_pattern_data(data: str, dimensions: RLEDimensions) -> PatternGrid:
         raise RLEParseError("Pattern data must end with !")
 
     # Parse pattern data
-    row = 0
-    col = 0
+    x, y = 0, 0
     run_count = ""
 
     for char in data:
         if char.isdigit():
             run_count += char
-            continue
+        elif char in "bo$!":
+            count = int(run_count) if run_count else 1
+            run_count = ""
 
-        count = int(run_count) if run_count else 1
-        run_count = ""
-
-        if count <= 0:
-            raise RLEParseError("Invalid run count: 0")
-
-        if char == "$":  # End of line
-            if col > 0:  # Only increment if we wrote something
-                row += 1
-                col = 0
-            row += count - 1  # Additional rows for multi-line jumps
-        elif char == "!":  # End of pattern
-            break
-        elif char in "bo":  # Dead or alive cell
-            if col + count > dimensions.width:
-                raise RLEParseError(f"Pattern data exceeds width at row {row}")
-            if row >= dimensions.height:
-                raise RLEParseError(f"Pattern data exceeds height")
-
-            # Set cells in grid
-            grid[row, col : col + count] = char == "o"
-            col += count
+            if char == "b":  # Dead cells
+                x += count
+            elif char == "o":  # Live cells
+                for i in range(count):
+                    if x >= dimensions.width:
+                        raise RLEParseError("Pattern data exceeds specified width")
+                    pattern[y, x] = True
+                    x += 1
+            elif char == "$":  # End of row
+                if x > dimensions.width:
+                    raise RLEParseError("Pattern data exceeds specified width")
+                y += count
+                x = 0
+            elif char == "!":  # End of pattern
+                if y >= dimensions.height:
+                    raise RLEParseError("Pattern data exceeds specified height")
         else:
             raise RLEParseError(f"Invalid character in pattern data: {char}")
 
-    if row < dimensions.height - 1:
-        raise RLEParseError("Pattern data has fewer rows than specified")
+    if y >= dimensions.height:
+        raise RLEParseError("Pattern data exceeds specified height")
 
-    return grid
+    return pattern
 
 
 def parse_rle_pattern(content: str) -> Pattern:

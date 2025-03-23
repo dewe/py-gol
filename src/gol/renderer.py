@@ -89,7 +89,7 @@ class RendererConfig:
     cell_spacing: str = " "
     update_interval: int = 200  # Default 5 generations/second
     refresh_per_second: int = 5
-    min_interval: int = 100  # Max speed: 10 generations/second
+    min_interval: int = 50  # Max speed: 20 generations/second
     max_interval: int = 2000  # Min speed: 0.5 generations/second
     min_interval_step: int = 10
     interval_change_factor: float = 0.2

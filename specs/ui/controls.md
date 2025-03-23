@@ -33,7 +33,7 @@
 
 ## Simulation Constraints
 
-- Max simulation speed: 10 generations/second.
+- Max simulation speed: 20 generations/second.
 - Min simulation speed: 0.5 generations/second.
 - Simulation speed increased in steps inverse proportional to speed.
 - Interval value should be rounded to nearest 10 ms.

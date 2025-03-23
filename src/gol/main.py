@@ -106,7 +106,7 @@ def parse_arguments() -> argparse.Namespace:
         "  P, Esc      - Exit pattern mode\n"
         "  Q           - Quit game\n\n"
         "Speed Control:\n"
-        "  - Maximum speed: 10 generations/second\n"
+        "  - Maximum speed: 20 generations/second\n"
         "  - Minimum speed: 0.5 generations/second\n"
         "  - Speed changes adapt to current speed\n"
         "  - Default: 5 generations/second\n"

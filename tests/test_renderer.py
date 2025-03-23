@@ -332,7 +332,7 @@ def test_render_status_line(
     assert "Generation:" in stripped_text
     assert "Births/s:" in stripped_text
     assert "Deaths/s:" in stripped_text
-    assert "Interval:" in stripped_text
+    assert "Gen/s:" in stripped_text
 
 
 def test_debug_status_bar_clearing(mock_terminal: MockTerminal) -> None:

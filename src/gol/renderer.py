@@ -478,7 +478,7 @@ def render_status_line(
     plain_gen = f"Generation: {metrics.game.generation_count}"
     plain_births = f"Births/s: {metrics.game.birth_rate:.1f}"
     plain_deaths = f"Deaths/s: {metrics.game.death_rate:.1f}"
-    plain_interval = f"Interval: {config.update_interval}ms"
+    plain_gen_rate = f"Gen/s: {1000/config.update_interval:.1f}"
 
     # Add boundary condition
     plain_boundary = f"Boundary: {config.boundary_condition.name}"
@@ -493,7 +493,7 @@ def render_status_line(
         + len(plain_gen)
         + len(plain_births)
         + len(plain_deaths)
-        + len(plain_interval)
+        + len(plain_gen_rate)
         + plain_boundary_len
         + len(" | ") * 4
         + len(" ")
@@ -509,9 +509,11 @@ def render_status_line(
     deaths = (
         f"{terminal.yellow}Deaths/s: {terminal.normal}{metrics.game.death_rate:.1f}"
     )
-    interval = f"{terminal.white}Interval: {terminal.normal}{config.update_interval}ms"
+    gen_rate = (
+        f"{terminal.white}Gen/s: {terminal.normal}{1000/config.update_interval:.1f}"
+    )
 
-    status = f"{pop} | {gen} | {births} | {deaths} | {interval}{boundary_text}"
+    status = f"{pop} | {gen} | {births} | {deaths} | {gen_rate}{boundary_text}"
 
     y = terminal.height - 1
     x = max(0, (terminal.width - true_length) // 2)

@@ -188,4 +188,4 @@ def test_render_status_line_formatting(
     assert "green" in status  # Generation
     assert "magenta" in status  # Births/s
     assert "yellow" in status  # Deaths/s
-    assert "white" in status  # Interval
+    assert "white" in status  # Gen/s

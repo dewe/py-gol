@@ -812,11 +812,11 @@ def get_pattern_cells(pattern: Pattern, turns: int = 0) -> List[GridPosition]:
                     case 0:  # Original orientation
                         cells.append((x, y))
                     case 1:  # 90° clockwise
-                        cells.append((y, width - 1 - x))
+                        cells.append((height - 1 - y, x))
                     case 2:  # 180°
                         cells.append((width - 1 - x, height - 1 - y))
                     case 3:  # 270° clockwise
-                        cells.append((height - 1 - y, x))
+                        cells.append((y, width - 1 - x))
 
     return cells
 
@@ -867,8 +867,10 @@ def place_pattern(
 
     grid_height, grid_width = grid.shape
     for dx, dy in cells:
+        # Convert from (x,y) to numpy's [y,x] indexing
         x = (position[0] + dx) % grid_width
         y = (position[1] + dy) % grid_height
+        # Swap x,y for numpy indexing
         new_grid[y, x] = True
 
     return new_grid

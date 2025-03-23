@@ -60,7 +60,7 @@ def test_speed_control_inverse_proportional_steps() -> None:
 def test_speed_control_boundaries() -> None:
     """Test that speed controls respect min/max boundaries.
 
-    - Max speed: 10 generations/second (100ms interval)
+    - Max speed: 20 generations/second (50ms interval)
     - Min speed: 0.5 generations/second (2000ms interval)
     """
     config = RendererConfig()
@@ -72,7 +72,7 @@ def test_speed_control_boundaries() -> None:
         key = Keystroke(name="KEY_SUP")  # Shift+Up
         cmd, new_config = handle_user_input(key, current_config, state)
         assert cmd == "speed_up"
-        assert new_config.update_interval >= 100, "Speed should not exceed 10 gen/s"
+        assert new_config.update_interval >= 50, "Speed should not exceed 20 gen/s"
         current_config = new_config
 
     # Test minimum speed limit

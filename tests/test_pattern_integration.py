@@ -62,23 +62,28 @@ def test_pattern_placement_integration(test_grid: Grid, test_pattern: Pattern) -
     When: Placing pattern through command handler
     Then: Should correctly update grid state
     """
-    renderer_config = RendererConfig()
-    renderer_config = renderer_config.with_pattern(test_pattern.metadata.name)
+    # Mock BUILTIN_PATTERNS to include our test pattern
+    patterns = {test_pattern.metadata.name: test_pattern}
+    with patch("gol.commands.BUILTIN_PATTERNS", patterns):
+        renderer_config = RendererConfig()
+        renderer_config = renderer_config.with_pattern(test_pattern.metadata.name)
 
-    config = ControllerConfig(
-        dimensions=(10, 10),
-        grid=ControllerConfig.create(width=10, height=10).grid,
-        renderer=renderer_config,
-    )
-    state = RendererState(pattern_mode=True, cursor_x=5, cursor_y=5)
+        config = ControllerConfig(
+            dimensions=(10, 10),
+            grid=ControllerConfig.create(width=10, height=10).grid,
+            renderer=renderer_config,
+        )
+        state = RendererState(pattern_mode=True, cursor_x=5, cursor_y=5)
 
-    # Place pattern
-    new_grid, new_config, new_state, _ = handle_place_pattern(test_grid, config, state)
+        # Place pattern
+        new_grid, new_config, new_state, _ = handle_place_pattern(
+            test_grid, config, state
+        )
 
-    # Verify pattern was placed
-    pattern_region = new_grid[4:6, 4:6]  # 2x2 region centered at (5,5)
-    assert np.array_equal(pattern_region, test_pattern.cells)
-    assert new_config.renderer.selected_pattern is None  # Pattern selection cleared
+        # Verify pattern was placed - use [y,x] indexing for numpy arrays
+        pattern_region = new_grid[4:6, 4:6]  # 2x2 region centered at (5,5)
+        assert np.array_equal(pattern_region, test_pattern.cells)
+        assert new_config.renderer.selected_pattern is None  # Pattern selection cleared
 
 
 def test_pattern_rotation_integration(test_grid: Grid, test_pattern: Pattern) -> None:
@@ -88,25 +93,30 @@ def test_pattern_rotation_integration(test_grid: Grid, test_pattern: Pattern) ->
     When: Rotating and placing pattern
     Then: Should correctly place rotated pattern
     """
-    renderer_config = RendererConfig()
-    renderer_config = renderer_config.with_pattern(
-        test_pattern.metadata.name, rotation=PatternTransform.RIGHT
-    )
+    # Mock BUILTIN_PATTERNS to include our test pattern
+    patterns = {test_pattern.metadata.name: test_pattern}
+    with patch("gol.commands.BUILTIN_PATTERNS", patterns):
+        renderer_config = RendererConfig()
+        renderer_config = renderer_config.with_pattern(
+            test_pattern.metadata.name, rotation=PatternTransform.RIGHT
+        )
 
-    config = ControllerConfig(
-        dimensions=(10, 10),
-        grid=ControllerConfig.create(width=10, height=10).grid,
-        renderer=renderer_config,
-    )
-    state = RendererState(pattern_mode=True, cursor_x=5, cursor_y=5)
+        config = ControllerConfig(
+            dimensions=(10, 10),
+            grid=ControllerConfig.create(width=10, height=10).grid,
+            renderer=renderer_config,
+        )
+        state = RendererState(pattern_mode=True, cursor_x=5, cursor_y=5)
 
-    # Place rotated pattern
-    new_grid, new_config, new_state, _ = handle_place_pattern(test_grid, config, state)
+        # Place rotated pattern
+        new_grid, new_config, new_state, _ = handle_place_pattern(
+            test_grid, config, state
+        )
 
-    # Verify rotated pattern was placed correctly
-    pattern_region = new_grid[4:6, 4:6]
-    rotated_cells = np.rot90(test_pattern.cells, k=-1)  # -1 for clockwise rotation
-    assert np.array_equal(pattern_region, rotated_cells)
+        # Verify pattern was placed correctly
+        pattern_region = new_grid[4:6, 4:6]
+        rotated_cells = np.rot90(test_pattern.cells, k=-1)  # -1 for clockwise rotation
+        assert np.array_equal(pattern_region, rotated_cells)
 
 
 def test_pattern_menu_integration(test_pattern: Pattern) -> None:
@@ -133,6 +143,10 @@ def test_pattern_menu_integration(test_pattern: Pattern) -> None:
         menu_text = render_pattern_menu(terminal, config)
 
         # Verify menu content
-        assert "Pattern Mode" in menu_text
         assert "Custom" in menu_text
         assert test_pattern.metadata.name in menu_text
+        assert "Select:" in menu_text
+        assert "Tab: next" in menu_text
+        assert "R: rotate" in menu_text
+        assert "Space: place" in menu_text
+        assert "ESC: exit" in menu_text

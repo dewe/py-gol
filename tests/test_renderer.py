@@ -255,11 +255,10 @@ def test_render_pattern_menu(mock_terminal: TerminalProtocol) -> None:
     stripped_text = strip_ansi(menu_text)
 
     # Basic menu elements
-    assert "Pattern Mode" in stripped_text
     assert "Select:" in stripped_text
-    assert "rotate" in stripped_text
-    assert "place" in stripped_text
-    assert "exit" in stripped_text
+    assert "R: rotate" in stripped_text
+    assert "Space: place" in stripped_text
+    assert "ESC: exit" in stripped_text
 
     # Category navigation
     assert "Tab: next" in stripped_text

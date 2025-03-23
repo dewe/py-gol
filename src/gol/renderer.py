@@ -549,7 +549,7 @@ def render_pattern_menu(
     # Build menu text
     category_name = current_category.name.replace("_", " ").title()
     menu_text = (
-        f"Pattern Mode - {category_name} "
+        f"{category_name} "
         f"({current_category_idx + 1}/{len(categories)})\n"
         f"Select: {pattern_list}\n"
         f"Tab: next | R: rotate | Space: place | ESC: exit"

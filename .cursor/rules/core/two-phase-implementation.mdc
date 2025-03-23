@@ -1,5 +1,5 @@
 ---
-description: APPLY two-phase implementation workflow WHEN implementing features TO maintain code quality and alignment
+description: WHEN implementing features APPLY two-phase implementation workflow TO maintain code quality and alignment with user intent
 globs: 
 alwaysApply: false
 ---

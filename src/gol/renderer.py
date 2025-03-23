@@ -77,7 +77,7 @@ class RendererConfig:
     This class is immutable. All modifications return new instances.
 
     Speed Control Constraints:
-    - Maximum speed: 20 generations/second (min_interval = 50ms)
+    - Maximum speed: 100 generations/second (min_interval = 10ms)
     - Minimum speed: 0.5 generations/second (max_interval = 2000ms)
     - Speed adjustments use fixed steps:
       - For intervals <= 200ms: step size is 10ms
@@ -95,7 +95,7 @@ class RendererConfig:
     cell_spacing: str = " "
     update_interval: int = 200  # Default 5 generations/second
     refresh_per_second: int = 5
-    min_interval: int = 50  # Max speed: 20 generations/second
+    min_interval: int = 10  # Max speed: 100 generations/second
     max_interval: int = 2000  # Min speed: 0.5 generations/second
     min_interval_step: int = 10  # Step size for intervals <= 200ms
     max_interval_step: int = 50  # Step size for intervals > 200ms

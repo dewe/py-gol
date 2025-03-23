@@ -41,31 +41,33 @@ def test_speed_control_fixed_steps() -> None:
 
 
 def test_speed_control_boundaries() -> None:
-    """Test that speed controls respect min/max boundaries.
-
-    - Max speed: 20 generations/second (50ms interval)
-    - Min speed: 0.5 generations/second (2000ms interval)
-    """
+    """Test that speed controls respect minimum and maximum boundaries."""
     config = RendererConfig()
     state = RendererState()
 
-    # Test maximum speed limit
+    # Test minimum interval (maximum speed)
     current_config = config
-    for _ in range(20):  # Try many times to ensure we hit the limit
+    for _ in range(30):  # More than enough to reach minimum
         key = Keystroke(name="KEY_SUP")  # Shift+Up
         cmd, new_config = handle_user_input(key, current_config, state)
         assert cmd == "speed_up"
-        assert new_config.update_interval >= 50, "Speed should not exceed 20 gen/s"
         current_config = new_config
 
-    # Test minimum speed limit
+    # Should not go below minimum interval (10ms)
+    assert current_config.update_interval == current_config.min_interval
+    assert current_config.min_interval == 10
+
+    # Test maximum interval (minimum speed)
     current_config = config
-    for _ in range(20):  # Try many times to ensure we hit the limit
+    for _ in range(50):  # Increased iterations to reach maximum
         key = Keystroke(name="KEY_SDOWN")  # Shift+Down
         cmd, new_config = handle_user_input(key, current_config, state)
         assert cmd == "speed_down"
-        assert new_config.update_interval <= 2000, "Speed should not go below 0.5 gen/s"
         current_config = new_config
+
+    # Should not go above maximum interval (2000ms)
+    assert current_config.update_interval == current_config.max_interval
+    assert current_config.max_interval == 2000
 
 
 def test_speed_control_in_game_loop() -> None:

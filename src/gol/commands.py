@@ -89,13 +89,20 @@ def handle_speed_adjustment(
 ) -> tuple[Grid, ControllerConfig, RendererState, bool]:
     """Adjust simulation speed."""
     current_interval = config.renderer.update_interval
-    delta = max(current_interval * 0.2, 50)
+    min_interval = config.renderer.min_interval
+    max_interval = config.renderer.max_interval
+    interval_threshold = config.renderer.interval_threshold
+    step = (
+        config.renderer.max_interval_step
+        if current_interval > interval_threshold
+        else config.renderer.min_interval_step
+    )
     new_interval = round(
         max(
-            50,
+            min_interval,
             min(
-                2000,
-                current_interval - delta if increase else current_interval + delta,
+                max_interval,
+                current_interval - step if increase else current_interval + step,
             ),
         )
     )

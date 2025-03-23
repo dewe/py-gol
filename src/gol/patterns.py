@@ -49,9 +49,9 @@ class PatternStorage(Protocol):
 
 @dataclass
 class FilePatternStorage:
-    """RLE-based pattern storage in user's home directory."""
+    """RLE-based pattern storage in project directory."""
 
-    storage_dir: Path = field(default_factory=lambda: Path.home() / ".gol" / "patterns")
+    storage_dir: Path = field(default_factory=lambda: Path(".gol") / "patterns")
 
     def save_pattern(self, pattern: Pattern) -> None:
         """Serializes pattern to RLE format."""
@@ -110,6 +110,8 @@ class FilePatternStorage:
 
     def list_patterns(self) -> List[str]:
         """Lists all RLE pattern files in storage directory."""
+        if not self.storage_dir.exists():
+            return []
         return [f.stem for f in self.storage_dir.glob("*.rle")]
 
 
